@@ -1,0 +1,4 @@
+numpy==1.17.2
+torch==1.2.0
+transformers==2.5.1
+spacy==2.2.4
