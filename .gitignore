@@ -61,4 +61,6 @@ target/
 
 # Miscellaneous
 .DS_Store
+.vscode/
 out/
+data/

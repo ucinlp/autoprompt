@@ -68,12 +68,14 @@ def get_best_candidates(model, tokenizer, source_tokens, target_tokens, trigger_
         if cand in special_token_ids:
             # print("Skipping candidate {} because it's a special symbol {}.".format(cand, tokenizer.convert_ids_to_tokens([cand])))
             continue
+        """
         # Ignore candidates that are proper nouns like Antarctica and ABC
         doc = nlp(tokenizer.convert_ids_to_tokens([cand])[0])
         pos = [token.pos_ for token in doc]
         if pos[0] == 'PROPN':
             # print("Skipping candidate {} because it's a proper noun {}.".format(cand, tokenizer.convert_ids_to_tokens([cand])))
             continue
+        """
         filtered_candidates.append(cand)
 
     if beam_size > 1:
@@ -119,10 +121,8 @@ def get_best_candidates_beam_search(model, tokenizer, source_tokens, target_toke
 
     # top_candidates now contains beam_size trigger sequences, each with a different 0th token
     for idx in range(1, len(trigger_tokens)): # for all trigger tokens, skipping the 0th (we did it above)
-        # print('TOP CANDIDATES:', top_candidates)
         loss_per_candidate = []
         for cand, _ in top_candidates: # for all the beams, try all the candidates at idx 
-            # if is_clean:
             loss_per_candidate.extend(get_loss_per_candidate(idx, model, source_tokens, target_tokens, cand, trigger_mask, segment_ids, candidates, device))
         top_candidates = heapq.nsmallest(beam_size, loss_per_candidate, key=itemgetter(1))
     return min(top_candidates, key=itemgetter(1))
@@ -158,8 +158,9 @@ def get_loss_per_candidate(index, model, source_tokens, target_tokens, trigger_t
 
 def build_prompt(tokenizer, pair, trigger_tokens, use_ctx, prompt_format, masking=False):
     prompt_list = []
-    sub, obj, context = pair
-    print('SUBJECT: {}, OBJECT: {}, CONTEXT: {}'.format(sub, obj, context))
+    # sub, obj, context = pair
+    # print('SUBJECT: {}, OBJECT: {}, CONTEXT: {}'.format(sub, obj, context))
+    sub, obj = pair
 
     if masking:
         obj = constants.MASK
@@ -216,8 +217,10 @@ def run_model(args):
 
         # Get all unique objects from train data
         unique_objects = utils.get_unique_objects(train_data)
+        # Store token ids for each object in batch to check if candidate == object later on
+        obj_token_ids = tokenizer.convert_tokens_to_ids(unique_objects)
 
-        # TODO: make this dynamic to work for other datasets. Make special symbols dict
+        # TODO: make this dynamic to work for other datasets. Make special symbols dictionary
         # Initialize special tokens
         cls_token = tokenizer.convert_tokens_to_ids(tokenizer.tokenize(constants.BERT_CLS))
         unk_token = tokenizer.convert_tokens_to_ids(tokenizer.tokenize(constants.BERT_UNK))
@@ -255,7 +258,6 @@ def run_model(args):
         train_losses = []
         dev_losses = []
         dev_num_no_improve = 0
-        # end_all_iters = False
         count = 0
 
         for i in range(args.iters):
@@ -267,11 +269,12 @@ def run_model(args):
             losses_batch_train = []
             # Full pass over training data set in batches of subject-object-context triplets
             for batch in utils.iterate_batches(train_data, args.bsz, True):
-                # Store token ids for each object in batch to check if candidate == object later on
-                obj_token_ids = tokenizer.convert_tokens_to_ids(unique_objects)
-
                 # Tokenize and pad batch
                 source_tokens, target_tokens, trigger_mask, segment_ids = utils.make_batch(tokenizer, batch, trigger_tokens, prompt_format, args.use_ctx, cls_token, sep_token, mask_token, pad_token, period_token, device)
+                # print('SOURCE TOKENS:', source_tokens, source_tokens.size())
+                # print('TARGET TOKENS:', target_tokens, target_tokens.size())
+                # print('TRIGGER MASK:', trigger_mask, trigger_mask.size())
+                # print('SEGMENT IDS:', segment_ids, segment_ids.size())
 
                 # Iteratively update tokens in the trigger
                 for token_to_flip in range(trigger_token_length):
@@ -281,17 +284,14 @@ def run_model(args):
 
                     model.zero_grad() # clear previous gradients
                     loss = get_loss(model, source_tokens, target_tokens, trigger_tokens, trigger_mask, segment_ids, device)
-                    # print('LOSS:', loss)
                     loss.backward() # compute derivative of loss w.r.t. params using backprop
 
                     global extracted_grads
                     grad = extracted_grads[0]
-                    # print('ORIGINAL GRAD:', grad, grad.size())
                     bsz, _, emb_dim = grad.size() # middle dimension is number of trigger tokens
                     extracted_grads = [] # clear gradients from past iterations
                     trigger_mask_matrix = trigger_mask.unsqueeze(-1).repeat(1, 1, emb_dim).to(torch.uint8).to(device)
                     grad = torch.masked_select(grad, trigger_mask_matrix).view(bsz, -1, emb_dim)
-                    # print('GRAD:', grad, grad.size())
 
                     if args.beam_size > 1:
                         # Get "averaged" gradient w.r.t. ALL trigger tokens
@@ -343,7 +343,7 @@ def run_model(args):
                                                                         device)
                     losses_batch_train.append(best_curr_loss)
 
-                    # # TODO: figure out if i need this extra early stopping OR COMBINE IT WITH BELOW
+                    # TODO: figure out if i need this extra early stopping
                     # if np.array_equal(old_trigger_tokens, trigger_tokens):
                     #     count += 1
                     #     if count == len(trigger_tokens):
@@ -362,11 +362,9 @@ def run_model(args):
                     else:
                         counter += 1
 
-                    # DEBUG MODE
+                    # DEBUGO MODE
                     if args.debug:
                         input()
-
-                # TODO: do i need to update the same trigger for the loop through tokens to flip?
 
             # Compute average train loss across all batches
             # train_loss = np.mean(losses_batch_train) if losses_batch_train else 999999
@@ -395,7 +393,6 @@ def run_model(args):
                 break
 
             # Only print out train loss, dev loss, and sample prediction before early stopping
-            # if not end_all_iters:
             print('Trigger tokens:', tokenizer.convert_ids_to_tokens(trigger_tokens))
             print('Train loss:', train_loss)
             print('Dev loss:', dev_loss)
@@ -410,7 +407,7 @@ def run_model(args):
             # original_log_probs_list, [token_ids], [masked_indices], _, _ = model.get_batch_generation([[prompt]], try_cuda=False)
             # print_sentence_predictions(original_log_probs_list[0], token_ids, model.vocab, masked_indices=masked_indices)
 
-        print('Best dev loss: {} at iter {}'.format(round(best_dev_loss, 3), best_iter))
+        print('Best dev loss: {} (iter {})'.format(round(best_dev_loss, 3), best_iter))
         print('Best trigger: ', ' '.join(tokenizer.convert_ids_to_tokens(best_trigger_tokens)))
 
         # Plot loss/learning curve

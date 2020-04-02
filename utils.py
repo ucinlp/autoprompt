@@ -6,7 +6,12 @@ import torch
 from copy import deepcopy
 import constants
 
+from pytorch_transformers import BertTokenizer, BertForMaskedLM
+
 def load_TREx_data(args, filename):
+    # TODO: remove this
+    tokenizer = BertTokenizer.from_pretrained('bert-base-cased', do_lower_case=False)
+
     facts = []
     with open(filename, newline='') as f:
         lines = f.readlines()
@@ -15,6 +20,7 @@ def load_TREx_data(args, filename):
             sample = json.loads(line)
             sub = sample['sub_label']
             obj = sample['obj_label']
+            """
             evidences = sample['evidences']
             # To make the number of samples used between open-book and closed-book probe
             # settings, we need to only consider facts that include context sentences
@@ -39,20 +45,75 @@ def load_TREx_data(args, filename):
                     # print('Sample context too long ({}), truncating.'.format(len(context_words)))
                 context = context.replace(constants.MASK, obj_surface)
                 facts.append((sub, obj, context))
+            """
+            # Skip triplets with objects that are not single token
+            if len(tokenizer.tokenize(obj)) > 1:
+                num_invalid_facts += 1
+                continue
+
+            facts.append((sub, obj))
         print('Total facts before:', len(lines))
         print('Invalid facts:', num_invalid_facts)
-        print('Total facts after:', len(lines) - num_invalid_facts)
+        print('Total facts after:', len(facts))
+    return facts
+
+def load_ConceptNet_data(args, filename):
+    # TODO: remove this
+    tokenizer = BertTokenizer.from_pretrained('bert-base-cased', do_lower_case=False)
+
+    facts = []
+    with open(filename, newline='') as f:
+        lines = f.readlines()
+        for line in lines:
+            sample = json.loads(line)
+            if 'sub_label' in sample:
+                sub = sample['sub_label']
+            else:
+                sub = sample['sub']
+            if 'obj_label' in sample:
+                obj = sample['obj_label']
+            else:
+                obj = sample['obj']
+
+            # Skip triplets with objects that are not single token
+            if len(tokenizer.tokenize(obj)) > 1:
+                continue
+
+            if 'pred' not in sample:
+                continue
+
+            pred = sample['pred']
+            masked_sents = sample['masked_sentences']
+            if len(masked_sents) > 1:
+                ctx = random.choice(masked_sents)
+            else:
+                ctx = masked_sents[0]
+            facts.append((sub, obj, ctx))
     return facts
 
 def get_all_datasets(args):
     datasets = []
+
     train_file = os.path.join(args.data_dir, 'train.jsonl')
     train_data = load_TREx_data(args, train_file)
     print('Num samples in TREx train data:', len(train_data))
-    dev_file = os.path.join(args.data_dir, 'val.jsonl')
+
+    # dev_file = os.path.join(args.data_dir, 'val.jsonl')
+    dev_file = os.path.join(args.data_dir, 'dev.jsonl')
     dev_data = load_TREx_data(args, dev_file)
     print('Num samples in TREx dev data:', len(dev_data))
+
     datasets.append((train_data, dev_data))
+
+    """
+    train_file = os.path.join(args.data_dir, 'train.jsonl')
+    train_data = load_ConceptNet_data(args, train_file)
+    print('Num samples in ConceptNet train data:', len(train_data))
+    dev_file = os.path.join(args.data_dir, 'dev.jsonl')
+    dev_data = load_ConceptNet_data(args, dev_file)
+    print('Num samples in ConceptNet dev data:', len(dev_data))
+    """
+
     return datasets
 
 def iterate_batches(inputs, batch_size, shuffle=False):
@@ -87,10 +148,13 @@ def make_batch(tokenizer, batch, trigger_tokens, prompt_format, use_ctx, cls_tok
         target_tokens = []
         trigger_mask = []
         segment_ids = [] # used to distinguish different sentences
-        sub, obj, ctx = sample
+        # sub, obj, ctx = sample
+        sub, obj = sample
         sub_tokens = tokenizer.convert_tokens_to_ids(tokenizer.tokenize(sub))
         obj_tokens = tokenizer.convert_tokens_to_ids(tokenizer.tokenize(obj))
         trigger_idx = 0
+        # print('SUB TOKENIZED:', tokenizer.tokenize(sub))
+        # print('OBJ TOKENIZED:', tokenizer.tokenize(obj))
 
         # Add CLS token at the beginning
         source_tokens.extend(cls_token)
@@ -172,6 +236,8 @@ def make_batch(tokenizer, batch, trigger_tokens, prompt_format, use_ctx, cls_tok
 def get_unique_objects(data):
     objs = set()
     for sample in data:
-        sub, obj, ctx = sample
+        sub, obj = sample
+        # sub, obj, ctx = sample
+        # print('sub: {}, obj: {}, ctx: {}'.format(sub, obj, ctx))
         objs.add(obj)
     return list(objs)
