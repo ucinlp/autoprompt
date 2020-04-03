@@ -56,28 +56,6 @@ def get_best_candidates(model, tokenizer, source_tokens, target_tokens, trigger_
     best_cand_loss = 999999
     best_cand_trigger_tokens = None
 
-    # Filter candidates
-    filtered_candidates = []
-    for cand in candidates:
-        # TODO: when beam search is on, candidates is a list of lists (num tokens X num cand)
-        # Make sure to exclude special tokens like [CLS] from candidates
-        # TODO: add unused BERT tokens to special tokens
-        if cand in special_token_ids:
-            # print("Skipping candidate {} because it's a special symbol {}.".format(cand, tokenizer.convert_ids_to_tokens([cand])))
-            continue
-        # Make sure object/answer token is not included in the trigger -> prevents biased/overfitted triggers for each relation
-        if cand in obj_token_ids:
-            # print("Skipping candidate {} because it's the same as object {}.".format(cand, tokenizer.convert_ids_to_tokens([cand])))
-            continue
-        # Ignore candidates that are proper nouns like Antarctica and ABC
-        doc = nlp(tokenizer.convert_ids_to_tokens([cand])[0])
-        pos = [token.pos_ for token in doc]
-        if pos[0] == 'PROPN':
-            # print('CAND: {}, POS: {}'.format(doc, pos))
-            # print("Skipping candidate {} because it's a proper noun {}.".format(cand, tokenizer.convert_ids_to_tokens([cand])))
-            continue
-        filtered_candidates.append(cand)
-
     if beam_size > 1:
         best_cand_trigger_tokens, best_cand_loss = get_best_candidates_beam_search(model,
                                                                         tokenizer,
@@ -86,13 +64,34 @@ def get_best_candidates(model, tokenizer, source_tokens, target_tokens, trigger_
                                                                         trigger_tokens,
                                                                         trigger_mask,
                                                                         segment_ids,
-                                                                        filtered_candidates,
+                                                                        candidates,
                                                                         args.beam_size,
                                                                         obj_token_ids,
                                                                         special_token_ids,
                                                                         device)
         best_cand_loss = best_cand_loss.item()
     else:
+        # Filter candidates
+        filtered_candidates = []
+        for cand in candidates:
+            # Make sure to exclude special tokens like [CLS] from candidates
+            # TODO: add unused BERT tokens to special tokens
+            if cand in special_token_ids:
+                # print("Skipping candidate {} because it's a special symbol {}.".format(cand, tokenizer.convert_ids_to_tokens([cand])))
+                continue
+            # Make sure object/answer token is not included in the trigger -> prevents biased/overfitted triggers for each relation
+            if cand in obj_token_ids:
+                # print("Skipping candidate {} because it's the same as object {}.".format(cand, tokenizer.convert_ids_to_tokens([cand])))
+                continue
+            # Ignore candidates that are proper nouns like Antarctica and ABC
+            doc = nlp(tokenizer.convert_ids_to_tokens([cand])[0])
+            pos = [token.pos_ for token in doc]
+            if pos[0] == 'PROPN':
+                # print('CAND: {}, POS: {}'.format(doc, pos))
+                # print("Skipping candidate {} because it's a proper noun {}.".format(cand, tokenizer.convert_ids_to_tokens([cand])))
+                continue
+            filtered_candidates.append(cand)
+
         for cand in filtered_candidates:
             # Replace current token with new candidate
             cand_trigger_tokens = deepcopy(trigger_tokens)
@@ -115,7 +114,7 @@ def get_best_candidates_beam_search(model, tokenizer, source_tokens, target_toke
     """
     # first round, no beams, just get the loss for each of the candidates in index 0.
     # (indices 1-end are just the old trigger)
-    loss_per_candidate = get_loss_per_candidate(0, model, source_tokens, target_tokens, trigger_tokens, trigger_mask, segment_ids, candidates, device)
+    loss_per_candidate = get_loss_per_candidate(0, model, tokenizer, source_tokens, target_tokens, trigger_tokens, trigger_mask, segment_ids, candidates, special_token_ids, obj_token_ids, device)
     # maximize the loss
     top_candidates = heapq.nsmallest(beam_size, loss_per_candidate, key=itemgetter(1))
 
@@ -123,7 +122,7 @@ def get_best_candidates_beam_search(model, tokenizer, source_tokens, target_toke
     for idx in range(1, len(trigger_tokens)): # for all trigger tokens, skipping the 0th (we did it above)
         loss_per_candidate = []
         for cand, _ in top_candidates: # for all the beams, try all the candidates at idx 
-            loss_per_candidate.extend(get_loss_per_candidate(idx, model, source_tokens, target_tokens, cand, trigger_mask, segment_ids, candidates, device))
+            loss_per_candidate.extend(get_loss_per_candidate(idx, model, tokenizer, source_tokens, target_tokens, cand, trigger_mask, segment_ids, candidates, special_token_ids, obj_token_ids, device))
         top_candidates = heapq.nsmallest(beam_size, loss_per_candidate, key=itemgetter(1))
     return min(top_candidates, key=itemgetter(1))
 
@@ -139,7 +138,7 @@ def get_loss(model, source_tokens, target_tokens, trigger_tokens, trigger_mask, 
     loss, pred_scores = outputs[:2]
     return loss
 
-def get_loss_per_candidate(index, model, source_tokens, target_tokens, trigger_tokens, trigger_mask, segment_ids, candidates, device):
+def get_loss_per_candidate(index, model, tokenizer, source_tokens, target_tokens, trigger_tokens, trigger_mask, segment_ids, candidates, special_token_ids, obj_token_ids, device):
     """
     For a particular index, the function tries all of the candidate tokens for that index.
     The function returns a list containing the candidate triggers it tried, along with their loss.
@@ -150,8 +149,25 @@ def get_loss_per_candidate(index, model, source_tokens, target_tokens, trigger_t
         curr_loss = get_loss(model, source_tokens, target_tokens, trigger_tokens, trigger_mask, segment_ids, device)
         loss_per_candidate.append((deepcopy(trigger_tokens), curr_loss))
         for cand_id in range(len(candidates[0])):
+            cand = candidates[index][cand_id]
+            # Make sure to exclude special tokens like [CLS] from candidates
+            # TODO: add unused BERT tokens to special tokens
+            if cand in special_token_ids:
+                print("Skipping candidate {} because it's a special symbol {}.".format(cand, tokenizer.convert_ids_to_tokens([cand])))
+                continue
+            # Make sure object/answer token is not included in the trigger -> prevents biased/overfitted triggers for each relation
+            if cand in obj_token_ids:
+                print("Skipping candidate {} because it's the same as object {}.".format(cand, tokenizer.convert_ids_to_tokens([cand])))
+                continue
+            # Ignore candidates that are proper nouns like Antarctica and ABC
+            doc = nlp(tokenizer.convert_ids_to_tokens([cand])[0])
+            pos = [token.pos_ for token in doc]
+            if pos[0] == 'PROPN':
+                print("Skipping candidate {} because it's a proper noun {}.".format(cand, tokenizer.convert_ids_to_tokens([cand])))
+                continue
+
             trigger_token_ids_one_replaced = deepcopy(trigger_tokens) # copy trigger
-            trigger_token_ids_one_replaced[index] = candidates[index][cand_id] # replace one token
+            trigger_token_ids_one_replaced[index] = cand # replace one token
             loss = get_loss(model, source_tokens, target_tokens, trigger_token_ids_one_replaced, trigger_mask, segment_ids, device)
             loss_per_candidate.append((deepcopy(trigger_token_ids_one_replaced), loss))
         return loss_per_candidate
@@ -314,21 +330,8 @@ def run_model(args):
                                                     num_candidates=args.num_cand)[0]
 
                     # Update trigger to the best one out of the candidates
-                    # old_trigger_tokens = deepcopy(trigger_tokens)
-                    # trigger_tokens, best_curr_loss = get_best_candidates(model,
-                    #                                                     tokenizer,
-                    #                                                     source_tokens,
-                    #                                                     target_tokens,
-                    #                                                     trigger_tokens,
-                    #                                                     trigger_mask,
-                    #                                                     segment_ids,
-                    #                                                     candidates,
-                    #                                                     args.beam_size,
-                    #                                                     token_to_flip,
-                    #                                                     obj_token_ids,
-                    #                                                     special_token_ids,
-                    #                                                     device)
-                    best_curr_trigger_tokens, best_curr_loss = get_best_candidates(model,
+                    old_trigger_tokens = deepcopy(trigger_tokens)
+                    trigger_tokens, best_curr_loss = get_best_candidates(model,
                                                                         tokenizer,
                                                                         source_tokens,
                                                                         target_tokens,
@@ -341,34 +344,47 @@ def run_model(args):
                                                                         obj_token_ids,
                                                                         special_token_ids,
                                                                         device)
-                    losses_batch_train.append(best_curr_loss)
+                    # best_curr_trigger_tokens, best_curr_loss = get_best_candidates(model,
+                    #                                                     tokenizer,
+                    #                                                     source_tokens,
+                    #                                                     target_tokens,
+                    #                                                     trigger_tokens,
+                    #                                                     trigger_mask,
+                    #                                                     segment_ids,
+                    #                                                     candidates,
+                    #                                                     args.beam_size,
+                    #                                                     token_to_flip,
+                    #                                                     obj_token_ids,
+                    #                                                     special_token_ids,
+                    #                                                     device)
+                    # losses_batch_train.append(best_curr_loss)
 
                     # TODO: figure out if i need this extra early stopping
-                    # if np.array_equal(old_trigger_tokens, trigger_tokens):
-                    #     count += 1
-                    #     if count == len(trigger_tokens):
-                    #         print('Early Stopping: trigger not updating')
-                    #         end_iter = True
-                    # else:
-                    #     count = 0
-
-                    if best_curr_loss < best_loss_iter:
-                        counter = 0
-                        best_loss_iter = best_curr_loss
-                        trigger_tokens = deepcopy(best_curr_trigger_tokens)
-                    elif counter == len(trigger_tokens):
-                        print('Early stopping: counter equal to len trigger tokens')
-                        end_iter = True
+                    if np.array_equal(old_trigger_tokens, trigger_tokens):
+                        count += 1
+                        if count == len(trigger_tokens):
+                            print('Early Stopping: trigger not updating')
+                            end_iter = True
                     else:
-                        counter += 1
+                        count = 0
+
+                    # if best_curr_loss < best_loss_iter:
+                    #     counter = 0
+                    #     best_loss_iter = best_curr_loss
+                    #     trigger_tokens = deepcopy(best_curr_trigger_tokens)
+                    # elif counter == len(trigger_tokens):
+                    #     print('Early stopping: counter equal to len trigger tokens')
+                    #     end_iter = True
+                    # else:
+                    #     counter += 1
 
                     # DEBUGO MODE
                     if args.debug:
                         input()
 
             # Compute average train loss across all batches
-            # train_loss = np.mean(losses_batch_train) if losses_batch_train else 999999
-            train_loss = best_loss_iter
+            train_loss = np.mean(losses_batch_train) if losses_batch_train else 999999
+            # train_loss = best_loss_iter
 
             # Evaluate on dev set
             losses_batch_dev = []
