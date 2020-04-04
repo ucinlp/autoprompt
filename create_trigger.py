@@ -153,17 +153,17 @@ def get_loss_per_candidate(index, model, tokenizer, source_tokens, target_tokens
             # Make sure to exclude special tokens like [CLS] from candidates
             # TODO: add unused BERT tokens to special tokens
             if cand in special_token_ids:
-                print("Skipping candidate {} because it's a special symbol {}.".format(cand, tokenizer.convert_ids_to_tokens([cand])))
+                # print("Skipping candidate {} because it's a special symbol {}.".format(cand, tokenizer.convert_ids_to_tokens([cand])))
                 continue
             # Make sure object/answer token is not included in the trigger -> prevents biased/overfitted triggers for each relation
             if cand in obj_token_ids:
-                print("Skipping candidate {} because it's the same as object {}.".format(cand, tokenizer.convert_ids_to_tokens([cand])))
+                # print("Skipping candidate {} because it's the same as object {}.".format(cand, tokenizer.convert_ids_to_tokens([cand])))
                 continue
             # Ignore candidates that are proper nouns like Antarctica and ABC
             doc = nlp(tokenizer.convert_ids_to_tokens([cand])[0])
             pos = [token.pos_ for token in doc]
             if pos[0] == 'PROPN':
-                print("Skipping candidate {} because it's a proper noun {}.".format(cand, tokenizer.convert_ids_to_tokens([cand])))
+                # print("Skipping candidate {} because it's a proper noun {}.".format(cand, tokenizer.convert_ids_to_tokens([cand])))
                 continue
 
             trigger_token_ids_one_replaced = deepcopy(trigger_tokens) # copy trigger
