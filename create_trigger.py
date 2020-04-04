@@ -13,6 +13,7 @@ from pytorch_transformers import BertTokenizer, BertForMaskedLM
 import constants
 import utils
 import lama_utils
+import time
 
 nlp = spacy.load("en_core_web_sm")
 
@@ -227,6 +228,9 @@ def run_model(args):
     # Number of iterations to wait before early stop if there is no progress on dev set
     dev_patience = args.patience
 
+    # Measure elapsed time of trigger search algorithm
+    start = time.time()
+
     # TODO: remove this for loop over datasets. instead make the dataset a argument for script
     for dataset in utils.get_all_datasets(args):
         train_data, dev_data = dataset
@@ -425,6 +429,10 @@ def run_model(args):
 
         print('Best dev loss: {} (iter {})'.format(round(best_dev_loss, 3), best_iter))
         print('Best trigger: ', ' '.join(tokenizer.convert_ids_to_tokens(best_trigger_tokens)))
+
+        # Measure elapsed time
+        end = time.time()
+        print('Elapsed time: {} sec'.format(end - start))
 
         # Plot loss/learning curve
         num_iters = len(train_losses)
