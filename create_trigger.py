@@ -334,21 +334,8 @@ def run_model(args):
                                                     num_candidates=args.num_cand)[0]
 
                     # Update trigger to the best one out of the candidates
-                    old_trigger_tokens = deepcopy(trigger_tokens)
-                    trigger_tokens, best_curr_loss = get_best_candidates(model,
-                                                                        tokenizer,
-                                                                        source_tokens,
-                                                                        target_tokens,
-                                                                        trigger_tokens,
-                                                                        trigger_mask,
-                                                                        segment_ids,
-                                                                        candidates,
-                                                                        args.beam_size,
-                                                                        token_to_flip,
-                                                                        obj_token_ids,
-                                                                        special_token_ids,
-                                                                        device)
-                    # best_curr_trigger_tokens, best_curr_loss = get_best_candidates(model,
+                    # old_trigger_tokens = deepcopy(trigger_tokens)
+                    # trigger_tokens, best_curr_loss = get_best_candidates(model,
                     #                                                     tokenizer,
                     #                                                     source_tokens,
                     #                                                     target_tokens,
@@ -361,34 +348,47 @@ def run_model(args):
                     #                                                     obj_token_ids,
                     #                                                     special_token_ids,
                     #                                                     device)
-                    # losses_batch_train.append(best_curr_loss)
+                    best_curr_trigger_tokens, best_curr_loss = get_best_candidates(model,
+                                                                        tokenizer,
+                                                                        source_tokens,
+                                                                        target_tokens,
+                                                                        trigger_tokens,
+                                                                        trigger_mask,
+                                                                        segment_ids,
+                                                                        candidates,
+                                                                        args.beam_size,
+                                                                        token_to_flip,
+                                                                        obj_token_ids,
+                                                                        special_token_ids,
+                                                                        device)
+                    losses_batch_train.append(best_curr_loss)
 
                     # TODO: figure out if i need this extra early stopping
-                    if np.array_equal(old_trigger_tokens, trigger_tokens):
-                        count += 1
-                        if count == len(trigger_tokens):
-                            print('Early Stopping: trigger not updating')
-                            end_iter = True
-                    else:
-                        count = 0
-
-                    # if best_curr_loss < best_loss_iter:
-                    #     counter = 0
-                    #     best_loss_iter = best_curr_loss
-                    #     trigger_tokens = deepcopy(best_curr_trigger_tokens)
-                    # elif counter == len(trigger_tokens):
-                    #     print('Early stopping: counter equal to len trigger tokens')
-                    #     end_iter = True
+                    # if np.array_equal(old_trigger_tokens, trigger_tokens):
+                    #     count += 1
+                    #     if count == len(trigger_tokens):
+                    #         print('Early Stopping: trigger not updating')
+                    #         end_iter = True
                     # else:
-                    #     counter += 1
+                    #     count = 0
+
+                    if best_curr_loss < best_loss_iter:
+                        counter = 0
+                        best_loss_iter = best_curr_loss
+                        trigger_tokens = deepcopy(best_curr_trigger_tokens)
+                    elif counter == len(trigger_tokens):
+                        print('Early stopping: counter equal to len trigger tokens')
+                        end_iter = True
+                    else:
+                        counter += 1
 
                     # DEBUGO MODE
                     if args.debug:
                         input()
 
             # Compute average train loss across all batches
-            train_loss = np.mean(losses_batch_train) if losses_batch_train else 999999
-            # train_loss = best_loss_iter
+            # train_loss = np.mean(losses_batch_train) if losses_batch_train else 999999
+            train_loss = best_loss_iter
 
             # Evaluate on dev set
             losses_batch_dev = []
