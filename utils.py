@@ -1,15 +1,14 @@
 import os
 import json
 import random
+import asyncio
 import numpy as np
 import torch
 from copy import deepcopy
+from pytorch_transformers import BertTokenizer
 import constants
 
-from pytorch_transformers import BertTokenizer, BertForMaskedLM
-
 def load_TREx_data(args, filename):
-    # TODO: remove this
     tokenizer = BertTokenizer.from_pretrained('bert-base-cased', do_lower_case=False)
 
     facts = []
@@ -46,7 +45,7 @@ def load_TREx_data(args, filename):
                 context = context.replace(constants.MASK, obj_surface)
                 facts.append((sub, obj, context))
             """
-            # Skip triplets with objects that are not single token
+            # Skip facts with objects that are not single token
             if len(tokenizer.tokenize(obj)) > 1:
                 num_invalid_facts += 1
                 continue
@@ -57,39 +56,6 @@ def load_TREx_data(args, filename):
         print('Total facts after:', len(facts))
     return facts
 
-def load_ConceptNet_data(args, filename):
-    # TODO: remove this
-    tokenizer = BertTokenizer.from_pretrained('bert-base-cased', do_lower_case=False)
-
-    facts = []
-    with open(filename, newline='') as f:
-        lines = f.readlines()
-        for line in lines:
-            sample = json.loads(line)
-            if 'sub_label' in sample:
-                sub = sample['sub_label']
-            else:
-                sub = sample['sub']
-            if 'obj_label' in sample:
-                obj = sample['obj_label']
-            else:
-                obj = sample['obj']
-
-            # Skip triplets with objects that are not single token
-            if len(tokenizer.tokenize(obj)) > 1:
-                continue
-
-            if 'pred' not in sample:
-                continue
-
-            pred = sample['pred']
-            masked_sents = sample['masked_sentences']
-            if len(masked_sents) > 1:
-                ctx = random.choice(masked_sents)
-            else:
-                ctx = masked_sents[0]
-            facts.append((sub, obj, ctx))
-    return facts
 
 def get_all_datasets(args):
     datasets = []
@@ -105,16 +71,8 @@ def get_all_datasets(args):
 
     datasets.append((train_data, dev_data))
 
-    """
-    train_file = os.path.join(args.data_dir, 'train.jsonl')
-    train_data = load_ConceptNet_data(args, train_file)
-    print('Num samples in ConceptNet train data:', len(train_data))
-    dev_file = os.path.join(args.data_dir, 'dev.jsonl')
-    dev_data = load_ConceptNet_data(args, dev_file)
-    print('Num samples in ConceptNet dev data:', len(dev_data))
-    """
-
     return datasets
+
 
 def iterate_batches(inputs, batch_size, shuffle=False):
     """
@@ -132,6 +90,7 @@ def iterate_batches(inputs, batch_size, shuffle=False):
         else:
             excerpt = slice(start_idx, end_idx)
         yield inputs[excerpt]
+
 
 def make_batch(tokenizer, batch, trigger_tokens, prompt_format, use_ctx, cls_token, sep_token, mask_token, pad_token, period_token, device):
     """
@@ -233,6 +192,7 @@ def make_batch(tokenizer, batch, trigger_tokens, prompt_format, use_ctx, cls_tok
 
     return source_tokens_batch, target_tokens_batch, trigger_mask_batch, segment_ids_batch
 
+
 def get_unique_objects(data):
     objs = set()
     for sample in data:
@@ -241,3 +201,10 @@ def get_unique_objects(data):
         # print('sub: {}, obj: {}, ctx: {}'.format(sub, obj, ctx))
         objs.add(obj)
     return list(objs)
+
+
+def load_vocab(vocab_filename):
+    with open(vocab_filename, "r") as f:
+        lines = f.readlines()
+    vocab = [x.strip() for x in lines]
+    return vocab

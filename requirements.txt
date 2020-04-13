@@ -1,8 +1,7 @@
 numpy==1.17.2
 torch==1.0.1
 pytorch_transformers==1.1.0
-transformers==2.5.1
-spacy==2.1.8
+spacy==2.2.0
 termcolor==1.1.0
 colorama==0.4.1
-matplotlib
+matplotlib==3.1.1

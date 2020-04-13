@@ -34,12 +34,14 @@ def hotflip_attack(averaged_grad, embedding_matrix, trigger_token_ids,
     _, best_at_each_step = gradient_dot_embedding_matrix.max(2)
     return best_at_each_step[0].detach().cpu().numpy()
 
+
 # Returns the wordpiece embedding weight matrix
 def get_embedding_weight(language_model):
     for module in language_model.modules():
         if isinstance(module, torch.nn.Embedding):
             if module.weight.shape[0] == constants.BERT_EMB_DIM: # only add a hook to wordpiece embeddings, not position embeddings
                 return module.weight.detach()
+
 
 # Add hooks for embeddings
 extracted_grads = []
@@ -52,6 +54,7 @@ def add_hooks(language_model):
             if module.weight.shape[0] == constants.BERT_EMB_DIM: # only add a hook to wordpiece embeddings, not position
                 module.weight.requires_grad = True
                 module.register_backward_hook(extract_grad_hook)
+
 
 def get_best_candidates(model, tokenizer, source_tokens, target_tokens, trigger_tokens, trigger_mask, segment_ids, candidates, beam_size, token_to_flip, obj_token_ids, special_token_ids, device):
     best_cand_loss = 999999
@@ -86,8 +89,8 @@ def get_best_candidates(model, tokenizer, source_tokens, target_tokens, trigger_
                 continue
             # Ignore candidates that are proper nouns like Antarctica and ABC
             doc = nlp(tokenizer.convert_ids_to_tokens([cand])[0])
-            pos = [token.pos_ for token in doc]
-            if pos[0] == 'PROPN':
+            pos = doc[0].pos_
+            if pos == 'PROPN':
                 # print('CAND: {}, POS: {}'.format(doc, pos))
                 # print("Skipping candidate {} because it's a proper noun {}.".format(cand, tokenizer.convert_ids_to_tokens([cand])))
                 continue
@@ -106,6 +109,7 @@ def get_best_candidates(model, tokenizer, source_tokens, target_tokens, trigger_
                     best_cand_trigger_tokens = deepcopy(cand_trigger_tokens)
     
     return best_cand_trigger_tokens, best_cand_loss
+
 
 def get_best_candidates_beam_search(model, tokenizer, source_tokens, target_tokens, trigger_tokens, trigger_mask, segment_ids, candidates, beam_size, obj_token_ids, special_token_ids, device):
     """"
@@ -127,6 +131,7 @@ def get_best_candidates_beam_search(model, tokenizer, source_tokens, target_toke
         top_candidates = heapq.nsmallest(beam_size, loss_per_candidate, key=itemgetter(1))
     return min(top_candidates, key=itemgetter(1))
 
+
 def get_loss(model, source_tokens, target_tokens, trigger_tokens, trigger_mask, segment_ids, device):
     batch_size = source_tokens.size()[0]
     trigger_tokens = torch.tensor(trigger_tokens, device=device).repeat(batch_size, 1)
@@ -138,6 +143,7 @@ def get_loss(model, source_tokens, target_tokens, trigger_tokens, trigger_mask, 
     outputs = model(src, masked_lm_labels=dst, token_type_ids=segment_ids)
     loss, pred_scores = outputs[:2]
     return loss
+
 
 def get_loss_per_candidate(index, model, tokenizer, source_tokens, target_tokens, trigger_tokens, trigger_mask, segment_ids, candidates, special_token_ids, obj_token_ids, device):
     """
@@ -172,6 +178,11 @@ def get_loss_per_candidate(index, model, tokenizer, source_tokens, target_tokens
             loss = get_loss(model, source_tokens, target_tokens, trigger_token_ids_one_replaced, trigger_mask, segment_ids, device)
             loss_per_candidate.append((deepcopy(trigger_token_ids_one_replaced), loss))
         return loss_per_candidate
+
+
+def get_prediction(model, source_tokens, trigger_tokens, trigger_mask, segment_ids, device):
+    return 'prediction'
+
 
 def build_prompt(tokenizer, pair, trigger_tokens, use_ctx, prompt_format, masking=False):
     prompt_list = []
@@ -209,6 +220,7 @@ def build_prompt(tokenizer, pair, trigger_tokens, use_ctx, prompt_format, maskin
     # Remove hashtags from subword if its in the beginning of the prompt
     prompt = prompt.replace('##', '')
     return prompt
+
 
 def run_model(args):
     np.random.seed(0)
@@ -423,9 +435,10 @@ def run_model(args):
             rand_idx = random.randint(0, len(dev_data) - 1) # Follow progress of random dev data pair
             prompt = build_prompt(tokenizer, dev_data[rand_idx], trigger_tokens, args.use_ctx, prompt_format, masking=True)
             print('Prompt:', prompt)
-            # TODO: finish this
+            # Sanity check
             # original_log_probs_list, [token_ids], [masked_indices], _, _ = model.get_batch_generation([[prompt]], try_cuda=False)
             # print_sentence_predictions(original_log_probs_list[0], token_ids, model.vocab, masked_indices=masked_indices)
+            # get_prediction(model, dev_data[rand_idx], trigger_tokens, trigger_mask, segment_ids, device)
 
         print('Best dev loss: {} (iter {})'.format(round(best_dev_loss, 3), best_iter))
         print('Best trigger: ', ' '.join(tokenizer.convert_ids_to_tokens(best_trigger_tokens)))
