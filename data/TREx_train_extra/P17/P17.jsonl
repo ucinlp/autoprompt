@@ -1,0 +1,500 @@
+{"sub_uri": "Q294", "obj_uri": "Q16", "sub_label": "Icelandic", "obj_label": "Canada"}
+{"sub_uri": "Q340", "obj_uri": "Q16", "sub_label": "Montreal", "obj_label": "Canada"}
+{"sub_uri": "Q386", "obj_uri": "Q16", "sub_label": "Bixi", "obj_label": "Canada"}
+{"sub_uri": "Q391", "obj_uri": "Q16", "sub_label": "Saint Catherine Street", "obj_label": "Canada"}
+{"sub_uri": "Q981", "obj_uri": "Q16", "sub_label": "Warburg", "obj_label": "Canada"}
+{"sub_uri": "Q1062", "obj_uri": "Q16", "sub_label": "Lake Ontario", "obj_label": "Canada"}
+{"sub_uri": "Q1066", "obj_uri": "Q16", "sub_label": "Lake Superior", "obj_label": "Canada"}
+{"sub_uri": "Q1336", "obj_uri": "Q16", "sub_label": "Rimouski", "obj_label": "Canada"}
+{"sub_uri": "Q1383", "obj_uri": "Q16", "sub_label": "Lake Huron", "obj_label": "Canada"}
+{"sub_uri": "Q1617", "obj_uri": "Q16", "sub_label": "Urdu", "obj_label": "Canada"}
+{"sub_uri": "Q1860", "obj_uri": "Q16", "sub_label": "English", "obj_label": "Canada"}
+{"sub_uri": "Q1904", "obj_uri": "Q16", "sub_label": "Ontario", "obj_label": "Canada"}
+{"sub_uri": "Q1930", "obj_uri": "Q16", "sub_label": "Ottawa", "obj_label": "Canada"}
+{"sub_uri": "Q1948", "obj_uri": "Q16", "sub_label": "Manitoba", "obj_label": "Canada"}
+{"sub_uri": "Q1951", "obj_uri": "Q16", "sub_label": "Alberta", "obj_label": "Canada"}
+{"sub_uri": "Q1952", "obj_uri": "Q16", "sub_label": "Nova Scotia", "obj_label": "Canada"}
+{"sub_uri": "Q1965", "obj_uri": "Q16", "sub_label": "New Brunswick", "obj_label": "Canada"}
+{"sub_uri": "Q1974", "obj_uri": "Q16", "sub_label": "British Columbia", "obj_label": "Canada"}
+{"sub_uri": "Q1979", "obj_uri": "Q16", "sub_label": "Prince Edward Island", "obj_label": "Canada"}
+{"sub_uri": "Q1989", "obj_uri": "Q16", "sub_label": "Saskatchewan", "obj_label": "Canada"}
+{"sub_uri": "Q2003", "obj_uri": "Q16", "sub_label": "Newfoundland and Labrador", "obj_label": "Canada"}
+{"sub_uri": "Q2007", "obj_uri": "Q16", "sub_label": "Northwest Territories", "obj_label": "Canada"}
+{"sub_uri": "Q2009", "obj_uri": "Q16", "sub_label": "Yukon", "obj_label": "Canada"}
+{"sub_uri": "Q2023", "obj_uri": "Q16", "sub_label": "Nunavut", "obj_label": "Canada"}
+{"sub_uri": "Q2030", "obj_uri": "Q16", "sub_label": "Iqaluit", "obj_label": "Canada"}
+{"sub_uri": "Q2058", "obj_uri": "Q16", "sub_label": "Whitehorse", "obj_label": "Canada"}
+{"sub_uri": "Q2061", "obj_uri": "Q16", "sub_label": "Yellowknife", "obj_label": "Canada"}
+{"sub_uri": "Q2082", "obj_uri": "Q16", "sub_label": "St. John's", "obj_label": "Canada"}
+{"sub_uri": "Q2096", "obj_uri": "Q16", "sub_label": "Edmonton", "obj_label": "Canada"}
+{"sub_uri": "Q2123", "obj_uri": "Q16", "sub_label": "Regina", "obj_label": "Canada"}
+{"sub_uri": "Q2127", "obj_uri": "Q16", "sub_label": "Charlottetown", "obj_label": "Canada"}
+{"sub_uri": "Q2132", "obj_uri": "Q16", "sub_label": "Victoria", "obj_label": "Canada"}
+{"sub_uri": "Q2135", "obj_uri": "Q16", "sub_label": "Winnipeg", "obj_label": "Canada"}
+{"sub_uri": "Q2138", "obj_uri": "Q16", "sub_label": "Fredericton", "obj_label": "Canada"}
+{"sub_uri": "Q2141", "obj_uri": "Q16", "sub_label": "Halifax", "obj_label": "Canada"}
+{"sub_uri": "Q2145", "obj_uri": "Q16", "sub_label": "Quebec City", "obj_label": "Canada"}
+{"sub_uri": "Q2216", "obj_uri": "Q16", "sub_label": "Athabasca River", "obj_label": "Canada"}
+{"sub_uri": "Q2220", "obj_uri": "Q16", "sub_label": "Peace River", "obj_label": "Canada"}
+{"sub_uri": "Q2226", "obj_uri": "Q16", "sub_label": "Slave River", "obj_label": "Canada"}
+{"sub_uri": "Q2231", "obj_uri": "Q16", "sub_label": "Hay River", "obj_label": "Canada"}
+{"sub_uri": "Q2237", "obj_uri": "Q16", "sub_label": "North Saskatchewan River", "obj_label": "Canada"}
+{"sub_uri": "Q2242", "obj_uri": "Q16", "sub_label": "South Saskatchewan River", "obj_label": "Canada"}
+{"sub_uri": "Q2244", "obj_uri": "Q16", "sub_label": "Beaver River", "obj_label": "Canada"}
+{"sub_uri": "Q2249", "obj_uri": "Q16", "sub_label": "Liard River", "obj_label": "Canada"}
+{"sub_uri": "Q2251", "obj_uri": "Q16", "sub_label": "Columbia River", "obj_label": "Canada"}
+{"sub_uri": "Q2258", "obj_uri": "Q16", "sub_label": "Strait of Georgia", "obj_label": "Canada"}
+{"sub_uri": "Q2262", "obj_uri": "Q16", "sub_label": "Kootenay River", "obj_label": "Canada"}
+{"sub_uri": "Q2879", "obj_uri": "Q16", "sub_label": "province or territory of Canada", "obj_label": "Canada"}
+{"sub_uri": "Q2939", "obj_uri": "Q16", "sub_label": "geography of Canada", "obj_label": "Canada"}
+{"sub_uri": "Q2945", "obj_uri": "Q16", "sub_label": "history of Canada", "obj_label": "Canada"}
+{"sub_uri": "Q3040", "obj_uri": "Q16", "sub_label": "Hudson Bay", "obj_label": "Canada"}
+{"sub_uri": "Q3047", "obj_uri": "Q16", "sub_label": "Saskatchewan River", "obj_label": "Canada"}
+{"sub_uri": "Q3201", "obj_uri": "Q16", "sub_label": "Elginfield Observatory", "obj_label": "Canada"}
+{"sub_uri": "Q3256", "obj_uri": "Q16", "sub_label": "Alexandra Bridge Provincial Park", "obj_label": "Canada"}
+{"sub_uri": "Q3272", "obj_uri": "Q16", "sub_label": "Lake Winnipeg", "obj_label": "Canada"}
+{"sub_uri": "Q3292", "obj_uri": "Q16", "sub_label": "Nelson River", "obj_label": "Canada"}
+{"sub_uri": "Q3318", "obj_uri": "Q16", "sub_label": "Churchill River", "obj_label": "Canada"}
+{"sub_uri": "Q3411", "obj_uri": "Q16", "sub_label": "Mackenzie River", "obj_label": "Canada"}
+{"sub_uri": "Q3439", "obj_uri": "Q16", "sub_label": "North Nahanni River", "obj_label": "Canada"}
+{"sub_uri": "Q3452", "obj_uri": "Q16", "sub_label": "Redstone River", "obj_label": "Canada"}
+{"sub_uri": "Q4335", "obj_uri": "Q16", "sub_label": "Pointe-au-P\u00e8re, Quebec", "obj_label": "Canada"}
+{"sub_uri": "Q4397", "obj_uri": "Q16", "sub_label": "South Huron", "obj_label": "Canada"}
+{"sub_uri": "Q4438", "obj_uri": "Q16", "sub_label": "Clarington", "obj_label": "Canada"}
+{"sub_uri": "Q4558", "obj_uri": "Q16", "sub_label": "Cascade Range", "obj_label": "Canada"}
+{"sub_uri": "Q4760", "obj_uri": "Q16", "sub_label": "2012 Major League Baseball season", "obj_label": "Canada"}
+{"sub_uri": "Q5463", "obj_uri": "Q16", "sub_label": "Rocky Mountains", "obj_label": "Canada"}
+{"sub_uri": "Q5492", "obj_uri": "Q16", "sub_label": "Lake Erie", "obj_label": "Canada"}
+{"sub_uri": "Q5525", "obj_uri": "Q16", "sub_label": "Great Bear Lake", "obj_label": "Canada"}
+{"sub_uri": "Q5539", "obj_uri": "Q16", "sub_label": "Great Slave Lake", "obj_label": "Canada"}
+{"sub_uri": "Q7347", "obj_uri": "Q16", "sub_label": "Great Lakes", "obj_label": "Canada"}
+{"sub_uri": "Q7737", "obj_uri": "Q16", "sub_label": "Russian", "obj_label": "Canada"}
+{"sub_uri": "Q7965", "obj_uri": "Q16", "sub_label": "Canadian Grand Prix", "obj_label": "Canada"}
+{"sub_uri": "Q8444", "obj_uri": "Q16", "sub_label": "1976 Summer Olympics", "obj_label": "Canada"}
+{"sub_uri": "Q8641", "obj_uri": "Q16", "sub_label": "Yiddish", "obj_label": "Canada"}
+{"sub_uri": "Q8798", "obj_uri": "Q16", "sub_label": "Ukrainian", "obj_label": "Canada"}
+{"sub_uri": "Q9063", "obj_uri": "Q16", "sub_label": "Slovene", "obj_label": "Canada"}
+{"sub_uri": "Q9091", "obj_uri": "Q16", "sub_label": "Belarusian", "obj_label": "Canada"}
+{"sub_uri": "Q9129", "obj_uri": "Q16", "sub_label": "Greek", "obj_label": "Canada"}
+{"sub_uri": "Q9166", "obj_uri": "Q16", "sub_label": "Maltese", "obj_label": "Canada"}
+{"sub_uri": "Q9314", "obj_uri": "Q16", "sub_label": "Scottish Gaelic", "obj_label": "Canada"}
+{"sub_uri": "Q9484", "obj_uri": "Q16", "sub_label": "Le Bic", "obj_label": "Canada"}
+{"sub_uri": "Q9495", "obj_uri": "Q16", "sub_label": "Site historique maritime de la Pointe-au-P\u00e8re", "obj_label": "Canada"}
+{"sub_uri": "Q9506", "obj_uri": "Q16", "sub_label": "HMCS Onondaga", "obj_label": "Canada"}
+{"sub_uri": "Q9658", "obj_uri": "Q16", "sub_label": "1988 Winter Olympics", "obj_label": "Canada"}
+{"sub_uri": "Q9674", "obj_uri": "Q16", "sub_label": "2010 Winter Olympics", "obj_label": "Canada"}
+{"sub_uri": "Q10566", "obj_uri": "Q16", "sub_label": "Saskatoon", "obj_label": "Canada"}
+{"sub_uri": "Q12575", "obj_uri": "Q16", "sub_label": "Ambassador Bridge", "obj_label": "Canada"}
+{"sub_uri": "Q12603", "obj_uri": "Q16", "sub_label": "Pacific Northwest", "obj_label": "Canada"}
+{"sub_uri": "Q12707", "obj_uri": "Q16", "sub_label": "Great Plains", "obj_label": "Canada"}
+{"sub_uri": "Q13193", "obj_uri": "Q16", "sub_label": "Quebec Sign Language", "obj_label": "Canada"}
+{"sub_uri": "Q13272", "obj_uri": "Q16", "sub_label": "Slavey language", "obj_label": "Canada"}
+{"sub_uri": "Q13315", "obj_uri": "Q16", "sub_label": "Michif", "obj_label": "Canada"}
+{"sub_uri": "Q13321", "obj_uri": "Q16", "sub_label": "Mi'kmaq", "obj_label": "Canada"}
+{"sub_uri": "Q13339", "obj_uri": "Q16", "sub_label": "Mohawk", "obj_label": "Canada"}
+{"sub_uri": "Q13351", "obj_uri": "Q16", "sub_label": "Innu-aimun", "obj_label": "Canada"}
+{"sub_uri": "Q13940", "obj_uri": "Q16", "sub_label": "CBC Radio", "obj_label": "Canada"}
+{"sub_uri": "Q14348", "obj_uri": "Q16", "sub_label": "Welland Canal", "obj_label": "Canada"}
+{"sub_uri": "Q15863", "obj_uri": "Q16", "sub_label": "Slovenes", "obj_label": "Canada"}
+{"sub_uri": "Q16461", "obj_uri": "Q16", "sub_label": "Nanaimo", "obj_label": "Canada"}
+{"sub_uri": "Q16740", "obj_uri": "Q16", "sub_label": "Maple Ridge", "obj_label": "Canada"}
+{"sub_uri": "Q17447", "obj_uri": "Q16", "sub_label": "Same-sex marriage in Canada", "obj_label": "Canada"}
+{"sub_uri": "Q17523", "obj_uri": "Q16", "sub_label": "Bathurst Airport", "obj_label": "Canada"}
+{"sub_uri": "Q17972", "obj_uri": "Q16", "sub_label": "Viva", "obj_label": "Canada"}
+{"sub_uri": "Q17978", "obj_uri": "Q16", "sub_label": "Toronto Transit Commission", "obj_label": "Canada"}
+{"sub_uri": "Q18458", "obj_uri": "Q16", "sub_label": "Regional Municipality of York", "obj_label": "Canada"}
+{"sub_uri": "Q18543", "obj_uri": "Q16", "sub_label": "Major League Soccer", "obj_label": "Canada"}
+{"sub_uri": "Q20379", "obj_uri": "Q16", "sub_label": "Toronto subway", "obj_label": "Canada"}
+{"sub_uri": "Q20614", "obj_uri": "Q16", "sub_label": "Carrier", "obj_label": "Canada"}
+{"sub_uri": "Q20642", "obj_uri": "Q16", "sub_label": "Nunatsiavummiut dialect", "obj_label": "Canada"}
+{"sub_uri": "Q20725", "obj_uri": "Q16", "sub_label": "Yonge Street", "obj_label": "Canada"}
+{"sub_uri": "Q20823", "obj_uri": "Q16", "sub_label": "Kaska", "obj_label": "Canada"}
+{"sub_uri": "Q20825", "obj_uri": "Q16", "sub_label": "Tsuut\u02bcina", "obj_label": "Canada"}
+{"sub_uri": "Q20826", "obj_uri": "Q16", "sub_label": "Dane-zaa", "obj_label": "Canada"}
+{"sub_uri": "Q20979", "obj_uri": "Q16", "sub_label": "Dogrib", "obj_label": "Canada"}
+{"sub_uri": "Q21057", "obj_uri": "Q16", "sub_label": "Gwich\u2019in", "obj_label": "Canada"}
+{"sub_uri": "Q23016", "obj_uri": "Q16", "sub_label": "Tatshenshini River", "obj_label": "Canada"}
+{"sub_uri": "Q23021", "obj_uri": "Q16", "sub_label": "Fort St. John", "obj_label": "Canada"}
+{"sub_uri": "Q23025", "obj_uri": "Q16", "sub_label": "Red Deer", "obj_label": "Canada"}
+{"sub_uri": "Q23137", "obj_uri": "Q16", "sub_label": "1869 Saxby Gale", "obj_label": "Canada"}
+{"sub_uri": "Q24038", "obj_uri": "Q16", "sub_label": "2013 World Figure Skating Championships", "obj_label": "Canada"}
+{"sub_uri": "Q24168", "obj_uri": "Q16", "sub_label": "Privy Council Office", "obj_label": "Canada"}
+{"sub_uri": "Q24305", "obj_uri": "Q16", "sub_label": "HMCS Belleville", "obj_label": "Canada"}
+{"sub_uri": "Q24412", "obj_uri": "Q16", "sub_label": "Hibernia oil field", "obj_label": "Canada"}
+{"sub_uri": "Q24559", "obj_uri": "Q16", "sub_label": "Office of the Prime Minister and Privy Council", "obj_label": "Canada"}
+{"sub_uri": "Q24569", "obj_uri": "Q16", "sub_label": "Office of the Prime Minister", "obj_label": "Canada"}
+{"sub_uri": "Q24626", "obj_uri": "Q16", "sub_label": "Microvariability and Oscillations of Stars", "obj_label": "Canada"}
+{"sub_uri": "Q24639", "obj_uri": "Q16", "sub_label": "Vancouver", "obj_label": "Canada"}
+{"sub_uri": "Q25038", "obj_uri": "Q16", "sub_label": "H\u00f4pital Louis-H. Lafontaine", "obj_label": "Canada"}
+{"sub_uri": "Q25271", "obj_uri": "Q16", "sub_label": "International Space Station", "obj_label": "Canada"}
+{"sub_uri": "Q25387", "obj_uri": "Q16", "sub_label": "Royal Canadian Navy", "obj_label": "Canada"}
+{"sub_uri": "Q25436", "obj_uri": "Q16", "sub_label": "Canadian Army", "obj_label": "Canada"}
+{"sub_uri": "Q25456", "obj_uri": "Q16", "sub_label": "Royal Canadian Air Force", "obj_label": "Canada"}
+{"sub_uri": "Q25622", "obj_uri": "Q16", "sub_label": "Bow Lake", "obj_label": "Canada"}
+{"sub_uri": "Q25683", "obj_uri": "Q16", "sub_label": "Crowfoot Mountain", "obj_label": "Canada"}
+{"sub_uri": "Q26284", "obj_uri": "Q16", "sub_label": "Kontinental Hockey League All-Star Game", "obj_label": "Canada"}
+{"sub_uri": "Q26862", "obj_uri": "Q16", "sub_label": "H\u00e4n people", "obj_label": "Canada"}
+{"sub_uri": "Q27183", "obj_uri": "Q16", "sub_label": "Inupiat", "obj_label": "Canada"}
+{"sub_uri": "Q27364", "obj_uri": "Q16", "sub_label": "Osisko Lake", "obj_label": "Canada"}
+{"sub_uri": "Q27537", "obj_uri": "Q16", "sub_label": "2009 World Junior Ice Hockey Championships", "obj_label": "Canada"}
+{"sub_uri": "Q27631", "obj_uri": "Q16", "sub_label": "Remembrance Day", "obj_label": "Canada"}
+{"sub_uri": "Q27692", "obj_uri": "Q16", "sub_label": "Chipewyan", "obj_label": "Canada"}
+{"sub_uri": "Q27702", "obj_uri": "Q16", "sub_label": "October Crisis", "obj_label": "Canada"}
+{"sub_uri": "Q27785", "obj_uri": "Q16", "sub_label": "Dena'ina", "obj_label": "Canada"}
+{"sub_uri": "Q27792", "obj_uri": "Q16", "sub_label": "Tlingit", "obj_label": "Canada"}
+{"sub_uri": "Q27864", "obj_uri": "Q16", "sub_label": "Babine-Witsuwit'en", "obj_label": "Canada"}
+{"sub_uri": "Q27990", "obj_uri": "Q16", "sub_label": "Inuvialuk language", "obj_label": "Canada"}
+{"sub_uri": "Q28064", "obj_uri": "Q16", "sub_label": "Tagish", "obj_label": "Canada"}
+{"sub_uri": "Q28070", "obj_uri": "Q16", "sub_label": "Inuinnaqtun", "obj_label": "Canada"}
+{"sub_uri": "Q28092", "obj_uri": "Q16", "sub_label": "Algonquin", "obj_label": "Canada"}
+{"sub_uri": "Q28272", "obj_uri": "Q16", "sub_label": "H\u00e4n", "obj_label": "Canada"}
+{"sub_uri": "Q28281", "obj_uri": "Q16", "sub_label": "Upper Tanana", "obj_label": "Canada"}
+{"sub_uri": "Q28535", "obj_uri": "Q16", "sub_label": "Tsilhqot\u02b9in", "obj_label": "Canada"}
+{"sub_uri": "Q28562", "obj_uri": "Q16", "sub_label": "Sekani", "obj_label": "Canada"}
+{"sub_uri": "Q28878", "obj_uri": "Q16", "sub_label": "Banks Island", "obj_label": "Canada"}
+{"sub_uri": "Q29030", "obj_uri": "Q16", "sub_label": "Princess Royal Island", "obj_label": "Canada"}
+{"sub_uri": "Q29144", "obj_uri": "Q16", "sub_label": "National Hockey League All-Star Game", "obj_label": "Canada"}
+{"sub_uri": "Q30125", "obj_uri": "Q16", "sub_label": "Tahltan", "obj_label": "Canada"}
+{"sub_uri": "Q30216", "obj_uri": "Q16", "sub_label": "common law", "obj_label": "Canada"}
+{"sub_uri": "Q31379", "obj_uri": "Q16", "sub_label": "La Grande River", "obj_label": "Canada"}
+{"sub_uri": "Q31772", "obj_uri": "Q16", "sub_label": "Moresby Island", "obj_label": "Canada"}
+{"sub_uri": "Q32967", "obj_uri": "Q16", "sub_label": "Cayuga", "obj_label": "Canada"}
+{"sub_uri": "Q33060", "obj_uri": "Q16", "sub_label": "Blackfoot", "obj_label": "Canada"}
+{"sub_uri": "Q33303", "obj_uri": "Q16", "sub_label": "Haida", "obj_label": "Canada"}
+{"sub_uri": "Q33333", "obj_uri": "Q16", "sub_label": "Newfoundland pony", "obj_label": "Canada"}
+{"sub_uri": "Q33385", "obj_uri": "Q16", "sub_label": "Hutterite German", "obj_label": "Canada"}
+{"sub_uri": "Q33434", "obj_uri": "Q16", "sub_label": "Kutenai", "obj_label": "Canada"}
+{"sub_uri": "Q33537", "obj_uri": "Q16", "sub_label": "Lakota", "obj_label": "Canada"}
+{"sub_uri": "Q33690", "obj_uri": "Q16", "sub_label": "Kashubian", "obj_label": "Canada"}
+{"sub_uri": "Q33974", "obj_uri": "Q16", "sub_label": "Goderich", "obj_label": "Canada"}
+{"sub_uri": "Q34047", "obj_uri": "Q16", "sub_label": "Brockville", "obj_label": "Canada"}
+{"sub_uri": "Q34116", "obj_uri": "Q16", "sub_label": "Thunder Bay", "obj_label": "Canada"}
+{"sub_uri": "Q34154", "obj_uri": "Q16", "sub_label": "Lillooet", "obj_label": "Canada"}
+{"sub_uri": "Q34180", "obj_uri": "Q16", "sub_label": "Brantford", "obj_label": "Canada"}
+{"sub_uri": "Q34183", "obj_uri": "Q16", "sub_label": "Barrie", "obj_label": "Canada"}
+{"sub_uri": "Q34184", "obj_uri": "Q16", "sub_label": "Westport", "obj_label": "Canada"}
+{"sub_uri": "Q34218", "obj_uri": "Q16", "sub_label": "Burlington", "obj_label": "Canada"}
+{"sub_uri": "Q34221", "obj_uri": "Q16", "sub_label": "Niagara Falls", "obj_label": "Canada"}
+{"sub_uri": "Q34227", "obj_uri": "Q16", "sub_label": "Belleville", "obj_label": "Canada"}
+{"sub_uri": "Q35114", "obj_uri": "Q16", "sub_label": "Bungi Creole", "obj_label": "Canada"}
+{"sub_uri": "Q35173", "obj_uri": "Q16", "sub_label": "Chinook Jargon", "obj_label": "Canada"}
+{"sub_uri": "Q35301", "obj_uri": "Q16", "sub_label": "Quebec Winter Carnival", "obj_label": "Canada"}
+{"sub_uri": "Q35388", "obj_uri": "Q16", "sub_label": "Halkomelem", "obj_label": "Canada"}
+{"sub_uri": "Q35546", "obj_uri": "Q16", "sub_label": "Montreal Screwjob", "obj_label": "Canada"}
+{"sub_uri": "Q36130", "obj_uri": "Q16", "sub_label": "1988 Royal Rumble", "obj_label": "Canada"}
+{"sub_uri": "Q36312", "obj_uri": "Q16", "sub_label": "Calgary", "obj_label": "Canada"}
+{"sub_uri": "Q36444", "obj_uri": "Q16", "sub_label": "North Straits Salish language", "obj_label": "Canada"}
+{"sub_uri": "Q36504", "obj_uri": "Q16", "sub_label": "Sioux Lookout", "obj_label": "Canada"}
+{"sub_uri": "Q36747", "obj_uri": "Q16", "sub_label": "Indigenous peoples of America", "obj_label": "Canada"}
+{"sub_uri": "Q36748", "obj_uri": "Q16", "sub_label": "Pontic Greek", "obj_label": "Canada"}
+{"sub_uri": "Q36750", "obj_uri": "Q16", "sub_label": "Dutton/Dunwich", "obj_label": "Canada"}
+{"sub_uri": "Q36845", "obj_uri": "Q16", "sub_label": "M'Clintock Channel", "obj_label": "Canada"}
+{"sub_uri": "Q36944", "obj_uri": "Q16", "sub_label": "Tuscarora", "obj_label": "Canada"}
+{"sub_uri": "Q37040", "obj_uri": "Q16", "sub_label": "Baffin Bay", "obj_label": "Canada"}
+{"sub_uri": "Q37252", "obj_uri": "Q16", "sub_label": "Promontory Falls", "obj_label": "Canada"}
+{"sub_uri": "Q37258", "obj_uri": "Q16", "sub_label": "Weir's Falls", "obj_label": "Canada"}
+{"sub_uri": "Q37259", "obj_uri": "Q16", "sub_label": "Lower Fruitland Falls", "obj_label": "Canada"}
+{"sub_uri": "Q37269", "obj_uri": "Q16", "sub_label": "Wilberforce Falls", "obj_label": "Canada"}
+{"sub_uri": "Q37272", "obj_uri": "Q16", "sub_label": "Nairn Falls Provincial Park", "obj_label": "Canada"}
+{"sub_uri": "Q37289", "obj_uri": "Q16", "sub_label": "Bow Falls", "obj_label": "Canada"}
+{"sub_uri": "Q37336", "obj_uri": "Q16", "sub_label": "Pokiok Falls", "obj_label": "Canada"}
+{"sub_uri": "Q37348", "obj_uri": "Q16", "sub_label": "Lewis Road East Falls", "obj_label": "Canada"}
+{"sub_uri": "Q37350", "obj_uri": "Q16", "sub_label": "Lower Little Falls", "obj_label": "Canada"}
+{"sub_uri": "Q37356", "obj_uri": "Q16", "sub_label": "Cliffview Falls", "obj_label": "Canada"}
+{"sub_uri": "Q37367", "obj_uri": "Q16", "sub_label": "Wapta Falls", "obj_label": "Canada"}
+{"sub_uri": "Q37368", "obj_uri": "Q16", "sub_label": "Upper Hopkins Cascade", "obj_label": "Canada"}
+{"sub_uri": "Q37369", "obj_uri": "Q16", "sub_label": "Keyhole Falls", "obj_label": "Canada"}
+{"sub_uri": "Q37376", "obj_uri": "Q16", "sub_label": "Spring Falls", "obj_label": "Canada"}
+{"sub_uri": "Q37380", "obj_uri": "Q16", "sub_label": "Wall Falls", "obj_label": "Canada"}
+{"sub_uri": "Q37381", "obj_uri": "Q16", "sub_label": "Webster's Falls", "obj_label": "Canada"}
+{"sub_uri": "Q37384", "obj_uri": "Q16", "sub_label": "Puddicombe Falls", "obj_label": "Canada"}
+{"sub_uri": "Q37396", "obj_uri": "Q16", "sub_label": "Alexandra Falls", "obj_label": "Canada"}
+{"sub_uri": "Q37397", "obj_uri": "Q16", "sub_label": "Similkameen Falls", "obj_label": "Canada"}
+{"sub_uri": "Q37398", "obj_uri": "Q16", "sub_label": "West Iroquoia Falls", "obj_label": "Canada"}
+{"sub_uri": "Q37411", "obj_uri": "Q16", "sub_label": "Dawson Falls", "obj_label": "Canada"}
+{"sub_uri": "Q37416", "obj_uri": "Q16", "sub_label": "Sisters of Mary Falls", "obj_label": "Canada"}
+{"sub_uri": "Q37417", "obj_uri": "Q16", "sub_label": "Lower Snake Falls", "obj_label": "Canada"}
+{"sub_uri": "Q37430", "obj_uri": "Q16", "sub_label": "Still Brook Waterfall", "obj_label": "Canada"}
+{"sub_uri": "Q37434", "obj_uri": "Q16", "sub_label": "Shaver Falls", "obj_label": "Canada"}
+{"sub_uri": "Q37435", "obj_uri": "Q16", "sub_label": "Centennial Falls", "obj_label": "Canada"}
+{"sub_uri": "Q37440", "obj_uri": "Q16", "sub_label": "Ferguson Falls", "obj_label": "Canada"}
+{"sub_uri": "Q37444", "obj_uri": "Q16", "sub_label": "Lower Hopkins Cascade", "obj_label": "Canada"}
+{"sub_uri": "Q37455", "obj_uri": "Q16", "sub_label": "Scenic Falls", "obj_label": "Canada"}
+{"sub_uri": "Q37457", "obj_uri": "Q16", "sub_label": "Sydenham Falls", "obj_label": "Canada"}
+{"sub_uri": "Q37458", "obj_uri": "Q16", "sub_label": "Stephanie Falls", "obj_label": "Canada"}
+{"sub_uri": "Q37483", "obj_uri": "Q16", "sub_label": "Chedoke Falls", "obj_label": "Canada"}
+{"sub_uri": "Q37490", "obj_uri": "Q16", "sub_label": "Butedale Falls", "obj_label": "Canada"}
+{"sub_uri": "Q37496", "obj_uri": "Q16", "sub_label": "Pond Falls", "obj_label": "Canada"}
+{"sub_uri": "Q37500", "obj_uri": "Q16", "sub_label": "Snake Falls", "obj_label": "Canada"}
+{"sub_uri": "Q37502", "obj_uri": "Q16", "sub_label": "Lewis Road West Falls", "obj_label": "Canada"}
+{"sub_uri": "Q37511", "obj_uri": "Q16", "sub_label": "Borer's Falls", "obj_label": "Canada"}
+{"sub_uri": "Q37512", "obj_uri": "Q16", "sub_label": "Mill Falls", "obj_label": "Canada"}
+{"sub_uri": "Q37522", "obj_uri": "Q16", "sub_label": "Chutes de la Chaudi\u00e8re", "obj_label": "Canada"}
+{"sub_uri": "Q37523", "obj_uri": "Q16", "sub_label": "Dyment Falls", "obj_label": "Canada"}
+{"sub_uri": "Q37526", "obj_uri": "Q16", "sub_label": "Mountview Falls", "obj_label": "Canada"}
+{"sub_uri": "Q37528", "obj_uri": "Q16", "sub_label": "Boundary Falls", "obj_label": "Canada"}
+{"sub_uri": "Q37536", "obj_uri": "Q16", "sub_label": "Little Rock Chapel Falls", "obj_label": "Canada"}
+{"sub_uri": "Q37593", "obj_uri": "Q16", "sub_label": "Pyramid Creek Falls Provincial Park", "obj_label": "Canada"}
+{"sub_uri": "Q37596", "obj_uri": "Q16", "sub_label": "Bishop's Falls", "obj_label": "Canada"}
+{"sub_uri": "Q37601", "obj_uri": "Q16", "sub_label": "Glendale Falls", "obj_label": "Canada"}
+{"sub_uri": "Q37623", "obj_uri": "Q16", "sub_label": "Middle Quarry Cascade", "obj_label": "Canada"}
+{"sub_uri": "Q37625", "obj_uri": "Q16", "sub_label": "Progreston Falls", "obj_label": "Canada"}
+{"sub_uri": "Q37630", "obj_uri": "Q16", "sub_label": "Little Davis Falls", "obj_label": "Canada"}
+{"sub_uri": "Q37633", "obj_uri": "Q16", "sub_label": "Alexander Falls", "obj_label": "Canada"}
+{"sub_uri": "Q37691", "obj_uri": "Q16", "sub_label": "Ashlu Falls", "obj_label": "Canada"}
+{"sub_uri": "Q37695", "obj_uri": "Q16", "sub_label": "Lower Quarry Cascade", "obj_label": "Canada"}
+{"sub_uri": "Q37698", "obj_uri": "Q16", "sub_label": "Springhill Falls", "obj_label": "Canada"}
+{"sub_uri": "Q37702", "obj_uri": "Q16", "sub_label": "Dewitt Falls", "obj_label": "Canada"}
+{"sub_uri": "Q37703", "obj_uri": "Q16", "sub_label": "Emperor Falls", "obj_label": "Canada"}
+{"sub_uri": "Q37706", "obj_uri": "Q16", "sub_label": "Betzner Falls", "obj_label": "Canada"}
+{"sub_uri": "Q37712", "obj_uri": "Q16", "sub_label": "Rainbow Falls", "obj_label": "Canada"}
+{"sub_uri": "Q37745", "obj_uri": "Q16", "sub_label": "Arctomys Falls", "obj_label": "Canada"}
+{"sub_uri": "Q37757", "obj_uri": "Q16", "sub_label": "Sherman Falls", "obj_label": "Canada"}
+{"sub_uri": "Q37759", "obj_uri": "Q16", "sub_label": "Fifty Road Cascade", "obj_label": "Canada"}
+{"sub_uri": "Q37761", "obj_uri": "Q16", "sub_label": "Upper Shaver Falls", "obj_label": "Canada"}
+{"sub_uri": "Q37799", "obj_uri": "Q16", "sub_label": "Churchill Falls", "obj_label": "Canada"}
+{"sub_uri": "Q37812", "obj_uri": "Q16", "sub_label": "Blaeberry Falls", "obj_label": "Canada"}
+{"sub_uri": "Q37816", "obj_uri": "Q16", "sub_label": "Ridge Falls", "obj_label": "Canada"}
+{"sub_uri": "Q37825", "obj_uri": "Q16", "sub_label": "Tew's Falls", "obj_label": "Canada"}
+{"sub_uri": "Q37833", "obj_uri": "Q16", "sub_label": "Lafarge Falls", "obj_label": "Canada"}
+{"sub_uri": "Q37835", "obj_uri": "Q16", "sub_label": "\u00cele Anselme-Fay", "obj_label": "Canada"}
+{"sub_uri": "Q37846", "obj_uri": "Q16", "sub_label": "Upper Princess Falls", "obj_label": "Canada"}
+{"sub_uri": "Q37849", "obj_uri": "Q16", "sub_label": "Bridal Veil Falls Provincial Park", "obj_label": "Canada"}
+{"sub_uri": "Q37852", "obj_uri": "Q16", "sub_label": "Crescent Falls", "obj_label": "Canada"}
+{"sub_uri": "Q37860", "obj_uri": "Q16", "sub_label": "Upper Sanatorium Falls", "obj_label": "Canada"}
+{"sub_uri": "Q37862", "obj_uri": "Q16", "sub_label": "Billy Green Falls", "obj_label": "Canada"}
+{"sub_uri": "Q37865", "obj_uri": "Q16", "sub_label": "Bow Glacier Falls", "obj_label": "Canada"}
+{"sub_uri": "Q37867", "obj_uri": "Q16", "sub_label": "West of Fifty Lower Falls", "obj_label": "Canada"}
+{"sub_uri": "Q37869", "obj_uri": "Q16", "sub_label": "Washboard Falls", "obj_label": "Canada"}
+{"sub_uri": "Q37870", "obj_uri": "Q16", "sub_label": "Felker's Falls", "obj_label": "Canada"}
+{"sub_uri": "Q37875", "obj_uri": "Q16", "sub_label": "Lower Beckett Falls", "obj_label": "Canada"}
+{"sub_uri": "Q37877", "obj_uri": "Q16", "sub_label": "Erland Falls", "obj_label": "Canada"}
+{"sub_uri": "Q37889", "obj_uri": "Q16", "sub_label": "Albion Falls", "obj_label": "Canada"}
+{"sub_uri": "Q37890", "obj_uri": "Q16", "sub_label": "Upper Beckett Falls", "obj_label": "Canada"}
+{"sub_uri": "Q37895", "obj_uri": "Q16", "sub_label": "Grindstone Cascade", "obj_label": "Canada"}
+{"sub_uri": "Q37897", "obj_uri": "Q16", "sub_label": "Hermitage Cascade", "obj_label": "Canada"}
+{"sub_uri": "Q37902", "obj_uri": "Q16", "sub_label": "Lower Westcliffe Falls", "obj_label": "Canada"}
+{"sub_uri": "Q37921", "obj_uri": "Q16", "sub_label": "Old Dundas Road Falls", "obj_label": "Canada"}
+{"sub_uri": "Q37927", "obj_uri": "Q16", "sub_label": "Darnley Cascade", "obj_label": "Canada"}
+{"sub_uri": "Q37928", "obj_uri": "Q16", "sub_label": "Samuel Cascade", "obj_label": "Canada"}
+{"sub_uri": "Q37935", "obj_uri": "Q16", "sub_label": "West of Fifty Upper Cascade", "obj_label": "Canada"}
+{"sub_uri": "Q37938", "obj_uri": "Q16", "sub_label": "Princess Falls", "obj_label": "Canada"}
+{"sub_uri": "Q37942", "obj_uri": "Q16", "sub_label": "McNeilly Falls", "obj_label": "Canada"}
+{"sub_uri": "Q37943", "obj_uri": "Q16", "sub_label": "East Glover's Falls", "obj_label": "Canada"}
+{"sub_uri": "Q37945", "obj_uri": "Q16", "sub_label": "Tallman East Falls", "obj_label": "Canada"}
+{"sub_uri": "Q37949", "obj_uri": "Q16", "sub_label": "Overlander Falls", "obj_label": "Canada"}
+{"sub_uri": "Q37953", "obj_uri": "Q16", "sub_label": "Chatterbox Falls", "obj_label": "Canada"}
+{"sub_uri": "Q37956", "obj_uri": "Q16", "sub_label": "Quarry Falls", "obj_label": "Canada"}
+{"sub_uri": "Q37962", "obj_uri": "Q16", "sub_label": "Swiftcurrent Falls", "obj_label": "Canada"}
+{"sub_uri": "Q37984", "obj_uri": "Q16", "sub_label": "Lower Sanatorium Cascade", "obj_label": "Canada"}
+{"sub_uri": "Q38005", "obj_uri": "Q16", "sub_label": "McNeilly West Falls", "obj_label": "Canada"}
+{"sub_uri": "Q38007", "obj_uri": "Q16", "sub_label": "Canterbury Falls", "obj_label": "Canada"}
+{"sub_uri": "Q38011", "obj_uri": "Q16", "sub_label": "Grand Cascade", "obj_label": "Canada"}
+{"sub_uri": "Q38021", "obj_uri": "Q16", "sub_label": "Westcliffe Falls", "obj_label": "Canada"}
+{"sub_uri": "Q38024", "obj_uri": "Q16", "sub_label": "St. Anne Falls", "obj_label": "Canada"}
+{"sub_uri": "Q38028", "obj_uri": "Q16", "sub_label": "Greensville Falls", "obj_label": "Canada"}
+{"sub_uri": "Q38031", "obj_uri": "Q16", "sub_label": "East Iroquoia Falls", "obj_label": "Canada"}
+{"sub_uri": "Q38033", "obj_uri": "Q16", "sub_label": "Angel's Staircase Falls", "obj_label": "Canada"}
+{"sub_uri": "Q38044", "obj_uri": "Q16", "sub_label": "Moul Falls", "obj_label": "Canada"}
+{"sub_uri": "Q38052", "obj_uri": "Q16", "sub_label": "Dundas Falls", "obj_label": "Canada"}
+{"sub_uri": "Q38058", "obj_uri": "Q16", "sub_label": "Ancaster Heights Falls", "obj_label": "Canada"}
+{"sub_uri": "Q38070", "obj_uri": "Q16", "sub_label": "Denlow Falls", "obj_label": "Canada"}
+{"sub_uri": "Q38079", "obj_uri": "Q16", "sub_label": "Fruitland Falls", "obj_label": "Canada"}
+{"sub_uri": "Q38085", "obj_uri": "Q16", "sub_label": "McDiarmid Falls", "obj_label": "Canada"}
+{"sub_uri": "Q38249", "obj_uri": "Q16", "sub_label": "Tallman West Falls", "obj_label": "Canada"}
+{"sub_uri": "Q38260", "obj_uri": "Q16", "sub_label": "Jones Road Falls", "obj_label": "Canada"}
+{"sub_uri": "Q38279", "obj_uri": "Q16", "sub_label": "Buttermilk Falls", "obj_label": "Canada"}
+{"sub_uri": "Q38286", "obj_uri": "Q16", "sub_label": "Veever's Falls", "obj_label": "Canada"}
+{"sub_uri": "Q38296", "obj_uri": "Q16", "sub_label": "Glover's Falls", "obj_label": "Canada"}
+{"sub_uri": "Q38307", "obj_uri": "Q16", "sub_label": "West Vinemount Falls", "obj_label": "Canada"}
+{"sub_uri": "Q38424", "obj_uri": "Q16", "sub_label": "Devil's Punch Bowl", "obj_label": "Canada"}
+{"sub_uri": "Q38481", "obj_uri": "Q16", "sub_label": "Shannon Falls Provincial Park", "obj_label": "Canada"}
+{"sub_uri": "Q38500", "obj_uri": "Q16", "sub_label": "Rearguard Falls Provincial Park", "obj_label": "Canada"}
+{"sub_uri": "Q38558", "obj_uri": "Q16", "sub_label": "Declaration of Montreal", "obj_label": "Canada"}
+{"sub_uri": "Q38596", "obj_uri": "Q16", "sub_label": "Crypt Falls", "obj_label": "Canada"}
+{"sub_uri": "Q38604", "obj_uri": "Q16", "sub_label": "Virginia Falls", "obj_label": "Canada"}
+{"sub_uri": "Q38663", "obj_uri": "Q16", "sub_label": "Canadian Kennel Club", "obj_label": "Canada"}
+{"sub_uri": "Q38676", "obj_uri": "Q16", "sub_label": "Agnico-Eagle Mines", "obj_label": "Canada"}
+{"sub_uri": "Q38700", "obj_uri": "Q16", "sub_label": "Little Falls", "obj_label": "Canada"}
+{"sub_uri": "Q38713", "obj_uri": "Q16", "sub_label": "Middle Vinemount Falls", "obj_label": "Canada"}
+{"sub_uri": "Q38727", "obj_uri": "Q16", "sub_label": "Mineral Springs Falls", "obj_label": "Canada"}
+{"sub_uri": "Q38732", "obj_uri": "Q16", "sub_label": "B.X. Falls", "obj_label": "Canada"}
+{"sub_uri": "Q38740", "obj_uri": "Q16", "sub_label": "Vinemount East Falls", "obj_label": "Canada"}
+{"sub_uri": "Q38760", "obj_uri": "Q16", "sub_label": "East of Fifty Falls", "obj_label": "Canada"}
+{"sub_uri": "Q38763", "obj_uri": "Q16", "sub_label": "Tiffany Falls", "obj_label": "Canada"}
+{"sub_uri": "Q38765", "obj_uri": "Q16", "sub_label": "Heritage Falls", "obj_label": "Canada"}
+{"sub_uri": "Q39079", "obj_uri": "Q16", "sub_label": "vehicle registration plates of Canada", "obj_label": "Canada"}
+{"sub_uri": "Q39149", "obj_uri": "Q16", "sub_label": "Foxboro", "obj_label": "Canada"}
+{"sub_uri": "Q39582", "obj_uri": "Q16", "sub_label": ".ca", "obj_label": "Canada"}
+{"sub_uri": "Q39628", "obj_uri": "Q16", "sub_label": "Biblioth\u00e8que et Archives nationales du Qu\u00e9bec", "obj_label": "Canada"}
+{"sub_uri": "Q39858", "obj_uri": "Q16", "sub_label": "Pointe-au-P\u00e8re Lighthouse", "obj_label": "Canada"}
+{"sub_uri": "Q40133", "obj_uri": "Q16", "sub_label": "Tin Can Cathedral", "obj_label": "Canada"}
+{"sub_uri": "Q40410", "obj_uri": "Q16", "sub_label": "Strait of Canso", "obj_label": "Canada"}
+{"sub_uri": "Q40650", "obj_uri": "Q16", "sub_label": "Imperial Oil", "obj_label": "Canada"}
+{"sub_uri": "Q41302", "obj_uri": "Q16", "sub_label": "2011 Canadian federal election", "obj_label": "Canada"}
+{"sub_uri": "Q41423", "obj_uri": "Q16", "sub_label": "A Mari Usque Ad Mare", "obj_label": "Canada"}
+{"sub_uri": "Q41507", "obj_uri": "Q16", "sub_label": "Green Mountains", "obj_label": "Canada"}
+{"sub_uri": "Q41549", "obj_uri": "Q16", "sub_label": "Arms of Canada", "obj_label": "Canada"}
+{"sub_uri": "Q41858", "obj_uri": "Q16", "sub_label": "Banff National Park", "obj_label": "Canada"}
+{"sub_uri": "Q42884", "obj_uri": "Q16", "sub_label": "Germans", "obj_label": "Canada"}
+{"sub_uri": "Q43396", "obj_uri": "Q16", "sub_label": "CKIS-FM", "obj_label": "Canada"}
+{"sub_uri": "Q43465", "obj_uri": "Q16", "sub_label": "Britannia Beach, British Columbia", "obj_label": "Canada"}
+{"sub_uri": "Q43743", "obj_uri": "Q16", "sub_label": "Continental Divide of the Americas", "obj_label": "Canada"}
+{"sub_uri": "Q43990", "obj_uri": "Q16", "sub_label": "Caniapiscau River", "obj_label": "Canada"}
+{"sub_uri": "Q44012", "obj_uri": "Q16", "sub_label": "Trois-Rivi\u00e8res", "obj_label": "Canada"}
+{"sub_uri": "Q44013", "obj_uri": "Q16", "sub_label": "Vaughan", "obj_label": "Canada"}
+{"sub_uri": "Q44016", "obj_uri": "Q16", "sub_label": "Markham", "obj_label": "Canada"}
+{"sub_uri": "Q44149", "obj_uri": "Q16", "sub_label": "Hamilton Tiger-Cats", "obj_label": "Canada"}
+{"sub_uri": "Q44163", "obj_uri": "Q16", "sub_label": "Koksoak River", "obj_label": "Canada"}
+{"sub_uri": "Q44198", "obj_uri": "Q16", "sub_label": "Brampton", "obj_label": "Canada"}
+{"sub_uri": "Q44558", "obj_uri": "Q16", "sub_label": "Underground City", "obj_label": "Canada"}
+{"sub_uri": "Q44676", "obj_uri": "Q16", "sub_label": "Canadian English", "obj_label": "Canada"}
+{"sub_uri": "Q44949", "obj_uri": "Q16", "sub_label": "Bukharan Jews", "obj_label": "Canada"}
+{"sub_uri": "Q45971", "obj_uri": "Q16", "sub_label": "CIOK-FM", "obj_label": "Canada"}
+{"sub_uri": "Q46163", "obj_uri": "Q16", "sub_label": "Esperantic Studies Foundation", "obj_label": "Canada"}
+{"sub_uri": "Q46615", "obj_uri": "Q16", "sub_label": "Summit Series", "obj_label": "Canada"}
+{"sub_uri": "Q46974", "obj_uri": "Q16", "sub_label": "Canadian Pacific Railway", "obj_label": "Canada"}
+{"sub_uri": "Q48125", "obj_uri": "Q16", "sub_label": "NEMA connector", "obj_label": "Canada"}
+{"sub_uri": "Q48335", "obj_uri": "Q16", "sub_label": "Newfoundland", "obj_label": "Canada"}
+{"sub_uri": "Q48719", "obj_uri": "Q16", "sub_label": "Saint Elias Mountains", "obj_label": "Canada"}
+{"sub_uri": "Q48785", "obj_uri": "Q16", "sub_label": "Asbestos", "obj_label": "Canada"}
+{"sub_uri": "Q49540", "obj_uri": "Q16", "sub_label": "Latvians", "obj_label": "Canada"}
+{"sub_uri": "Q49542", "obj_uri": "Q16", "sub_label": "Russians", "obj_label": "Canada"}
+{"sub_uri": "Q50001", "obj_uri": "Q16", "sub_label": "Italians", "obj_label": "Canada"}
+{"sub_uri": "Q50572", "obj_uri": "Q16", "sub_label": "Pirate Party", "obj_label": "Canada"}
+{"sub_uri": "Q50811", "obj_uri": "Q16", "sub_label": "Regional Municipality of Peel", "obj_label": "Canada"}
+{"sub_uri": "Q50816", "obj_uri": "Q16", "sub_label": "Mississauga", "obj_label": "Canada"}
+{"sub_uri": "Q50850", "obj_uri": "Q16", "sub_label": "WrestleMania VI", "obj_label": "Canada"}
+{"sub_uri": "Q50898", "obj_uri": "Q16", "sub_label": "WrestleMania X8", "obj_label": "Canada"}
+{"sub_uri": "Q51557", "obj_uri": "Q16", "sub_label": "Sainte-Anne-des-Monts", "obj_label": "Canada"}
+{"sub_uri": "Q51572", "obj_uri": "Q16", "sub_label": "HMCS Ojibwa", "obj_label": "Canada"}
+{"sub_uri": "Q52432", "obj_uri": "Q16", "sub_label": "Louis Riel", "obj_label": "Canada"}
+{"sub_uri": "Q52998", "obj_uri": "Q16", "sub_label": "Richmond Hill", "obj_label": "Canada"}
+{"sub_uri": "Q52999", "obj_uri": "Q16", "sub_label": "Newmarket", "obj_label": "Canada"}
+{"sub_uri": "Q54369", "obj_uri": "Q16", "sub_label": "Line 1 Yonge\u2013University", "obj_label": "Canada"}
+{"sub_uri": "Q54371", "obj_uri": "Q16", "sub_label": "Line 2 Bloor\u2013Danforth", "obj_label": "Canada"}
+{"sub_uri": "Q54372", "obj_uri": "Q16", "sub_label": "Line 3 Scarborough", "obj_label": "Canada"}
+{"sub_uri": "Q54373", "obj_uri": "Q16", "sub_label": "Line 4 Sheppard", "obj_label": "Canada"}
+{"sub_uri": "Q55145", "obj_uri": "Q16", "sub_label": "MetaLab, Ltd.", "obj_label": "Canada"}
+{"sub_uri": "Q56234", "obj_uri": "Q16", "sub_label": "Beothuk", "obj_label": "Canada"}
+{"sub_uri": "Q56305", "obj_uri": "Q16", "sub_label": "Woods Cree", "obj_label": "Canada"}
+{"sub_uri": "Q56494", "obj_uri": "Q16", "sub_label": "Oji-Cree", "obj_label": "Canada"}
+{"sub_uri": "Q56495", "obj_uri": "Q16", "sub_label": "Judeo-Tat", "obj_label": "Canada"}
+{"sub_uri": "Q56547", "obj_uri": "Q16", "sub_label": "Munsee", "obj_label": "Canada"}
+{"sub_uri": "Q56590", "obj_uri": "Q16", "sub_label": "Atikamekw", "obj_label": "Canada"}
+{"sub_uri": "Q56696", "obj_uri": "Q16", "sub_label": "Swampy Cree", "obj_label": "Canada"}
+{"sub_uri": "Q56699", "obj_uri": "Q16", "sub_label": "Plains Cree", "obj_label": "Canada"}
+{"sub_uri": "Q58337", "obj_uri": "Q16", "sub_label": "Banff", "obj_label": "Canada"}
+{"sub_uri": "Q58615", "obj_uri": "Q16", "sub_label": "Arborg", "obj_label": "Canada"}
+{"sub_uri": "Q59320", "obj_uri": "Q16", "sub_label": "King Peak", "obj_label": "Canada"}
+{"sub_uri": "Q59375", "obj_uri": "Q16", "sub_label": "2004 SummerSlam", "obj_label": "Canada"}
+{"sub_uri": "Q59446", "obj_uri": "Q16", "sub_label": "Moose River", "obj_label": "Canada"}
+{"sub_uri": "Q59464", "obj_uri": "Q16", "sub_label": "Mattagami River", "obj_label": "Canada"}
+{"sub_uri": "Q59480", "obj_uri": "Q16", "sub_label": "Missinaibi River", "obj_label": "Canada"}
+{"sub_uri": "Q59647", "obj_uri": "Q16", "sub_label": "Abitibi River", "obj_label": "Canada"}
+{"sub_uri": "Q60322", "obj_uri": "Q16", "sub_label": "Windsor's Community Museum", "obj_label": "Canada"}
+{"sub_uri": "Q60336", "obj_uri": "Q16", "sub_label": "Fran\u00e7ois Baby House", "obj_label": "Canada"}
+{"sub_uri": "Q60974", "obj_uri": "Q16", "sub_label": "Ottawa River", "obj_label": "Canada"}
+{"sub_uri": "Q61422", "obj_uri": "Q16", "sub_label": "The Pas", "obj_label": "Canada"}
+{"sub_uri": "Q61432", "obj_uri": "Q16", "sub_label": "Brandon", "obj_label": "Canada"}
+{"sub_uri": "Q63631", "obj_uri": "Q16", "sub_label": "MAtv", "obj_label": "Canada"}
+{"sub_uri": "Q63761", "obj_uri": "Q16", "sub_label": "Gladstone", "obj_label": "Canada"}
+{"sub_uri": "Q63836", "obj_uri": "Q16", "sub_label": "La Tabati\u00e8re Airport", "obj_label": "Canada"}
+{"sub_uri": "Q64112", "obj_uri": "Q16", "sub_label": "Dawson College shooting", "obj_label": "Canada"}
+{"sub_uri": "Q64803", "obj_uri": "Q16", "sub_label": "Order of Hockey in Canada", "obj_label": "Canada"}
+{"sub_uri": "Q64833", "obj_uri": "Q16", "sub_label": "Nanaimo Airport", "obj_label": "Canada"}
+{"sub_uri": "Q65284", "obj_uri": "Q16", "sub_label": "1967 Canadian Grand Prix", "obj_label": "Canada"}
+{"sub_uri": "Q65303", "obj_uri": "Q16", "sub_label": "1968 Canadian Grand Prix", "obj_label": "Canada"}
+{"sub_uri": "Q65322", "obj_uri": "Q16", "sub_label": "1969 Canadian Grand Prix", "obj_label": "Canada"}
+{"sub_uri": "Q65341", "obj_uri": "Q16", "sub_label": "1970 Canadian Grand Prix", "obj_label": "Canada"}
+{"sub_uri": "Q65357", "obj_uri": "Q16", "sub_label": "1971 Canadian Grand Prix", "obj_label": "Canada"}
+{"sub_uri": "Q65370", "obj_uri": "Q16", "sub_label": "1972 Canadian Grand Prix", "obj_label": "Canada"}
+{"sub_uri": "Q65387", "obj_uri": "Q16", "sub_label": "1973 Canadian Grand Prix", "obj_label": "Canada"}
+{"sub_uri": "Q65403", "obj_uri": "Q16", "sub_label": "1974 Canadian Grand Prix", "obj_label": "Canada"}
+{"sub_uri": "Q65419", "obj_uri": "Q16", "sub_label": "1976 Canadian Grand Prix", "obj_label": "Canada"}
+{"sub_uri": "Q65436", "obj_uri": "Q16", "sub_label": "1977 Canadian Grand Prix", "obj_label": "Canada"}
+{"sub_uri": "Q65452", "obj_uri": "Q16", "sub_label": "1978 Canadian Grand Prix", "obj_label": "Canada"}
+{"sub_uri": "Q65467", "obj_uri": "Q16", "sub_label": "1979 Canadian Grand Prix", "obj_label": "Canada"}
+{"sub_uri": "Q65483", "obj_uri": "Q16", "sub_label": "1980 Canadian Grand Prix", "obj_label": "Canada"}
+{"sub_uri": "Q65503", "obj_uri": "Q16", "sub_label": "1981 Canadian Grand Prix", "obj_label": "Canada"}
+{"sub_uri": "Q65514", "obj_uri": "Q16", "sub_label": "1982 Canadian Grand Prix", "obj_label": "Canada"}
+{"sub_uri": "Q65524", "obj_uri": "Q16", "sub_label": "1983 Canadian Grand Prix", "obj_label": "Canada"}
+{"sub_uri": "Q65534", "obj_uri": "Q16", "sub_label": "1984 Canadian Grand Prix", "obj_label": "Canada"}
+{"sub_uri": "Q65544", "obj_uri": "Q16", "sub_label": "1985 Canadian Grand Prix", "obj_label": "Canada"}
+{"sub_uri": "Q65563", "obj_uri": "Q16", "sub_label": "1986 Canadian Grand Prix", "obj_label": "Canada"}
+{"sub_uri": "Q65581", "obj_uri": "Q16", "sub_label": "1988 Canadian Grand Prix", "obj_label": "Canada"}
+{"sub_uri": "Q65592", "obj_uri": "Q16", "sub_label": "1989 Canadian Grand Prix", "obj_label": "Canada"}
+{"sub_uri": "Q65611", "obj_uri": "Q16", "sub_label": "1990 Canadian Grand Prix", "obj_label": "Canada"}
+{"sub_uri": "Q65626", "obj_uri": "Q16", "sub_label": "1991 Canadian Grand Prix", "obj_label": "Canada"}
+{"sub_uri": "Q65651", "obj_uri": "Q16", "sub_label": "1992 Canadian Grand Prix", "obj_label": "Canada"}
+{"sub_uri": "Q65662", "obj_uri": "Q16", "sub_label": "1993 Canadian Grand Prix", "obj_label": "Canada"}
+{"sub_uri": "Q65686", "obj_uri": "Q16", "sub_label": "1994 Canadian Grand Prix", "obj_label": "Canada"}
+{"sub_uri": "Q65701", "obj_uri": "Q16", "sub_label": "1995 Canadian Grand Prix", "obj_label": "Canada"}
+{"sub_uri": "Q65714", "obj_uri": "Q16", "sub_label": "1996 Canadian Grand Prix", "obj_label": "Canada"}
+{"sub_uri": "Q65904", "obj_uri": "Q16", "sub_label": "1997 Canadian Grand Prix", "obj_label": "Canada"}
+{"sub_uri": "Q65916", "obj_uri": "Q16", "sub_label": "1998 Canadian Grand Prix", "obj_label": "Canada"}
+{"sub_uri": "Q65931", "obj_uri": "Q16", "sub_label": "1999 Canadian Grand Prix", "obj_label": "Canada"}
+{"sub_uri": "Q65948", "obj_uri": "Q16", "sub_label": "2000 Canadian Grand Prix", "obj_label": "Canada"}
+{"sub_uri": "Q65964", "obj_uri": "Q16", "sub_label": "2001 Canadian Grand Prix", "obj_label": "Canada"}
+{"sub_uri": "Q65988", "obj_uri": "Q16", "sub_label": "2002 Canadian Grand Prix", "obj_label": "Canada"}
+{"sub_uri": "Q66004", "obj_uri": "Q16", "sub_label": "2003 Canadian Grand Prix", "obj_label": "Canada"}
+{"sub_uri": "Q66018", "obj_uri": "Q16", "sub_label": "2004 Canadian Grand Prix", "obj_label": "Canada"}
+{"sub_uri": "Q66028", "obj_uri": "Q16", "sub_label": "2005 Canadian Grand Prix", "obj_label": "Canada"}
+{"sub_uri": "Q66038", "obj_uri": "Q16", "sub_label": "2006 Canadian Grand Prix", "obj_label": "Canada"}
+{"sub_uri": "Q66053", "obj_uri": "Q16", "sub_label": "2007 Canadian Grand Prix", "obj_label": "Canada"}
+{"sub_uri": "Q66064", "obj_uri": "Q16", "sub_label": "2008 Canadian Grand Prix", "obj_label": "Canada"}
+{"sub_uri": "Q66081", "obj_uri": "Q16", "sub_label": "2010 Canadian Grand Prix", "obj_label": "Canada"}
+{"sub_uri": "Q66103", "obj_uri": "Q16", "sub_label": "2011 Canadian Grand Prix", "obj_label": "Canada"}
+{"sub_uri": "Q66118", "obj_uri": "Q16", "sub_label": "2012 Canadian Grand Prix", "obj_label": "Canada"}
+{"sub_uri": "Q68467", "obj_uri": "Q16", "sub_label": "Lake Champlain", "obj_label": "Canada"}
+{"sub_uri": "Q71996", "obj_uri": "Q16", "sub_label": "Harricana River", "obj_label": "Canada"}
+{"sub_uri": "Q72063", "obj_uri": "Q16", "sub_label": "Seal River", "obj_label": "Canada"}
+{"sub_uri": "Q72075", "obj_uri": "Q16", "sub_label": "Thlewiaza River", "obj_label": "Canada"}
+{"sub_uri": "Q72079", "obj_uri": "Q16", "sub_label": "Ekwan River", "obj_label": "Canada"}
+{"sub_uri": "Q72673", "obj_uri": "Q16", "sub_label": "Hayes River", "obj_label": "Canada"}
+{"sub_uri": "Q72895", "obj_uri": "Q16", "sub_label": "Canadian Rocky Mountain Parks World Heritage Site", "obj_label": "Canada"}
+{"sub_uri": "Q74878", "obj_uri": "Q16", "sub_label": "Northwestern Air", "obj_label": "Canada"}
+{"sub_uri": "Q75596", "obj_uri": "Q16", "sub_label": "Laurentian Mountains", "obj_label": "Canada"}
+{"sub_uri": "Q75834", "obj_uri": "Q16", "sub_label": "Oak Lake", "obj_label": "Canada"}
+{"sub_uri": "Q75838", "obj_uri": "Q16", "sub_label": "Hartney", "obj_label": "Canada"}
+{"sub_uri": "Q75861", "obj_uri": "Q16", "sub_label": "Virden", "obj_label": "Canada"}
+{"sub_uri": "Q75894", "obj_uri": "Q16", "sub_label": "Carberry", "obj_label": "Canada"}
+{"sub_uri": "Q75912", "obj_uri": "Q16", "sub_label": "Beausejour", "obj_label": "Canada"}
+{"sub_uri": "Q76034", "obj_uri": "Q16", "sub_label": "Canadian Shields", "obj_label": "Canada"}
+{"sub_uri": "Q76039", "obj_uri": "Q16", "sub_label": "Hudson's Bay Company", "obj_label": "Canada"}
+{"sub_uri": "Q76318", "obj_uri": "Q16", "sub_label": "Rogers Centre", "obj_label": "Canada"}
+{"sub_uri": "Q80350", "obj_uri": "Q16", "sub_label": "Winisk River", "obj_label": "Canada"}
+{"sub_uri": "Q80363", "obj_uri": "Q16", "sub_label": "Leaf River", "obj_label": "Canada"}
+{"sub_uri": "Q80695", "obj_uri": "Q16", "sub_label": "Survivor Series", "obj_label": "Canada"}
+{"sub_uri": "Q81136", "obj_uri": "Q16", "sub_label": "Northwest Passage", "obj_label": "Canada"}
+{"sub_uri": "Q81178", "obj_uri": "Q16", "sub_label": "Baffin Island", "obj_label": "Canada"}
+{"sub_uri": "Q81308", "obj_uri": "Q16", "sub_label": "Cambior", "obj_label": "Canada"}
+{"sub_uri": "Q82134", "obj_uri": "Q16", "sub_label": "list of historic places in Comox Valley Regional District", "obj_label": "Canada"}
+{"sub_uri": "Q84072", "obj_uri": "Q16", "sub_label": "Turkish people", "obj_label": "Canada"}
+{"sub_uri": "Q84127", "obj_uri": "Q16", "sub_label": "Ungava Peninsula", "obj_label": "Canada"}
+{"sub_uri": "Q84129", "obj_uri": "Q16", "sub_label": "Minor League Baseball", "obj_label": "Canada"}
+{"sub_uri": "Q84170", "obj_uri": "Q16", "sub_label": "Labrador Peninsula", "obj_label": "Canada"}
+{"sub_uri": "Q85377", "obj_uri": "Q16", "sub_label": "Canadian Arctic Archipelago", "obj_label": "Canada"}
+{"sub_uri": "Q86366", "obj_uri": "Q16", "sub_label": "Teulon", "obj_label": "Canada"}
+{"sub_uri": "Q86424", "obj_uri": "Q16", "sub_label": "Boissevain", "obj_label": "Canada"}
+{"sub_uri": "Q86580", "obj_uri": "Q16", "sub_label": "Deloraine", "obj_label": "Canada"}
+{"sub_uri": "Q86586", "obj_uri": "Q16", "sub_label": "Birtle", "obj_label": "Canada"}
+{"sub_uri": "Q92561", "obj_uri": "Q16", "sub_label": "London", "obj_label": "Canada"}
+{"sub_uri": "Q93332", "obj_uri": "Q16", "sub_label": "Appalachian Mountains", "obj_label": "Canada"}
+{"sub_uri": "Q93359", "obj_uri": "Q16", "sub_label": "O Canada", "obj_label": "Canada"}
+{"sub_uri": "Q93617", "obj_uri": "Q16", "sub_label": "Qualicum Beach Airport", "obj_label": "Canada"}
+{"sub_uri": "Q93902", "obj_uri": "Q16", "sub_label": "Prince Rupert Airport", "obj_label": "Canada"}
+{"sub_uri": "Q93930", "obj_uri": "Q16", "sub_label": "list of historic places in Cowichan Valley Regional District", "obj_label": "Canada"}
+{"sub_uri": "Q94258", "obj_uri": "Q16", "sub_label": "Povungnituk River", "obj_label": "Canada"}
+{"sub_uri": "Q94271", "obj_uri": "Q16", "sub_label": "Whale River", "obj_label": "Canada"}
+{"sub_uri": "Q94285", "obj_uri": "Q16", "sub_label": "Little Whale River", "obj_label": "Canada"}
+{"sub_uri": "Q94299", "obj_uri": "Q16", "sub_label": "list of historic places in East Kootenay Regional District", "obj_label": "Canada"}
+{"sub_uri": "Q94301", "obj_uri": "Q16", "sub_label": "Royal Society of Canada", "obj_label": "Canada"}
+{"sub_uri": "Q94311", "obj_uri": "Q16", "sub_label": "list of historic places in Fraser-Fort George Regional District", "obj_label": "Canada"}
+{"sub_uri": "Q94337", "obj_uri": "Q16", "sub_label": "2011 Major League Baseball season", "obj_label": "Canada"}
+{"sub_uri": "Q94368", "obj_uri": "Q16", "sub_label": "Broadback River", "obj_label": "Canada"}
+{"sub_uri": "Q94454", "obj_uri": "Q16", "sub_label": "Order of Military Merit", "obj_label": "Canada"}
+{"sub_uri": "Q94904", "obj_uri": "Q16", "sub_label": "Niagara Central Airport", "obj_label": "Canada"}
+{"sub_uri": "Q99284", "obj_uri": "Q16", "sub_label": "F\u00e9lix-Gabriel-Marchand Bridge", "obj_label": "Canada"}
+{"sub_uri": "Q99290", "obj_uri": "Q16", "sub_label": "Hartland Bridge", "obj_label": "Canada"}
+{"sub_uri": "Q99364", "obj_uri": "Q16", "sub_label": "Big Chute Marine Railway", "obj_label": "Canada"}
