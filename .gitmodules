@@ -1,0 +1,3 @@
+[submodule "LAMA"]
+	path = LAMA
+	url = https://github.com/taylorshin/LAMA.git
