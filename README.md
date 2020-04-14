@@ -12,6 +12,8 @@ Install spacy model
 python -m spacy download en
 ```
 
+Get full TREx data (train and test) from https://drive.google.com/drive/folders/1Df4D4qH_34B4_tvDDbMX1Q1IvS1hVG-8?usp=sharing
+
 ## Generation
 
 ### 1. Create a trigger for a particular relation
