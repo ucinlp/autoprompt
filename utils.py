@@ -208,3 +208,9 @@ def load_vocab(vocab_filename):
         lines = f.readlines()
     vocab = [x.strip() for x in lines]
     return vocab
+
+def get_id_from_url(url):
+    """
+    Extract Wikidata entity id from URL
+    """
+    return url.split('/')[-1]

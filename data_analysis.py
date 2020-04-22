@@ -51,7 +51,7 @@ def inspect_dataset(args):
     for file in os.listdir(args.data_dir):
         filename = os.fsdecode(file)
         if filename.endswith('.jsonl'):
-            inspect_relation(args, os.path.join(args.data_dir, filename, model_vocab, common_vocab))
+            inspect_relation(args, os.path.join(args.data_dir, filename), model_vocab, common_vocab)
 
 
 if __name__ == '__main__':
@@ -67,6 +67,7 @@ if __name__ == '__main__':
     print('Model vocab size:', len(model_vocab))
     common_vocab = utils.load_vocab(args.common_vocab_file)
     print('Common vocab size:', len(common_vocab))
+    print()
 
     if args.data_file:
         inspect_relation(args, args.data_file, model_vocab, common_vocab)
