@@ -1,0 +1,18 @@
+{
+  "logger": {
+    "title": "Remote Sync"
+  },
+  "uploadOnSave": true,
+  "useAtomicWrites": false,
+  "deleteLocal": false,
+  "hostname": "poison.ics.uci.edu",
+  "target": "/home/yrazeghi/trigger/LMAT",
+  "ignore": [
+    ".remote-sync.json",
+    ".git/**"
+  ],
+  "username": "yrazeghi",
+  "watch": [],
+  "transport": "scp",
+  "password": "Kegiridelbarinek00"
+}

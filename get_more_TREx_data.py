@@ -23,11 +23,11 @@ def get_id_from_url(url):
 
 async def map_async(fn, iterator, count, max_tasks=10, sleep_time=0.01):
     tasks = set()
-    
+
     for x in iterator:
         if len(tasks) >= max_tasks:
             _, tasks = await asyncio.wait(tasks, return_when=asyncio.FIRST_COMPLETED)
-        
+
         new_task = asyncio.ensure_future(fn(x))
         tasks.add(new_task)
         await asyncio.sleep(random.random() * sleep_time)

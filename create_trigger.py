@@ -8,12 +8,14 @@ import spacy
 import matplotlib.pyplot as plt
 from copy import deepcopy
 from operator import itemgetter
-# from transformers import BertTokenizer, BertForMaskedLM
+from my_bert_model import MyBertForMaskedLM
+#from transformers import BertTokenizer, BertForMaskedLM
 from pytorch_transformers import BertTokenizer, BertForMaskedLM
 import constants
 import utils
 import lama_utils
 import time
+
 
 nlp = spacy.load("en_core_web_sm")
 
@@ -107,7 +109,7 @@ def get_best_candidates(model, tokenizer, source_tokens, target_tokens, trigger_
                 if cand_loss < best_cand_loss:
                     best_cand_loss = cand_loss
                     best_cand_trigger_tokens = deepcopy(cand_trigger_tokens)
-    
+
     return best_cand_trigger_tokens, best_cand_loss
 
 
@@ -126,7 +128,7 @@ def get_best_candidates_beam_search(model, tokenizer, source_tokens, target_toke
     # top_candidates now contains beam_size trigger sequences, each with a different 0th token
     for idx in range(1, len(trigger_tokens)): # for all trigger tokens, skipping the 0th (we did it above)
         loss_per_candidate = []
-        for cand, _ in top_candidates: # for all the beams, try all the candidates at idx 
+        for cand, _ in top_candidates: # for all the beams, try all the candidates at idx
             loss_per_candidate.extend(get_loss_per_candidate(idx, model, tokenizer, source_tokens, target_tokens, cand, trigger_mask, segment_ids, candidates, special_token_ids, obj_token_ids, device))
         top_candidates = heapq.nsmallest(beam_size, loss_per_candidate, key=itemgetter(1))
     return min(top_candidates, key=itemgetter(1))
@@ -138,7 +140,7 @@ def get_loss(model, source_tokens, target_tokens, trigger_tokens, trigger_mask, 
     # Make sure to not modify the original source tokens
     src = source_tokens.clone()
     src = src.masked_scatter_(trigger_mask.to(torch.uint8), trigger_tokens).to(device)
-    dst = target_tokens.to(device)    
+    dst = target_tokens.to(device)
     model.train()
     outputs = model(src, masked_lm_labels=dst, token_type_ids=segment_ids)
     loss, pred_scores = outputs[:2]
@@ -189,7 +191,7 @@ def build_prompt(tokenizer, pair, trigger_tokens, use_ctx, prompt_format, maskin
     # sub, obj, context = pair
     # print('SUBJECT: {}, OBJECT: {}, CONTEXT: {}'.format(sub, obj, context))
     sub, obj = pair
-
+    hyp, prem = sub.split("*%*")
     if masking:
         obj = constants.MASK
 
@@ -201,10 +203,14 @@ def build_prompt(tokenizer, pair, trigger_tokens, use_ctx, prompt_format, maskin
 
     trigger_idx = 0
     for part in prompt_format:
-        if part == 'X':
-            prompt_list.append(sub)
+        if part == 'H':
+            prompt_list.append(hyp)
         elif part == 'Y':
             prompt_list.append(obj)
+        elif part == 'P':
+            prompt_list.append(prem)
+        elif part == 'S':
+            pass
         else:
             num_trigger_tokens = int(part)
             prompt_list.extend(triggers[trigger_idx:trigger_idx+num_trigger_tokens])
@@ -221,15 +227,15 @@ def build_prompt(tokenizer, pair, trigger_tokens, use_ctx, prompt_format, maskin
     prompt = prompt.replace('##', '')
     return prompt
 
-
 def run_model(args):
     np.random.seed(0)
     torch.random.manual_seed(0)
     torch.cuda.manual_seed(0)
     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+    print(device)
 
     tokenizer = BertTokenizer.from_pretrained('bert-base-cased', do_lower_case=False)
-    model = BertForMaskedLM.from_pretrained('bert-base-cased')
+    model = MyBertForMaskedLM.from_pretrained('bert-base-cased')
     model.eval()
     model.to(device)
 
@@ -291,8 +297,11 @@ def run_model(args):
         dev_losses = []
         dev_num_no_improve = 0
         count = 0
-
+        iter_time_p = time.time()
         for i in range(args.iters):
+            iter_time_n = time.time()
+            # print('Elapsed time: {} sec'.format(iter_time_n - iter_time_p))
+            iter_time_p = time.time()
             print('Iteration:', i)
             end_iter = False
             best_loss_iter = 999999
@@ -300,9 +309,15 @@ def run_model(args):
 
             losses_batch_train = []
             # Full pass over training data set in batches of subject-object-context triplets
+            batch_time_p = time.time()
             for batch in utils.iterate_batches(train_data, args.bsz, True):
+                batch_time_n = time.time()
+                # print('Elapsed time: {} sec'.format(batch_time_n - batch_time_p))
+                batch_time_p = time.time()
                 # Tokenize and pad batch
-                source_tokens, target_tokens, trigger_mask, segment_ids = utils.make_batch(tokenizer, batch, trigger_tokens, prompt_format, args.use_ctx, cls_token, sep_token, mask_token, pad_token, period_token, device)
+
+                # YAS source_tokens, target_tokens, trigger_mask, segment_ids = utils.make_batch(tokenizer, batch, trigger_tokens, prompt_format, args.use_ctx, cls_token, sep_token, mask_token, pad_token, period_token, device)
+                source_tokens, target_tokens, trigger_mask, segment_ids = utils.make_batch_glue(tokenizer, batch, trigger_tokens, prompt_format, args.use_ctx, cls_token, sep_token, mask_token, pad_token, period_token, device)
                 # print('SOURCE TOKENS:', source_tokens, source_tokens.size())
                 # print('TARGET TOKENS:', target_tokens, target_tokens.size())
                 # print('TRIGGER MASK:', trigger_mask, trigger_mask.size())
@@ -313,6 +328,7 @@ def run_model(args):
                     # Early stopping if no improvements to trigger
                     if end_iter:
                         continue
+
 
                     model.zero_grad() # clear previous gradients
                     loss = get_loss(model, source_tokens, target_tokens, trigger_tokens, trigger_mask, segment_ids, device)
@@ -334,7 +350,7 @@ def run_model(args):
                                                     embedding_weight,
                                                     trigger_tokens,
                                                     increase_loss=False,
-                                                    num_candidates=args.num_cand)                        
+                                                    num_candidates=args.num_cand)
                     else:
                         # Get averaged gradient of current trigger token
                         averaged_grad = grad.sum(dim=0)[token_to_flip].unsqueeze(0)
@@ -405,7 +421,8 @@ def run_model(args):
             # Evaluate on dev set
             losses_batch_dev = []
             for batch in utils.iterate_batches(dev_data, args.bsz, True):
-                source_tokens, target_tokens, trigger_mask, segment_ids = utils.make_batch(tokenizer, batch, trigger_tokens, prompt_format, args.use_ctx, cls_token, sep_token, mask_token, pad_token, period_token, device)
+                #YAS source_tokens, target_tokens, trigger_mask, segment_ids = utils.make_batch(tokenizer, batch, trigger_tokens, prompt_format, args.use_ctx, cls_token, sep_token, mask_token, pad_token, period_token, device)
+                source_tokens, target_tokens, trigger_mask, segment_ids = utils.make_batch_glue(tokenizer, batch, trigger_tokens, prompt_format, args.use_ctx, cls_token, sep_token, mask_token, pad_token, period_token, device)
                 # Don't compute gradient to save memory
                 with torch.no_grad():
                     loss = get_loss(model, source_tokens, target_tokens, trigger_tokens, trigger_mask, segment_ids, device)
@@ -431,6 +448,7 @@ def run_model(args):
             # Store train loss of last batch, which should be the best because we update the same trigger
             train_losses.append(train_loss)
             dev_losses.append(dev_loss)
+
             # Print model prediction on dev data point with current trigger
             rand_idx = random.randint(0, len(dev_data) - 1) # Follow progress of random dev data pair
             prompt = build_prompt(tokenizer, dev_data[rand_idx], trigger_tokens, args.use_ctx, prompt_format, masking=True)
@@ -471,5 +489,11 @@ if __name__ == '__main__':
     parser.add_argument('--format', type=str, default='X-5-Y', help='Prompt format')
     parser.add_argument('--manual', type=str, help='Manual prompt')
     parser.add_argument('--debug', default=False, action='store_true')
+    parser.add_argument('--ent_word', type=str, default="and")
+    parser.add_argument('--cont_word', type=str, default="but")
+    parser.add_argument('--dataset', type=str, default="MNLI")
+    parser.add_argument('--sentence_size', type=int, default=50)
+
+
     args = parser.parse_args()
     run_model(args)
