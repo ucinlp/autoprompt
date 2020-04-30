@@ -46,6 +46,7 @@ def load_TREx_data(args, filename):
                 facts.append((sub, obj, context))
             """
             # Skip facts with objects that are not single token
+            # TODO: different tokenizers split words differently...
             if len(tokenizer.tokenize(obj)) > 1:
                 num_invalid_facts += 1
                 continue

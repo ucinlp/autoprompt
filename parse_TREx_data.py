@@ -1,5 +1,6 @@
 import os
 import json
+import random
 import argparse
 from tqdm import tqdm
 from nltk import tokenize
@@ -32,7 +33,8 @@ def load_TREx_test(trex_test_dir):
     return trex_set
 
 
-def parse_doc_set(args, in_file, relations, rel_to_count, trex_set, common_vocab, tokenizer, unique_triples_global):
+def parse_doc_set(args, in_file, relations, rel_to_count, trex_set, common_vocab, tokenizer):
+    # print('inside function address:', hex(id(unique_triples_global)))
     with open(in_file, 'r') as f_in:
         docs = json.load(f_in)
         # doc_count = len(docs)
@@ -84,6 +86,7 @@ def parse_doc_set(args, in_file, relations, rel_to_count, trex_set, common_vocab
                 simp = 'Simple_Coreference'
                 tri = (sub_id, pred_id, obj_id)
 
+                global unique_triples_global
                 if tri not in unique_triples_global and pred_id in relations and sub_id.startswith('Q') and pred_id.startswith('P') and obj_id.startswith('Q') and sub_annot != simp and obj_annot != simp:
                     unique_triples.add(tri)
                     sub_id_to_label[sub_id] = sub_label
@@ -91,6 +94,7 @@ def parse_doc_set(args, in_file, relations, rel_to_count, trex_set, common_vocab
 
             # Integrate current unique triples into global set
             unique_triples_global = unique_triples | unique_triples_global
+            # print('UNIEQUE TRIPLES GLOBAL LEN:', len(unique_triples_global))
 
             # Filter out facts in TREx-test, multi-token objects, and objects not in common vocab
             # print('Filtering facts')
@@ -113,6 +117,8 @@ def parse_doc_set(args, in_file, relations, rel_to_count, trex_set, common_vocab
 
                 # Finally write fact to file if it passes all criteria
                 filepath = os.path.join(args.out_dir, pred_id + '.jsonl')
+                # Make directories in path if they don't exist
+                os.makedirs(os.path.dirname(filepath), exist_ok=True)
                 with open(filepath, 'a+') as f_out:
                     # Update rel_to_count dict
                     rel_to_count[pred_id] += 1
@@ -126,7 +132,7 @@ if __name__ == '__main__':
     parser.add_argument('out_dir', type=str, help='Directory to store JSONL files')
     parser.add_argument('--trex_test_dir', type=str, help='Path to TREx TEST set for all relation')
     parser.add_argument('--common_vocab_file', type=str, help='File containing common vocab subset')
-    parser.add_argument('--threshold', type=int, default=1000, help='Minimum number of samples each relation should have at the end')
+    parser.add_argument('--threshold', type=int, default=-1, help='Minimum number of samples each relation should have at the end')
     args = parser.parse_args()
 
     # TREx relations
@@ -154,24 +160,30 @@ if __name__ == '__main__':
 
     # This is so we don't get duplicate facts as we go through the TREx dataset
     unique_triples_global = set()
+    # print('initialize address:', hex(id(unique_triples_global)))
 
     # Download the full TREx dataset here https://hadyelsahar.github.io/t-rex/downloads/
-    for filename in os.listdir(args.in_dir):
+    dir_list = os.listdir(args.in_dir)
+    random.shuffle(dir_list)
+    for filename in dir_list:
+        # TODO: maybe I can randomize the order of the doc sets which might address to issue of sequential data collection
         filename = os.fsdecode(filename)
         print('Parsing', filename)
         if filename.endswith('.json'):
             filepath = os.path.join(args.in_dir, filename)
-            parse_doc_set(args, filepath, relations, rel_to_count, trex_set, common_vocab, tokenizer, unique_triples_global)
+            parse_doc_set(args, filepath, relations, rel_to_count, trex_set, common_vocab, tokenizer)
+            print('Number of global unique facts:', len(unique_triples_global))
 
-            # Check if each relation has at least 1000 data points and remove relations that have 1000 samples from TREx relations
-            for rel, count in rel_to_count.items():
-                if rel not in removed and count >= args.threshold:
-                    print('Finished', rel)
-                    relations.remove(rel)
-                    removed.append(rel)
+            if args.threshold > 0:
+                # Check if each relation has at least 1000 data points and remove relations that have 1000 samples from TREx relations
+                for rel, count in rel_to_count.items():
+                    if rel not in removed and count >= args.threshold:
+                        print('Finished', rel)
+                        relations.remove(rel)
+                        removed.append(rel)
 
-            # If all relations have at least 1000 samples, exit
-            if is_complete(rel_to_count, args.threshold):
-                break
+                # If all relations have at least 1000 samples, exit
+                if is_complete(rel_to_count, args.threshold):
+                    break
 
     print('Relations and their sample counts:', rel_to_count)

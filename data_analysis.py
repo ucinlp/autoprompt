@@ -48,8 +48,8 @@ def inspect_dataset(args):
     """
     Count the number of samples that have tokens that are not in the common vocab subset
     """
-    for file in os.listdir(args.data_dir):
-        filename = os.fsdecode(file)
+    for f in os.listdir(args.data_dir):
+        filename = os.fsdecode(f)
         if filename.endswith('.jsonl'):
             inspect_relation(args, os.path.join(args.data_dir, filename), model_vocab, common_vocab)
 
