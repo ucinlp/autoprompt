@@ -29,9 +29,11 @@ class MyBertForMaskedLM(BertForMaskedLM):
         sequence_output = outputs[0]
         prediction_scores = self.cls(sequence_output)
 
+
         outputs = (prediction_scores,) + outputs[2:]  # Add hidden states and attention if they are here
         if masked_lm_labels is not None:
             loss_fct = CrossEntropyLoss(ignore_index=-1)
+
             a = (prediction_scores[:,:,1133]).unsqueeze(2) #todo change this from hard code.
             b = (prediction_scores[:,:,1105]).unsqueeze(2)
             c = torch.cat((a,b),2)

@@ -10,7 +10,7 @@ from copy import deepcopy
 from operator import itemgetter
 from my_bert_model import MyBertForMaskedLM
 #from transformers import BertTokenizer, BertForMaskedLM
-from pytorch_transformers import BertTokenizer, BertForMaskedLM
+from pytorch_transformers import BertTokenizer, BertForMaskedLM, RobertaTokenizer, RobertaForMaskedLM
 import constants
 import utils
 import lama_utils
@@ -234,8 +234,12 @@ def run_model(args):
     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
     print(device)
 
-    tokenizer = BertTokenizer.from_pretrained('bert-base-cased', do_lower_case=False)
-    model = MyBertForMaskedLM.from_pretrained('bert-base-cased')
+    if args.lm == 'bert':
+        tokenizer = BertTokenizer.from_pretrained('bert-base-cased', do_lower_case=False)
+        model = MyBertForMaskedLM.from_pretrained('bert-base-cased')
+    else:
+        tokenizer = RobertaTokenizer.from_pretrained('roberta-base', do_lower_case=False)
+        model = RobertaForMaskedLM.from_pretrained('roberta-base')
     model.eval()
     model.to(device)
 
@@ -317,7 +321,7 @@ def run_model(args):
                 # Tokenize and pad batch
 
                 # YAS source_tokens, target_tokens, trigger_mask, segment_ids = utils.make_batch(tokenizer, batch, trigger_tokens, prompt_format, args.use_ctx, cls_token, sep_token, mask_token, pad_token, period_token, device)
-                source_tokens, target_tokens, trigger_mask, segment_ids = utils.make_batch_glue(tokenizer, batch, trigger_tokens, prompt_format, args.use_ctx, cls_token, sep_token, mask_token, pad_token, period_token, device)
+                source_tokens, target_tokens, trigger_mask, segment_ids, tmp_labels = utils.make_batch_glue(tokenizer, batch, trigger_tokens, prompt_format, args.use_ctx, cls_token, sep_token, mask_token, pad_token, period_token, device)
                 # print('SOURCE TOKENS:', source_tokens, source_tokens.size())
                 # print('TARGET TOKENS:', target_tokens, target_tokens.size())
                 # print('TRIGGER MASK:', trigger_mask, trigger_mask.size())
@@ -422,7 +426,7 @@ def run_model(args):
             losses_batch_dev = []
             for batch in utils.iterate_batches(dev_data, args.bsz, True):
                 #YAS source_tokens, target_tokens, trigger_mask, segment_ids = utils.make_batch(tokenizer, batch, trigger_tokens, prompt_format, args.use_ctx, cls_token, sep_token, mask_token, pad_token, period_token, device)
-                source_tokens, target_tokens, trigger_mask, segment_ids = utils.make_batch_glue(tokenizer, batch, trigger_tokens, prompt_format, args.use_ctx, cls_token, sep_token, mask_token, pad_token, period_token, device)
+                source_tokens, target_tokens, trigger_mask, segment_ids, tmp_labels = utils.make_batch_glue(tokenizer, batch, trigger_tokens, prompt_format, args.use_ctx, cls_token, sep_token, mask_token, pad_token, period_token, device)
                 # Don't compute gradient to save memory
                 with torch.no_grad():
                     loss = get_loss(model, source_tokens, target_tokens, trigger_tokens, trigger_mask, segment_ids, device)
@@ -489,10 +493,12 @@ if __name__ == '__main__':
     parser.add_argument('--format', type=str, default='X-5-Y', help='Prompt format')
     parser.add_argument('--manual', type=str, help='Manual prompt')
     parser.add_argument('--debug', default=False, action='store_true')
-    parser.add_argument('--ent_word', type=str, default="and")
-    parser.add_argument('--cont_word', type=str, default="but")
     parser.add_argument('--dataset', type=str, default="MNLI")
     parser.add_argument('--sentence_size', type=int, default=50)
+    parser.add_argument('--class_count', type=int, default=2, help='number of classes')
+    parser.add_argument('--masked_words', type=str, default="and-but", help='mask words')
+    parser.add_argument('--class_labels', type=str, default="entailment-contradiction", help='class labels')
+
 
 
     args = parser.parse_args()
