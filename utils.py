@@ -11,10 +11,50 @@ from transformers import glue_processors as processors
 import random
 
 
-def load_GLUE_data(args, filename, is_train, glue_name, ent_word, cont_word, sentence_size, down_sample = False):
+# def load_GLUE_data(args, filename, is_train, glue_name, ent_word, cont_word, sentence_size, down_sample = False):
+#     facts = []
+#     tokenizer = BertTokenizer.from_pretrained('bert-base-cased', do_lower_case=False)
+#     processor = processors[glue_name.lower()]()
+#     #TOOD: make this filepath as input
+#     #/home/yrazeghi/data
+#     if is_train:
+#         data = processor.get_train_examples(args+glue_name)
+#     else:
+#         data = processor.get_dev_examples(args+glue_name)
+#     for d in data:
+#         label = d.label
+#         if label=="neutral":
+#             continue
+#         premiss = d.text_a
+#         premiss = premiss[:-1]
+#         hypothesis = d.text_b
+#         hypothesis = hypothesis[:-1]
+#
+#         sub = premiss + " *%* " + hypothesis
+#         # sub = "pick a context sentence that has obj_surface equal equal equal equal "
+#         if label == "entailment":
+#             obj = ent_word #"##tail"
+#         else:
+#             obj = cont_word #"##dict"
+#
+#         if len(tokenizer.tokenize(sub)) > sentence_size:
+#             continue
+#         if down_sample:
+#             r_rand = random.uniform(0, 1)
+#             if r_rand < 0.005:
+#                 facts.append((sub, obj))
+#         else:
+#             facts.append((sub, obj))
+#         # print('Total facts before:', len(lines))
+#         # print('Invalid facts:', num_invalid_facts)
+#     print('Total facts after:', len(facts))
+#     return facts
+def load_GLUE_data(args, filename, is_train, glue_name, sentence_size, class_labels, masked_words, down_sample = False):
     facts = []
     tokenizer = BertTokenizer.from_pretrained('bert-base-cased', do_lower_case=False)
     processor = processors[glue_name.lower()]()
+    print("hahahah", class_labels)
+    print("beeee", masked_words)
     #TOOD: make this filepath as input
     #/home/yrazeghi/data
     if is_train:
@@ -23,33 +63,31 @@ def load_GLUE_data(args, filename, is_train, glue_name, ent_word, cont_word, sen
         data = processor.get_dev_examples(args+glue_name)
     for d in data:
         label = d.label
-        if label=="neutral":
-            continue
-        premiss = d.text_a
-        premiss = premiss[:-1]
-        hypothesis = d.text_b
-        hypothesis = hypothesis[:-1]
-
-        sub = premiss + " *%* " + hypothesis
-        # sub = "pick a context sentence that has obj_surface equal equal equal equal "
-        if label == "entailment":
-            obj = ent_word #"##tail"
-        else:
-            obj = cont_word #"##dict"
-
-        if len(tokenizer.tokenize(sub)) > sentence_size:
-            continue
-        if down_sample:
-            r_rand = random.uniform(0, 1)
-            if r_rand < 0.005:
+        if label in class_labels: #todo change this
+            ind = class_labels.index(label)
+            premiss = d.text_a
+            premiss = premiss[:-1]
+            hypothesis = d.text_b
+            hypothesis = hypothesis[:-1]
+            sub = premiss + " *%* " + hypothesis
+            # sub = "pick a context sentence that has obj_surface equal equal equal equal "
+            # print("label:::", label)
+            # print("word::::", )
+            obj = masked_words[ind]
+            # print("word::::", obj)
+            if len(tokenizer.tokenize(sub)) > sentence_size:
+                continue
+            if down_sample:
+                r_rand = random.uniform(0, 1)
+                if r_rand < 0.005:
+                    facts.append((sub, obj))
+            else:
                 facts.append((sub, obj))
-        else:
-            facts.append((sub, obj))
         # print('Total facts before:', len(lines))
         # print('Invalid facts:', num_invalid_facts)
     print('Total facts after:', len(facts))
     return facts
-    
+
 
 def load_TREx_data(args, filename):
     tokenizer = BertTokenizer.from_pretrained('bert-base-cased', do_lower_case=False)
@@ -109,14 +147,15 @@ def get_all_datasets(args):
 
     train_file = os.path.join(args.data_dir, 'train.jsonl')
     # train_data = load_TREx_data(args, train_file)
-    #TODO make RTE as input
-    train_data = load_GLUE_data(args.data_dir, train_file , True, glue_name = args.dataset , down_sample = False, ent_word = args.ent_word, cont_word = args.cont_word, sentence_size = args.sentence_size)
+    class_labels = args.class_labels.split('-')
+    masked_words = args.masked_words.split('-')
+    train_data = load_GLUE_data(args.data_dir, train_file , is_train=True, glue_name = args.dataset , down_sample = False, class_labels = class_labels , masked_words = masked_words, sentence_size = args.sentence_size)
     print('Num samples in train data:', len(train_data))
 
     # dev_file = os.path.join(args.data_dir, 'val.jsonl')
     dev_file = os.path.join(args.data_dir, 'dev.jsonl')
     # dev_data = load_TREx_data(args, dev_file)
-    dev_data = load_GLUE_data(args.data_dir, dev_file , False, glue_name = args.dataset , down_sample = False, ent_word = args.ent_word, cont_word = args.cont_word, sentence_size = args.sentence_size)
+    dev_data = load_GLUE_data(args.data_dir, dev_file , is_train=False, glue_name = args.dataset , down_sample = False, class_labels = class_labels, masked_words = masked_words, sentence_size = args.sentence_size)
     print('Num samples in dev data:', len(dev_data))
 
     datasets.append((train_data, dev_data))
@@ -255,6 +294,7 @@ def make_batch_glue(tokenizer, batch, trigger_tokens, prompt_format, use_ctx, cl
     target_tokens_batch = []
     trigger_mask_batch = []
     segment_ids_batch = []
+    labels = []
 
     for sample in batch:
         # print('PROMPT:', build_prompt(tokenizer, sample, trigger_tokens))
@@ -262,6 +302,7 @@ def make_batch_glue(tokenizer, batch, trigger_tokens, prompt_format, use_ctx, cl
         target_tokens = []
         trigger_mask = []
         segment_ids = [] # used to distinguish different sentences
+
         # sub, obj, ctx = sample
         sub, obj = sample
         prem, hyp = sub.split("*%*")
@@ -270,6 +311,7 @@ def make_batch_glue(tokenizer, batch, trigger_tokens, prompt_format, use_ctx, cl
 
         # sub_tokens = tokenizer.convert_tokens_to_ids(tokenizer.tokenize(sub))
         obj_tokens = tokenizer.convert_tokens_to_ids(tokenizer.tokenize(obj))
+        labels.append(obj_tokens)
         trigger_idx = 0
 
         # Add CLS token at the beginning
@@ -352,7 +394,7 @@ def make_batch_glue(tokenizer, batch, trigger_tokens, prompt_format, use_ctx, cl
     trigger_mask_batch = trigger_mask_batch.to(device)
     segment_ids_batch = segment_ids_batch.to(device)
 
-    return source_tokens_batch, target_tokens_batch, trigger_mask_batch, segment_ids_batch
+    return source_tokens_batch, target_tokens_batch, trigger_mask_batch, segment_ids_batch, labels
 
 def get_unique_objects(data):
     objs = set()

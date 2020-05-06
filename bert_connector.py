@@ -10,6 +10,7 @@ from pytorch_pretrained_bert import BertTokenizer, BertForMaskedLM, BasicTokeniz
 import numpy as np
 from base_connector import *
 import torch.nn.functional as F
+from my_bert_model import MyBertForMaskedLM
 
 
 class CustomBaseTokenizer(BasicTokenizer):
@@ -84,7 +85,7 @@ class Bert(Base_Connector):
 
         # Load pre-trained model (weights)
         # ... to get prediction/generation
-        self.masked_bert_model = BertForMaskedLM.from_pretrained(bert_model_name)
+        self.masked_bert_model = MyBertForMaskedLM.from_pretrained(bert_model_name)
 
         self.masked_bert_model.eval()
 
