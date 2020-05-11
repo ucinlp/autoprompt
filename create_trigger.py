@@ -186,9 +186,12 @@ def get_prediction(model, source_tokens, trigger_tokens, trigger_mask, segment_i
 
 def build_prompt(tokenizer, pair, trigger_tokens, use_ctx, prompt_format, masking=False):
     prompt_list = []
-    # sub, obj, context = pair
-    # print('SUBJECT: {}, OBJECT: {}, CONTEXT: {}'.format(sub, obj, context))
-    sub, obj = pair
+
+    if use_ctx:
+        sub, obj, context = pair
+        # print('SUBJECT: {}, OBJECT: {}, CONTEXT: {}'.format(sub, obj, context))
+    else:
+        sub, obj = pair
 
     if masking:
         obj = constants.MASK

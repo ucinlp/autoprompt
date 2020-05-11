@@ -1,4 +1,5 @@
 import os
+import re
 import json
 import random
 import asyncio
@@ -7,6 +8,21 @@ import torch
 from copy import deepcopy
 from pytorch_transformers import BertTokenizer
 import constants
+
+
+async def map_async(fn, iterator, max_tasks=10, sleep_time=0.01):
+    tasks = set()
+    
+    for x in iterator:
+        if len(tasks) >= max_tasks:
+            _, tasks = await asyncio.wait(tasks, return_when=asyncio.FIRST_COMPLETED)
+        
+        new_task = asyncio.ensure_future(fn(x))
+        tasks.add(new_task)
+        await asyncio.sleep(random.random() * sleep_time)
+
+    await asyncio.wait(tasks)
+
 
 def load_TREx_data(args, filename):
     tokenizer = BertTokenizer.from_pretrained('bert-base-cased', do_lower_case=False)
@@ -19,7 +35,19 @@ def load_TREx_data(args, filename):
             sample = json.loads(line)
             sub = sample['sub_label']
             obj = sample['obj_label']
-            """
+
+            # Skip facts with objects that consist of multiple tokens
+            # TODO: different tokenizers split words differently...
+            if len(tokenizer.tokenize(obj)) > 1:
+                num_invalid_facts += 1
+                continue
+
+            # For conditional probing, skip facts that don't have context sentence
+            if 'evidences' not in sample:
+                num_invalid_facts += 1
+                continue
+            
+            ##################################### CONDITIONAL PROBING #####################################
             evidences = sample['evidences']
             # To make the number of samples used between open-book and closed-book probe
             # settings, we need to only consider facts that include context sentences
@@ -44,17 +72,15 @@ def load_TREx_data(args, filename):
                     # print('Sample context too long ({}), truncating.'.format(len(context_words)))
                 context = context.replace(constants.MASK, obj_surface)
                 facts.append((sub, obj, context))
-            """
-            # Skip facts with objects that are not single token
-            # TODO: different tokenizers split words differently...
-            if len(tokenizer.tokenize(obj)) > 1:
-                num_invalid_facts += 1
-                continue
+            ###############################################################################################
 
-            facts.append((sub, obj))
+            # Facts only consist of sub and obj for unconditional probing
+            # facts.append((sub, obj))
+
         print('Total facts before:', len(lines))
         print('Invalid facts:', num_invalid_facts)
         print('Total facts after:', len(facts))
+
     return facts
 
 
@@ -108,14 +134,18 @@ def make_batch(tokenizer, batch, trigger_tokens, prompt_format, use_ctx, cls_tok
         target_tokens = []
         trigger_mask = []
         segment_ids = [] # used to distinguish different sentences
-        # sub, obj, ctx = sample
-        sub, obj = sample
-        sub_tokens = tokenizer.convert_tokens_to_ids(tokenizer.tokenize(sub))
-        obj_tokens = tokenizer.convert_tokens_to_ids(tokenizer.tokenize(obj))
-        trigger_idx = 0
-        # print('SUB TOKENIZED:', tokenizer.tokenize(sub))
-        # print('OBJ TOKENIZED:', tokenizer.tokenize(obj))
 
+        if use_ctx:
+            sub, obj, ctx = sample
+            sub_tokens = tokenizer.convert_tokens_to_ids(tokenizer.tokenize(sub))
+            obj_tokens = tokenizer.convert_tokens_to_ids(tokenizer.tokenize(obj))
+            ctx_tokens = tokenizer.convert_tokens_to_ids(tokenizer.tokenize(ctx))
+        else:
+            sub, obj = sample
+            sub_tokens = tokenizer.convert_tokens_to_ids(tokenizer.tokenize(sub))
+            obj_tokens = tokenizer.convert_tokens_to_ids(tokenizer.tokenize(obj))
+
+        trigger_idx = 0
         # Add CLS token at the beginning
         source_tokens.extend(cls_token)
         target_tokens.append(-1)
@@ -125,15 +155,18 @@ def make_batch(tokenizer, batch, trigger_tokens, prompt_format, use_ctx, cls_tok
             # From CLS token right before
             segment_ids.append(0)
             # Add context tokens
-            source_tokens.extend(context_tokens)
-            target_tokens.extend([-1] * len(context_tokens))
-            trigger_mask.extend([0] * len(context_tokens))
-            segment_ids.extend([0] * len(context_tokens))
+            source_tokens.extend(ctx_tokens)
+            target_tokens.extend([-1] * len(ctx_tokens))
+            trigger_mask.extend([0] * len(ctx_tokens))
+            segment_ids.extend([0] * len(ctx_tokens))
             # Add SEP token to distinguish sentences
             source_tokens.extend(sep_token)
             target_tokens.append(-1)
             trigger_mask.append(0)
             segment_ids.append(0)
+        
+        # Keep track of length of first sentence only for conditional probing which uses two sentences
+        first_sent_len = len(segment_ids)
 
         for part in prompt_format:
             if part == 'X':
@@ -165,7 +198,7 @@ def make_batch(tokenizer, batch, trigger_tokens, prompt_format, use_ctx, cls_tok
         trigger_mask.append(0)
 
         if use_ctx:
-            segment_ids.extend([1] * len(source_tokens))
+            segment_ids.extend([1] * (len(source_tokens) - first_sent_len))
         else:
             segment_ids.extend([0] * len(source_tokens))
 
@@ -197,8 +230,9 @@ def make_batch(tokenizer, batch, trigger_tokens, prompt_format, use_ctx, cls_tok
 def get_unique_objects(data):
     objs = set()
     for sample in data:
-        sub, obj = sample
-        # sub, obj, ctx = sample
+        # TODO: make this switch between ctx and no ctx dynamic
+        # sub, obj = sample
+        sub, obj, ctx = sample
         # print('sub: {}, obj: {}, ctx: {}'.format(sub, obj, ctx))
         objs.add(obj)
     return list(objs)
@@ -210,8 +244,20 @@ def load_vocab(vocab_filename):
     vocab = [x.strip() for x in lines]
     return vocab
 
+
 def get_id_from_url(url):
     """
     Extract Wikidata entity id from URL
     """
     return url.split('/')[-1]
+
+
+def replace_nth(s, sub, rep, n):
+    """
+    Replace the Nth occurence of a substring with specified replacement string
+    """
+    where = [m.start() for m in re.finditer(sub, s)][n-1]
+    before = s[:where]
+    after = s[where:]
+    after = after.replace(sub, rep, 1)
+    return before + after

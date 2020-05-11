@@ -15,20 +15,6 @@ import utils
 
 COUNT = 0
 
-async def map_async(fn, iterator, max_tasks=10, sleep_time=0.01):
-    tasks = set()
-    
-    for x in iterator:
-        if len(tasks) >= max_tasks:
-            _, tasks = await asyncio.wait(tasks, return_when=asyncio.FIRST_COMPLETED)
-        
-        new_task = asyncio.ensure_future(fn(x))
-        tasks.add(new_task)
-        await asyncio.sleep(random.random() * sleep_time)
-
-    await asyncio.wait(tasks)
-
-
 async def increment_count():
     global COUNT
     COUNT += 1
@@ -118,7 +104,7 @@ async def main(args):
                     queries.append((sub_id, obj_id, sub_label, obj_label))
 
                 with open(args.out_file, 'a+') as f_out:
-                    await map_async(lambda q: process_fact(q, args, tokenizer, trex_set, common_vocab, f_out), queries, args.max_tasks, args.sleep_time)
+                    await utils.map_async(lambda q: process_fact(q, args, tokenizer, trex_set, common_vocab, f_out), queries, args.max_tasks, args.sleep_time)
 
                     if args.num_samples > 0:
                         global COUNT

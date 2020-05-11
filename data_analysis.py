@@ -48,6 +48,9 @@ def inspect_dataset(args):
     """
     Count the number of samples that have tokens that are not in the common vocab subset
     """
+    # Make out dir if it doesn't exist
+    os.makedirs(args.out_dir, exist_ok=True)
+    
     for f in os.listdir(args.data_dir):
         filename = os.fsdecode(f)
         if filename.endswith('.jsonl'):
