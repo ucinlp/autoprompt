@@ -140,7 +140,6 @@ def get_loss(model, source_tokens, target_tokens, trigger_tokens, trigger_mask, 
     src = source_tokens.clone()
     src = src.masked_scatter_(trigger_mask.to(torch.uint8), trigger_tokens).to(device)
     dst = target_tokens.to(device)    
-    model.train()
     outputs = model(src, masked_lm_labels=dst, token_type_ids=segment_ids, attention_mask=attention_mask)
     loss, pred_scores = outputs[:2]
     return loss
@@ -234,6 +233,7 @@ def run_model(args):
 
     tokenizer = BertTokenizer.from_pretrained('bert-base-cased', do_lower_case=False)
     model = BertForMaskedLM.from_pretrained('bert-base-cased')
+    # Don't want model in train mode because triggers will be impacted by dropout and such
     model.eval()
     model.to(device)
 
@@ -394,7 +394,7 @@ def run_model(args):
                         counter = 0
                         best_loss_iter = best_curr_loss
                         trigger_tokens = deepcopy(best_curr_trigger_tokens)
-                    elif counter == len(trigger_tokens):
+                    elif counter == len(trigger_tokens) * 3:
                         print('Early stopping: counter equal to len trigger tokens')
                         end_iter = True
                     else:
