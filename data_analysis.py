@@ -7,6 +7,7 @@ from tqdm import tqdm
 from collections import Counter
 import utils
 
+
 def inspect_relation(args, filename, model_vocab, common_vocab):
     if os.path.isfile(filename):
         rel_name = os.path.basename(filename).replace('.jsonl', '')
@@ -18,7 +19,7 @@ def inspect_relation(args, filename, model_vocab, common_vocab):
     num_model = 0 # Number of samples in model vocab but not in common vocab
     num_neither = 0 # Number of samples in neither model nor common vocab
     for fact in tqdm(facts):
-        sub, obj = fact
+        sub, obj, _ = fact
         # First check if object is in common vocab
         if obj in common_vocab:
             num_common += 1
@@ -33,7 +34,7 @@ def inspect_relation(args, filename, model_vocab, common_vocab):
     print('{} -> num facts: {}, num common: {}, num model: {}, num neither: {}'.format(rel_name, len(facts), num_common, num_model, num_neither))
 
     # Plot distribution of gold objects
-    obj_set = Counter([obj for sub, obj in facts])
+    obj_set = Counter([obj for sub, obj, _ in facts])
     top_obj_set = obj_set.most_common(10)
     print(top_obj_set)
     print()
@@ -43,6 +44,7 @@ def inspect_relation(args, filename, model_vocab, common_vocab):
     gold_objs.sort_values(by='freq').plot.barh(x='obj', y='freq', ax=ax)
     plt.savefig(os.path.join(args.out_dir, rel_name + '.png'), bbox_inches='tight')
     plt.close()
+
 
 def inspect_dataset(args):
     """

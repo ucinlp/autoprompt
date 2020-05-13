@@ -9,6 +9,9 @@ from copy import deepcopy
 from pytorch_transformers import BertTokenizer
 import constants
 
+# Set random seed so randomly picking context sentences is consistent across runs
+random.seed(0)
+np.random.seed(0)
 
 async def map_async(fn, iterator, max_tasks=10, sleep_time=0.01):
     tasks = set()
@@ -38,44 +41,33 @@ def load_TREx_data(args, filename):
 
             # Skip facts with objects that consist of multiple tokens
             # TODO: different tokenizers split words differently...
-            if len(tokenizer.tokenize(obj)) > 1:
+            if len(tokenizer.tokenize(obj)) != 1:
                 num_invalid_facts += 1
                 continue
 
-            # For conditional probing, skip facts that don't have context sentence
-            if 'evidences' not in sample:
-                num_invalid_facts += 1
-                continue
-            
-            ##################################### CONDITIONAL PROBING #####################################
-            evidences = sample['evidences']
-            # To make the number of samples used between open-book and closed-book probe
-            # settings, we need to only consider facts that include context sentences
-            valid_contexts = []
-            # For each evidence, replace [MASK] in the masked sentence with obj_surface. But the actual answer/object should be obj_label
-            for evidence in evidences:
-                ctx = evidence['masked_sentence']
-                obj_surface = evidence['obj_surface']
-                # Only consider context samples where object surface == true object label, and grab the first one
-                if obj_surface == obj:
-                    valid_contexts.append(ctx)
-            # Randomly pick a context sentence that has obj_surface equal to the obj_label
-            if not valid_contexts:
-                # print('Invalid fact with no context - sub: {}, obj: {}'.format(sub, obj))
-                num_invalid_facts += 1
-            else:
-                context = random.choice(valid_contexts)
+            if args.use_ctx:
+                # For conditional probing, skip facts that don't have context sentence
+                if 'evidences' not in sample:
+                    num_invalid_facts += 1
+                    continue
+                
+                evidences = sample['evidences']
+                # Randomly pick a context sentence
+                ctx_sents = [(evidence['obj_surface'], evidence['masked_sentence']) for evidence in evidences]
+                ctx_pair = random.choice(ctx_sents)
+                obj_surface, context = ctx_pair
                 context_words = context.split()
                 if len(context_words) > constants.MAX_CONTEXT_LEN:
                     # If context is too long, use the first X tokens (it's ok if obj isn't included)
                     context = ' '.join(context_words[:constants.MAX_CONTEXT_LEN])
                     # print('Sample context too long ({}), truncating.'.format(len(context_words)))
+                
+                # If truncated context sentence still has MASK, we need to replace it with object surface but if it left out MASK, it's fine
                 context = context.replace(constants.MASK, obj_surface)
                 facts.append((sub, obj, context))
-            ###############################################################################################
-
-            # Facts only consist of sub and obj for unconditional probing
-            # facts.append((sub, obj))
+            else:
+                # Facts only consist of sub and obj for unconditional probing
+                facts.append((sub, obj))
 
         print('Total facts before:', len(lines))
         print('Invalid facts:', num_invalid_facts)
@@ -218,21 +210,27 @@ def make_batch(tokenizer, batch, trigger_tokens, prompt_format, use_ctx, cls_tok
     trigger_mask_batch = torch.nn.utils.rnn.pad_sequence(trigger_mask_batch, batch_first=True)
     segment_ids_batch = torch.nn.utils.rnn.pad_sequence(segment_ids_batch, batch_first=True, padding_value=pad_token[0])
 
+    # Create attention mask that makes sure that padding is not attended to by the model
+    attention_mask_batch = source_tokens_batch.clone()
+    attention_mask_batch[attention_mask_batch != pad_token[0]] = 1
+
     # Move to GPU
     source_tokens_batch = source_tokens_batch.to(device)
     target_tokens_batch = target_tokens_batch.to(device)
     trigger_mask_batch = trigger_mask_batch.to(device)
     segment_ids_batch = segment_ids_batch.to(device)
+    attention_mask_batch = attention_mask_batch.to(device)
 
-    return source_tokens_batch, target_tokens_batch, trigger_mask_batch, segment_ids_batch
+    return source_tokens_batch, target_tokens_batch, trigger_mask_batch, segment_ids_batch, attention_mask_batch
 
 
-def get_unique_objects(data):
+def get_unique_objects(data, use_ctx=False):
     objs = set()
     for sample in data:
-        # TODO: make this switch between ctx and no ctx dynamic
-        # sub, obj = sample
-        sub, obj, ctx = sample
+        if use_ctx:
+            sub, obj, ctx = sample
+        else:
+            sub, obj = sample
         # print('sub: {}, obj: {}, ctx: {}'.format(sub, obj, ctx))
         objs.add(obj)
     return list(objs)

@@ -179,12 +179,6 @@ async def parse_triple(args, triple_dict, text, sents, sent_len_list, relations,
 async def main(args):
     # Set up relations list containing all of the TREx relations
     relations = constants.TREX_RELATIONS
-    # relations = [
-    #     'P30', 'P36', 'P37', 'P39',
-    #     'P101', 'P103', 'P108', 'P127', 'P136', 'P138', 'P140', 'P159',
-    #     'P176', 'P178', 'P190', 'P264', 'P276', 'P361', 'P407', 'P413',
-    #     'P449', 'P495', 'P527', 'P740', 'P937', 'P1001', 'P1303', 'P1376'
-    # ]
 
     # Initialize dictionary of relation to sample count
     rel_to_count = dict.fromkeys(relations, 0)

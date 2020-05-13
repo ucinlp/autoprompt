@@ -56,7 +56,7 @@ def add_hooks(language_model):
                 module.register_backward_hook(extract_grad_hook)
 
 
-def get_best_candidates(model, tokenizer, source_tokens, target_tokens, trigger_tokens, trigger_mask, segment_ids, candidates, beam_size, token_to_flip, obj_token_ids, special_token_ids, device):
+def get_best_candidates(model, tokenizer, source_tokens, target_tokens, trigger_tokens, trigger_mask, segment_ids, attention_mask, candidates, beam_size, token_to_flip, obj_token_ids, special_token_ids, device):
     best_cand_loss = 999999
     best_cand_trigger_tokens = None
 
@@ -68,6 +68,7 @@ def get_best_candidates(model, tokenizer, source_tokens, target_tokens, trigger_
                                                                         trigger_tokens,
                                                                         trigger_mask,
                                                                         segment_ids,
+                                                                        attention_mask,
                                                                         candidates,
                                                                         args.beam_size,
                                                                         obj_token_ids,
@@ -103,7 +104,7 @@ def get_best_candidates(model, tokenizer, source_tokens, target_tokens, trigger_
 
             # Get loss of candidate and update current best if it has lower loss
             with torch.no_grad():
-                cand_loss = get_loss(model, source_tokens, target_tokens, cand_trigger_tokens, trigger_mask, segment_ids, device).cpu().numpy()
+                cand_loss = get_loss(model, source_tokens, target_tokens, cand_trigger_tokens, trigger_mask, segment_ids, attention_mask, device).cpu().numpy()
                 if cand_loss < best_cand_loss:
                     best_cand_loss = cand_loss
                     best_cand_trigger_tokens = deepcopy(cand_trigger_tokens)
@@ -111,7 +112,7 @@ def get_best_candidates(model, tokenizer, source_tokens, target_tokens, trigger_
     return best_cand_trigger_tokens, best_cand_loss
 
 
-def get_best_candidates_beam_search(model, tokenizer, source_tokens, target_tokens, trigger_tokens, trigger_mask, segment_ids, candidates, beam_size, obj_token_ids, special_token_ids, device):
+def get_best_candidates_beam_search(model, tokenizer, source_tokens, target_tokens, trigger_tokens, trigger_mask, segment_ids, attention_mask, candidates, beam_size, obj_token_ids, special_token_ids, device):
     """"
     Given the list of candidate trigger token ids (of number of trigger words by number of candidates
     per word), it finds the best new candidate trigger.
@@ -119,7 +120,7 @@ def get_best_candidates_beam_search(model, tokenizer, source_tokens, target_toke
     """
     # first round, no beams, just get the loss for each of the candidates in index 0.
     # (indices 1-end are just the old trigger)
-    loss_per_candidate = get_loss_per_candidate(0, model, tokenizer, source_tokens, target_tokens, trigger_tokens, trigger_mask, segment_ids, candidates, special_token_ids, obj_token_ids, device)
+    loss_per_candidate = get_loss_per_candidate(0, model, tokenizer, source_tokens, target_tokens, trigger_tokens, trigger_mask, segment_ids, attention_mask, candidates, special_token_ids, obj_token_ids, device)
     # maximize the loss
     top_candidates = heapq.nsmallest(beam_size, loss_per_candidate, key=itemgetter(1))
 
@@ -127,12 +128,12 @@ def get_best_candidates_beam_search(model, tokenizer, source_tokens, target_toke
     for idx in range(1, len(trigger_tokens)): # for all trigger tokens, skipping the 0th (we did it above)
         loss_per_candidate = []
         for cand, _ in top_candidates: # for all the beams, try all the candidates at idx 
-            loss_per_candidate.extend(get_loss_per_candidate(idx, model, tokenizer, source_tokens, target_tokens, cand, trigger_mask, segment_ids, candidates, special_token_ids, obj_token_ids, device))
+            loss_per_candidate.extend(get_loss_per_candidate(idx, model, tokenizer, source_tokens, target_tokens, cand, trigger_mask, segment_ids, attention_mask, candidates, special_token_ids, obj_token_ids, device))
         top_candidates = heapq.nsmallest(beam_size, loss_per_candidate, key=itemgetter(1))
     return min(top_candidates, key=itemgetter(1))
 
 
-def get_loss(model, source_tokens, target_tokens, trigger_tokens, trigger_mask, segment_ids, device):
+def get_loss(model, source_tokens, target_tokens, trigger_tokens, trigger_mask, segment_ids, attention_mask, device):
     batch_size = source_tokens.size()[0]
     trigger_tokens = torch.tensor(trigger_tokens, device=device).repeat(batch_size, 1)
     # Make sure to not modify the original source tokens
@@ -140,12 +141,12 @@ def get_loss(model, source_tokens, target_tokens, trigger_tokens, trigger_mask, 
     src = src.masked_scatter_(trigger_mask.to(torch.uint8), trigger_tokens).to(device)
     dst = target_tokens.to(device)    
     model.train()
-    outputs = model(src, masked_lm_labels=dst, token_type_ids=segment_ids)
+    outputs = model(src, masked_lm_labels=dst, token_type_ids=segment_ids, attention_mask=attention_mask)
     loss, pred_scores = outputs[:2]
     return loss
 
 
-def get_loss_per_candidate(index, model, tokenizer, source_tokens, target_tokens, trigger_tokens, trigger_mask, segment_ids, candidates, special_token_ids, obj_token_ids, device):
+def get_loss_per_candidate(index, model, tokenizer, source_tokens, target_tokens, trigger_tokens, trigger_mask, segment_ids, attention_mask, candidates, special_token_ids, obj_token_ids, device):
     """
     For a particular index, the function tries all of the candidate tokens for that index.
     The function returns a list containing the candidate triggers it tried, along with their loss.
@@ -153,7 +154,7 @@ def get_loss_per_candidate(index, model, tokenizer, source_tokens, target_tokens
     loss_per_candidate = []
     # loss for the trigger without trying the candidates
     with torch.no_grad(): # NOTE: Don't compute gradients to save memory
-        curr_loss = get_loss(model, source_tokens, target_tokens, trigger_tokens, trigger_mask, segment_ids, device)
+        curr_loss = get_loss(model, source_tokens, target_tokens, trigger_tokens, trigger_mask, segment_ids, attention_mask, device)
         loss_per_candidate.append((deepcopy(trigger_tokens), curr_loss))
         for cand_id in range(len(candidates[0])):
             cand = candidates[index][cand_id]
@@ -175,7 +176,7 @@ def get_loss_per_candidate(index, model, tokenizer, source_tokens, target_tokens
 
             trigger_token_ids_one_replaced = deepcopy(trigger_tokens) # copy trigger
             trigger_token_ids_one_replaced[index] = cand # replace one token
-            loss = get_loss(model, source_tokens, target_tokens, trigger_token_ids_one_replaced, trigger_mask, segment_ids, device)
+            loss = get_loss(model, source_tokens, target_tokens, trigger_token_ids_one_replaced, trigger_mask, segment_ids, attention_mask, device)
             loss_per_candidate.append((deepcopy(trigger_token_ids_one_replaced), loss))
         return loss_per_candidate
 
@@ -251,7 +252,7 @@ def run_model(args):
         train_data, dev_data = dataset
 
         # Get all unique objects from train data
-        unique_objects = utils.get_unique_objects(train_data)
+        unique_objects = utils.get_unique_objects(train_data, args.use_ctx)
         # Store token ids for each object in batch to check if candidate == object later on
         obj_token_ids = tokenizer.convert_tokens_to_ids(unique_objects)
 
@@ -305,11 +306,12 @@ def run_model(args):
             # Full pass over training data set in batches of subject-object-context triplets
             for batch in utils.iterate_batches(train_data, args.bsz, True):
                 # Tokenize and pad batch
-                source_tokens, target_tokens, trigger_mask, segment_ids = utils.make_batch(tokenizer, batch, trigger_tokens, prompt_format, args.use_ctx, cls_token, sep_token, mask_token, pad_token, period_token, device)
+                source_tokens, target_tokens, trigger_mask, segment_ids, attention_mask = utils.make_batch(tokenizer, batch, trigger_tokens, prompt_format, args.use_ctx, cls_token, sep_token, mask_token, pad_token, period_token, device)
                 # print('SOURCE TOKENS:', source_tokens, source_tokens.size())
                 # print('TARGET TOKENS:', target_tokens, target_tokens.size())
                 # print('TRIGGER MASK:', trigger_mask, trigger_mask.size())
                 # print('SEGMENT IDS:', segment_ids, segment_ids.size())
+                # print('ATTENTION MASK:', attention_mask, attention_mask.size())
 
                 # Iteratively update tokens in the trigger
                 for token_to_flip in range(trigger_token_length):
@@ -318,7 +320,7 @@ def run_model(args):
                         continue
 
                     model.zero_grad() # clear previous gradients
-                    loss = get_loss(model, source_tokens, target_tokens, trigger_tokens, trigger_mask, segment_ids, device)
+                    loss = get_loss(model, source_tokens, target_tokens, trigger_tokens, trigger_mask, segment_ids, attention_mask, device)
                     loss.backward() # compute derivative of loss w.r.t. params using backprop
 
                     global extracted_grads
@@ -370,6 +372,7 @@ def run_model(args):
                                                                         trigger_tokens,
                                                                         trigger_mask,
                                                                         segment_ids,
+                                                                        attention_mask,
                                                                         candidates,
                                                                         args.beam_size,
                                                                         token_to_flip,
@@ -408,10 +411,10 @@ def run_model(args):
             # Evaluate on dev set
             losses_batch_dev = []
             for batch in utils.iterate_batches(dev_data, args.bsz, True):
-                source_tokens, target_tokens, trigger_mask, segment_ids = utils.make_batch(tokenizer, batch, trigger_tokens, prompt_format, args.use_ctx, cls_token, sep_token, mask_token, pad_token, period_token, device)
+                source_tokens, target_tokens, trigger_mask, segment_ids, attention_mask = utils.make_batch(tokenizer, batch, trigger_tokens, prompt_format, args.use_ctx, cls_token, sep_token, mask_token, pad_token, period_token, device)
                 # Don't compute gradient to save memory
                 with torch.no_grad():
-                    loss = get_loss(model, source_tokens, target_tokens, trigger_tokens, trigger_mask, segment_ids, device)
+                    loss = get_loss(model, source_tokens, target_tokens, trigger_tokens, trigger_mask, segment_ids, attention_mask, device)
                     losses_batch_dev.append(loss.item())
             dev_loss = np.mean(losses_batch_dev)
 

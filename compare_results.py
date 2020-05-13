@@ -28,9 +28,9 @@ def compare_and_display(args):
 
             # NOTE: CONFIGURABLE
             # 0 -> LAMA (data=L), 2 -> LPAQA (Top1), data=L, 4 -> Init=man, cand=10, data=L
-            row_p1 = tab.loc[8]
+            row_p1 = tab.loc[2]
             val_p1 = row_p1[comp_metric]
-            row_p2 = tab.loc[2]
+            row_p2 = tab.loc[1]
             val_p2 = row_p2[comp_metric]
 
             if val_p1 > val_p2:
