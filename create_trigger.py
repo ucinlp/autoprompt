@@ -1,20 +1,22 @@
+import argparse
+from copy import deepcopy
+import heapq
+from operator import itemgetter
 import os
 import random
-import argparse
-import numpy as np
-import heapq
-import torch
-import spacy
-import matplotlib.pyplot as plt
-from copy import deepcopy
-from operator import itemgetter
-from my_bert_model import MyBertForMaskedLM
-#from transformers import BertTokenizer, BertForMaskedLM
-from pytorch_transformers import BertTokenizer, BertForMaskedLM, RobertaTokenizer, RobertaForMaskedLM
-import constants
-import utils
-import lama_utils
 import time
+
+import matplotlib.pyplot as plt
+# TODO: Update to transformers
+from pytorch_transformers import BertTokenizer, BertForMaskedLM, RobertaTokenizer, RobertaForMaskedLM
+import numpy as np
+import spacy
+import torch
+
+import constants
+import lama_utils
+import utils
+from my_bert_model import MyBertForMaskedLM
 
 
 nlp = spacy.load("en_core_web_sm")
@@ -498,8 +500,6 @@ if __name__ == '__main__':
     parser.add_argument('--class_count', type=int, default=2, help='number of classes')
     parser.add_argument('--masked_words', type=str, default="and-but", help='mask words')
     parser.add_argument('--class_labels', type=str, default="entailment-contradiction", help='class labels')
-
-
-
     args = parser.parse_args()
+
     run_model(args)
