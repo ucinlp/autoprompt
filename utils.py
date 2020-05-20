@@ -5,7 +5,6 @@ import asyncio
 import numpy as np
 import torch
 from copy import deepcopy
-from pytorch_transformers import BertTokenizer
 import constants
 from transformers import glue_processors as processors
 import random
@@ -51,7 +50,7 @@ import random
 #     return facts
 def load_GLUE_data(args, filename, is_train, glue_name, sentence_size, class_labels, masked_words, down_sample = False):
     facts = []
-    tokenizer = BertTokenizer.from_pretrained('bert-base-cased', do_lower_case=False)
+    # tokenizer = BertTokenizer.from_pretrained('bert-base-cased', do_lower_case=False)
     processor = processors[glue_name.lower()]()
     print("hahahah", class_labels)
     print("beeee", masked_words)
@@ -75,8 +74,11 @@ def load_GLUE_data(args, filename, is_train, glue_name, sentence_size, class_lab
             # print("word::::", )
             obj = masked_words[ind]
             # print("word::::", obj)
-            if len(tokenizer.tokenize(sub)) > sentence_size:
-                continue
+
+            # TODO: @rlogan - add back in using correct tokenizer...
+            # if len(tokenizer.tokenize(sub)) > sentence_size:
+            #     continue
+
             if down_sample:
                 r_rand = random.uniform(0, 1)
                 if r_rand < 0.005:
@@ -397,6 +399,9 @@ def make_batch_glue(tokenizer, batch, trigger_tokens, prompt_format, use_ctx, cl
     return source_tokens_batch, target_tokens_batch, trigger_mask_batch, segment_ids_batch, labels
 
 def get_unique_objects(data):
+    """
+    @rloganiv - Used to identify the set of labels
+    """
     objs = set()
     for sample in data:
         sub, obj = sample
