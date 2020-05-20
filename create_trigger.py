@@ -2,24 +2,20 @@ import argparse
 from copy import deepcopy
 import heapq
 from operator import itemgetter
-import os
 import random
 import time
 
-import matplotlib.pyplot as plt
-# TODO: Update to transformers
-from pytorch_transformers import BertTokenizer, BertForMaskedLM, RobertaTokenizer, RobertaForMaskedLM
+from transformers import AutoConfig, AutoModelWithLMHead, AutoTokenizer
 import numpy as np
-import spacy
 import torch
 
 import constants
-import lama_utils
 import utils
-from my_bert_model import MyBertForMaskedLM
 
 
-nlp = spacy.load("en_core_web_sm")
+# nlp = spacy.load("en_core_web_sm")
+nlp = None
+
 
 def hotflip_attack(averaged_grad, embedding_matrix, trigger_token_ids,
                    increase_loss=False, num_candidates=1):
@@ -39,12 +35,9 @@ def hotflip_attack(averaged_grad, embedding_matrix, trigger_token_ids,
     return best_at_each_step[0].detach().cpu().numpy()
 
 
-# Returns the wordpiece embedding weight matrix
-def get_embedding_weight(language_model):
-    for module in language_model.modules():
-        if isinstance(module, torch.nn.Embedding):
-            if module.weight.shape[0] == constants.BERT_EMB_DIM: # only add a hook to wordpiece embeddings, not position embeddings
-                return module.weight.detach()
+def get_embeddings(model, config):
+    """Returns the wordpiece embedding tensor."""
+    return model.getattr(config.model_type).embeddings.word_embeddings
 
 
 # Add hooks for embeddings
@@ -235,19 +228,16 @@ def run_model(args):
     torch.random.manual_seed(0)
     torch.cuda.manual_seed(0)
 
-    # TODO: Make CUDA device an arg.
     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
-    print(device)
 
-    # TODO: Refactor to use transformers.AutoX
-    if args.lm == 'bert':
-        tokenizer = BertTokenizer.from_pretrained('bert-base-cased', do_lower_case=False)
-        model = MyBertForMaskedLM.from_pretrained('bert-base-cased')
-    else:
-        tokenizer = RobertaTokenizer.from_pretrained('roberta-base', do_lower_case=False)
-        model = RobertaForMaskedLM.from_pretrained('roberta-base')
+    config = AutoConfig.from_pretrained(args.model_name)
+    model = AutoModelWithLMHead.from_pretrained(args.model_name)
+    tokenizer = AutoTokenizer.from_pretrained(args.model_name)
     model.eval()
     model.to(device)
+
+    # Get embeddings
+    embeddings = get_embeddings(model, config)
 
     add_hooks(model) # add gradient hooks to embeddings
     embedding_weight = get_embedding_weight(model) # save the word embedding matrix
@@ -484,15 +474,6 @@ def run_model(args):
         # Measure elapsed time
         end = time.time()
         print('Elapsed time: {} sec'.format(end - start))
-
-        # Plot loss/learning curve
-        num_iters = len(train_losses)
-        plt.plot(range(num_iters), train_losses)
-        plt.plot(range(num_iters), dev_losses)
-        plt.xlabel('Iteration')
-        plt.ylabel('Loss')
-        plt.legend(['Train', 'Dev'])
-        plt.savefig(os.path.join(args.out_dir, 'loss.png'))
 
 
 if __name__ == '__main__':
