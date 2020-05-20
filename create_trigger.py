@@ -230,12 +230,16 @@ def build_prompt(tokenizer, pair, trigger_tokens, use_ctx, prompt_format, maskin
     return prompt
 
 def run_model(args):
+    # TODO: Make seed an arg.
     np.random.seed(0)
     torch.random.manual_seed(0)
     torch.cuda.manual_seed(0)
+
+    # TODO: Make CUDA device an arg.
     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
     print(device)
 
+    # TODO: Refactor to use transformers.AutoX
     if args.lm == 'bert':
         tokenizer = BertTokenizer.from_pretrained('bert-base-cased', do_lower_case=False)
         model = MyBertForMaskedLM.from_pretrained('bert-base-cased')
@@ -256,6 +260,8 @@ def run_model(args):
     start = time.time()
 
     # TODO: remove this for loop over datasets. instead make the dataset a argument for script
+    # @rloganiv - Reconsider running all datasets at once. Since this is a rather long process it
+    # might be better to just call script multiple times..
     for dataset in utils.get_all_datasets(args):
         train_data, dev_data = dataset
 
@@ -266,6 +272,8 @@ def run_model(args):
 
         # TODO: make this dynamic to work for other datasets. Make special symbols dictionary
         # Initialize special tokens
+        # @rloganiv - All of this is readily accessible from the tokenizer.
+        # If subsequent code has access to tokenizer then delete...
         cls_token = tokenizer.convert_tokens_to_ids(tokenizer.tokenize(constants.BERT_CLS))
         unk_token = tokenizer.convert_tokens_to_ids(tokenizer.tokenize(constants.BERT_UNK))
         sep_token = tokenizer.convert_tokens_to_ids(tokenizer.tokenize(constants.BERT_SEP))
@@ -276,11 +284,10 @@ def run_model(args):
         # constants.SPECIAL_SYMBOLS
         special_token_ids = [cls_token, unk_token, sep_token, mask_token, pad_token]
 
-        """
-        Trigger Initialization Options
-        1. Manual -> provide prompt format + manual prompt
-        2. Random (manual length OR different format/length) -> provide only prompt format
-        """
+        # TODO: @rloganiv - Looks like this does not need to be in the loop?
+        # Trigger Initialization Options
+        # 1. Manual -> provide prompt format + manual prompt
+        # 2. Random (manual length OR different format/length) -> provide only prompt format
         # Parse prompt format
         prompt_format = args.format.split('-')
         trigger_token_length = sum([int(x) for x in prompt_format if x.isdigit()])
@@ -340,16 +347,22 @@ def run_model(args):
                     loss = get_loss(model, source_tokens, target_tokens, trigger_tokens, trigger_mask, segment_ids, device)
                     loss.backward() # compute derivative of loss w.r.t. params using backprop
 
+                    # TODO: @rloganiv - This seems bad...
                     global extracted_grads
                     grad = extracted_grads[0]
                     bsz, _, emb_dim = grad.size() # middle dimension is number of trigger tokens
+
+                    # TODO: @rloganiv - Really bad...
                     extracted_grads = [] # clear gradients from past iterations
+
                     trigger_mask_matrix = trigger_mask.unsqueeze(-1).repeat(1, 1, emb_dim).to(torch.uint8).to(device)
                     grad = torch.masked_select(grad, trigger_mask_matrix).view(bsz, -1, emb_dim)
 
                     if args.beam_size > 1:
+                        # TODO: @rloganiv - This seems sketchy...
                         # Get "averaged" gradient w.r.t. ALL trigger tokens
                         averaged_grad = grad.sum(dim=0)
+
                         # print('AVERAGED GRAD:', averaged_grad, averaged_grad.size())
                         # Use hotflip (linear approximation) attack to get the top num_candidates
                         candidates = hotflip_attack(averaged_grad,
@@ -425,6 +438,7 @@ def run_model(args):
             train_loss = best_loss_iter
 
             # Evaluate on dev set
+            # TODO: @rloganiv - Really we want to use accuracy or something instead of dev loss here
             losses_batch_dev = []
             for batch in utils.iterate_batches(dev_data, args.bsz, True):
                 #YAS source_tokens, target_tokens, trigger_mask, segment_ids = utils.make_batch(tokenizer, batch, trigger_tokens, prompt_format, args.use_ctx, cls_token, sep_token, mask_token, pad_token, period_token, device)
