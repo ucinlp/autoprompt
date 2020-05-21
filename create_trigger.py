@@ -56,17 +56,20 @@ def get_embeddings(model, config):
     return embeddings
 
 
-# Add hooks for embeddings
-extracted_grads = []
-def extract_grad_hook(module, grad_in, grad_out):
-    extracted_grads.append(grad_out[0])
+class GradientStorage:
+    """
+    This object stores the intermediate gradients of the output a the given PyTorch module, which
+    otherwise might not be retained.
+    """
+    def __init__(self, module):
+        self._stored_gradient = None
+        module.register_backward_hook(self.hook)
 
-def add_hooks(language_model):
-    for module in language_model.modules():
-        if isinstance(module, torch.nn.Embedding):
-            if module.weight.shape[0] == constants.BERT_EMB_DIM: # only add a hook to wordpiece embeddings, not position
-                module.weight.requires_grad = True
-                module.register_backward_hook(extract_grad_hook)
+    def hook(self, module, grad_in, grad_out):
+        self._stored_gradient = grad_out[0]
+
+    def get(self):
+        return self._stored_gradient
 
 
 def get_best_candidates(model, tokenizer, source_tokens, target_tokens, trigger_tokens, trigger_mask, segment_ids, candidates, beam_size, token_to_flip, obj_token_ids, special_token_ids, device):
