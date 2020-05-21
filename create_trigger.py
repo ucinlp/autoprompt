@@ -36,10 +36,10 @@ def hotflip_attack(averaged_grad, embedding_matrix, trigger_token_ids,
 
 
 def get_embeddings(model, config):
-    """Returns the wordpiece embedding tensor."""
+    """Returns the wordpiece embedding module."""
     base_model = getattr(model, config.model_type)
-    embeddings_module = base_model.embeddings.word_embeddings
-    return embeddings_module.weight
+    embeddings = base_model.embeddings.word_embeddings
+    return embeddings
 
 
 # Add hooks for embeddings
