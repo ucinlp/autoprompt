@@ -1,13 +1,10 @@
-import os
 import json
+import os
 import random
-import asyncio
+
 import numpy as np
 import torch
-from copy import deepcopy
-import constants
 from transformers import glue_processors as processors
-import random
 
 
 # def load_GLUE_data(args, filename, is_train, glue_name, ent_word, cont_word, sentence_size, down_sample = False):
