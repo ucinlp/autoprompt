@@ -37,7 +37,9 @@ def hotflip_attack(averaged_grad, embedding_matrix, trigger_token_ids,
 
 def get_embeddings(model, config):
     """Returns the wordpiece embedding tensor."""
-    return model.getattr(config.model_type).embeddings.word_embeddings
+    base_model = getattr(model, config.model_type)
+    embeddings_module = base_model.embeddings.word_embeddings
+    return embeddings_module.weight
 
 
 # Add hooks for embeddings
@@ -236,8 +238,10 @@ def run_model(args):
     model.eval()
     model.to(device)
 
-    # Get embeddings
+    # Get embeddings and ensure that pytorch will backprop gradients.
     embeddings = get_embeddings(model, config)
+    if not embeddings.requires_grad:
+        embeddings.requires_grad = True
 
     add_hooks(model) # add gradient hooks to embeddings
     embedding_weight = get_embedding_weight(model) # save the word embedding matrix
@@ -480,7 +484,7 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser()
     parser.add_argument('data_dir', type=str)
     parser.add_argument('out_dir', type=str)
-    parser.add_argument('--lm', type=str, default='bert')
+    parser.add_argument('--model-name', type=str, default='bert-base-cased', help='Model name passed to HuggingFace AutoX classes.')
     parser.add_argument('--use_ctx', action='store_true', help='Use context sentences for open-book probing')
     parser.add_argument('--iters', type=int, default='100', help='Number of iterations to run trigger search algorithm')
     parser.add_argument('--bsz', type=int, default=32, help='Batch size')
