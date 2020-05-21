@@ -132,27 +132,6 @@ def get_best_candidates(model, tokenizer, source_tokens, target_tokens, trigger_
     return best_cand_trigger_tokens, best_cand_loss
 
 
-def get_best_candidates_beam_search(model, tokenizer, source_tokens, target_tokens, trigger_tokens, trigger_mask, segment_ids, candidates, beam_size, obj_token_ids, special_token_ids, device):
-    """"
-    Given the list of candidate trigger token ids (of number of trigger words by number of candidates
-    per word), it finds the best new candidate trigger.
-    This performs beam search in a left to right fashion.
-    """
-    # first round, no beams, just get the loss for each of the candidates in index 0.
-    # (indices 1-end are just the old trigger)
-    loss_per_candidate = get_loss_per_candidate(0, model, tokenizer, source_tokens, target_tokens, trigger_tokens, trigger_mask, segment_ids, candidates, special_token_ids, obj_token_ids, device)
-    # maximize the loss
-    top_candidates = heapq.nsmallest(beam_size, loss_per_candidate, key=itemgetter(1))
-
-    # top_candidates now contains beam_size trigger sequences, each with a different 0th token
-    for idx in range(1, len(trigger_tokens)): # for all trigger tokens, skipping the 0th (we did it above)
-        loss_per_candidate = []
-        for cand, _ in top_candidates: # for all the beams, try all the candidates at idx
-            loss_per_candidate.extend(get_loss_per_candidate(idx, model, tokenizer, source_tokens, target_tokens, cand, trigger_mask, segment_ids, candidates, special_token_ids, obj_token_ids, device))
-        top_candidates = heapq.nsmallest(beam_size, loss_per_candidate, key=itemgetter(1))
-    return min(top_candidates, key=itemgetter(1))
-
-
 def get_loss(model, source_tokens, target_tokens, trigger_tokens, trigger_mask, segment_ids, device):
     batch_size = source_tokens.size()[0]
     trigger_tokens = torch.tensor(trigger_tokens, device=device).repeat(batch_size, 1)
