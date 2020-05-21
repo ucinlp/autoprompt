@@ -37,9 +37,15 @@ def hotflip_attack(averaged_grad, embedding_matrix, trigger_token_ids,
 
 
 def load_pretrained(model_name):
+    """
+    Loads pretrained HuggingFace config/model/tokenizer, as well as performs required
+    initialization steps to facilitate working with triggers.
+    """
     config = AutoConfig.from_pretrained(args.model_name)
     model = AutoModelWithLMHead.from_pretrained(args.model_name)
+    model.eval()
     tokenizer = AutoTokenizer.from_pretrained(args.model_name)
+    tokenizer.add_special_token({'trigger_token': '[T]'})
     return config, model, tokenizer
 
 
