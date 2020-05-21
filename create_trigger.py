@@ -166,45 +166,6 @@ def get_loss(model, source_tokens, target_tokens, trigger_tokens, trigger_mask, 
     return loss
 
 
-def get_loss_per_candidate(index, model, tokenizer, source_tokens, target_tokens, trigger_tokens, trigger_mask, segment_ids, candidates, special_token_ids, obj_token_ids, device):
-    """
-    For a particular index, the function tries all of the candidate tokens for that index.
-    The function returns a list containing the candidate triggers it tried, along with their loss.
-    """
-    loss_per_candidate = []
-    # loss for the trigger without trying the candidates
-    with torch.no_grad(): # NOTE: Don't compute gradients to save memory
-        curr_loss = get_loss(model, source_tokens, target_tokens, trigger_tokens, trigger_mask, segment_ids, device)
-        loss_per_candidate.append((deepcopy(trigger_tokens), curr_loss))
-        for cand_id in range(len(candidates[0])):
-            cand = candidates[index][cand_id]
-            # Make sure to exclude special tokens like [CLS] from candidates
-            # TODO: add unused BERT tokens to special tokens
-            if cand in special_token_ids:
-                # print("Skipping candidate {} because it's a special symbol {}.".format(cand, tokenizer.convert_ids_to_tokens([cand])))
-                continue
-            # Make sure object/answer token is not included in the trigger -> prevents biased/overfitted triggers for each relation
-            if cand in obj_token_ids:
-                # print("Skipping candidate {} because it's the same as object {}.".format(cand, tokenizer.convert_ids_to_tokens([cand])))
-                continue
-            # Ignore candidates that are proper nouns like Antarctica and ABC
-            doc = nlp(tokenizer.convert_ids_to_tokens([cand])[0])
-            pos = [token.pos_ for token in doc]
-            if pos[0] == 'PROPN':
-                # print("Skipping candidate {} because it's a proper noun {}.".format(cand, tokenizer.convert_ids_to_tokens([cand])))
-                continue
-
-            trigger_token_ids_one_replaced = deepcopy(trigger_tokens) # copy trigger
-            trigger_token_ids_one_replaced[index] = cand # replace one token
-            loss = get_loss(model, source_tokens, target_tokens, trigger_token_ids_one_replaced, trigger_mask, segment_ids, device)
-            loss_per_candidate.append((deepcopy(trigger_token_ids_one_replaced), loss))
-        return loss_per_candidate
-
-
-def get_prediction(model, source_tokens, trigger_tokens, trigger_mask, segment_ids, device):
-    return 'prediction'
-
-
 def build_prompt(tokenizer, pair, trigger_tokens, use_ctx, prompt_format, masking=False):
     prompt_list = []
     # sub, obj, context = pair
