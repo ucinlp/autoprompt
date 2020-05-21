@@ -13,10 +13,6 @@ import constants
 import utils
 
 
-# nlp = spacy.load("en_core_web_sm")
-nlp = None
-
-
 def hotflip_attack(averaged_grad,
                    embedding_matrix,
                    increase_loss=False,
