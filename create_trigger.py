@@ -17,23 +17,21 @@ import utils
 nlp = None
 
 
-def hotflip_attack(averaged_grad, embedding_matrix, trigger_token_ids,
-                   increase_loss=False, num_candidates=1):
-    averaged_grad = averaged_grad.cpu()
-    embedding_matrix = embedding_matrix.cpu()
-    trigger_token_embeds = torch.nn.functional.embedding(torch.LongTensor(trigger_token_ids),
-                                                         embedding_matrix).detach().unsqueeze(0)
-    averaged_grad = averaged_grad.unsqueeze(0)
-    gradient_dot_embedding_matrix = torch.einsum("bij,kj->bik",
-                                                 (averaged_grad, embedding_matrix))
-    if not increase_loss:
-        gradient_dot_embedding_matrix *= -1    # lower versus increase the class probability.
-    if num_candidates > 1: # get top k options
-        _, best_k_ids = torch.topk(gradient_dot_embedding_matrix, num_candidates, dim=2)
-        return best_k_ids.detach().cpu().numpy()[0]
-    _, best_at_each_step = gradient_dot_embedding_matrix.max(2)
-    return best_at_each_step[0].detach().cpu().numpy()
+def hotflip_attack(averaged_grad,
+                   embedding_matrix,
+                   increase_loss=False,
+                   num_candidates=1):
+    """Returns the top candidate replacements."""
+    with torch.no_grad():
+        gradient_dot_embedding_matrix = torch.matmul(
+            averaged_grad,
+            embedding_matrix.transpose(0, 1)
+        )
+        if not increase_loss:
+            gradient_dot_embedding_matrix *= -1
+        _, top_k_ids = gradient_dot_embedding_matrix.topk(num_candidates, -1)
 
+    return top_k_ids
 
 
 def load_pretrained(model_name):
