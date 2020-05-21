@@ -48,6 +48,7 @@ def load_pretrained(model_name):
 
 
 def set_seed(seed: int):
+    """Sets the relevant random seeds."""
     np.random.seed(seed)
     torch.random.manual_seed(seed)
     torch.cuda.manual_seed(seed)
