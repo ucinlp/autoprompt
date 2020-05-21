@@ -1,60 +1,20 @@
 import argparse
-from copy import deepcopy
-import heapq
-from operator import itemgetter
+import json
+import logging
+from pathlib import Path
 import random
-import time
 
-from transformers import AutoConfig, AutoModelWithLMHead, AutoTokenizer
 import numpy as np
 import torch
+import torch.nn.functional as F
+from torch.utils.data import DataLoader
+from transformers import AutoConfig, AutoModelWithLMHead, AutoTokenizer
+from tqdm import tqdm
 
-import constants
 import utils
 
 
-def hotflip_attack(averaged_grad,
-                   embedding_matrix,
-                   increase_loss=False,
-                   num_candidates=1):
-    """Returns the top candidate replacements."""
-    with torch.no_grad():
-        gradient_dot_embedding_matrix = torch.matmul(
-            averaged_grad,
-            embedding_matrix.transpose(0, 1)
-        )
-        if not increase_loss:
-            gradient_dot_embedding_matrix *= -1
-        _, top_k_ids = gradient_dot_embedding_matrix.topk(num_candidates, -1)
-
-    return top_k_ids
-
-
-def load_pretrained(model_name):
-    """
-    Loads pretrained HuggingFace config/model/tokenizer, as well as performs required
-    initialization steps to facilitate working with triggers.
-    """
-    config = AutoConfig.from_pretrained(args.model_name)
-    model = AutoModelWithLMHead.from_pretrained(args.model_name)
-    model.eval()
-    tokenizer = AutoTokenizer.from_pretrained(args.model_name)
-    tokenizer.add_special_token({'trigger_token': '[T]'})
-    return config, model, tokenizer
-
-
-def set_seed(seed: int):
-    """Sets the relevant random seeds."""
-    np.random.seed(seed)
-    torch.random.manual_seed(seed)
-    torch.cuda.manual_seed(seed)
-
-
-def get_embeddings(model, config):
-    """Returns the wordpiece embedding module."""
-    base_model = getattr(model, config.model_type)
-    embeddings = base_model.embeddings.word_embeddings
-    return embeddings
+logger = logging.getLogger(__name__)
 
 
 class GradientStorage:
@@ -73,385 +33,188 @@ class GradientStorage:
         return self._stored_gradient
 
 
-def get_best_candidates(model, tokenizer, source_tokens, target_tokens, trigger_tokens, trigger_mask, segment_ids, candidates, beam_size, token_to_flip, obj_token_ids, special_token_ids, device):
-    best_cand_loss = 999999
-    best_cand_trigger_tokens = None
-
-    if beam_size > 1:
-        best_cand_trigger_tokens, best_cand_loss = get_best_candidates_beam_search(model,
-                                                                        tokenizer,
-                                                                        source_tokens,
-                                                                        target_tokens,
-                                                                        trigger_tokens,
-                                                                        trigger_mask,
-                                                                        segment_ids,
-                                                                        candidates,
-                                                                        args.beam_size,
-                                                                        obj_token_ids,
-                                                                        special_token_ids,
-                                                                        device)
-        best_cand_loss = best_cand_loss.item()
-    else:
-        # Filter candidates
-        filtered_candidates = []
-        for cand in candidates:
-            # Make sure to exclude special tokens like [CLS] from candidates
-            # TODO: add unused BERT tokens to special tokens
-            if cand in special_token_ids:
-                # print("Skipping candidate {} because it's a special symbol {}.".format(cand, tokenizer.convert_ids_to_tokens([cand])))
-                continue
-            # Make sure object/answer token is not included in the trigger -> prevents biased/overfitted triggers for each relation
-            if cand in obj_token_ids:
-                # print("Skipping candidate {} because it's the same as object {}.".format(cand, tokenizer.convert_ids_to_tokens([cand])))
-                continue
-            # Ignore candidates that are proper nouns like Antarctica and ABC
-            doc = nlp(tokenizer.convert_ids_to_tokens([cand])[0])
-            pos = doc[0].pos_
-            if pos == 'PROPN':
-                # print('CAND: {}, POS: {}'.format(doc, pos))
-                # print("Skipping candidate {} because it's a proper noun {}.".format(cand, tokenizer.convert_ids_to_tokens([cand])))
-                continue
-            filtered_candidates.append(cand)
-
-        for cand in filtered_candidates:
-            # Replace current token with new candidate
-            cand_trigger_tokens = deepcopy(trigger_tokens)
-            cand_trigger_tokens[token_to_flip] = cand
-
-            # Get loss of candidate and update current best if it has lower loss
-            with torch.no_grad():
-                cand_loss = get_loss(model, source_tokens, target_tokens, cand_trigger_tokens, trigger_mask, segment_ids, device).cpu().numpy()
-                if cand_loss < best_cand_loss:
-                    best_cand_loss = cand_loss
-                    best_cand_trigger_tokens = deepcopy(cand_trigger_tokens)
-
-    return best_cand_trigger_tokens, best_cand_loss
+def load_pretrained(model_name):
+    """
+    Loads pretrained HuggingFace config/model/tokenizer, as well as performs required
+    initialization steps to facilitate working with triggers.
+    """
+    config = AutoConfig.from_pretrained(args.model_name)
+    model = AutoModelWithLMHead.from_pretrained(args.model_name)
+    model.eval()
+    tokenizer = AutoTokenizer.from_pretrained(args.model_name)
+    utils.add_task_specific_tokens(tokenizer)
+    return config, model, tokenizer
 
 
-def get_loss(model, source_tokens, target_tokens, trigger_tokens, trigger_mask, segment_ids, device):
-    batch_size = source_tokens.size()[0]
-    trigger_tokens = torch.tensor(trigger_tokens, device=device).repeat(batch_size, 1)
-    # Make sure to not modify the original source tokens
-    src = source_tokens.clone()
-    src = src.masked_scatter_(trigger_mask.to(torch.uint8), trigger_tokens).to(device)
-    dst = target_tokens.to(device)
-    model.train()
-    outputs = model(src, masked_lm_labels=dst, token_type_ids=segment_ids)
-    loss, pred_scores = outputs[:2]
-    return loss
+def set_seed(seed: int):
+    """Sets the relevant random seeds."""
+    random.seed(seed)
+    np.random.seed(seed)
+    torch.random.manual_seed(seed)
+    torch.cuda.manual_seed(seed)
 
 
-def build_prompt(tokenizer, pair, trigger_tokens, use_ctx, prompt_format, masking=False):
-    prompt_list = []
-    # sub, obj, context = pair
-    # print('SUBJECT: {}, OBJECT: {}, CONTEXT: {}'.format(sub, obj, context))
-    sub, obj = pair
-    hyp, prem = sub.split("*%*")
-    if masking:
-        obj = constants.MASK
+def get_embeddings(model, config):
+    """Returns the wordpiece embedding module."""
+    base_model = getattr(model, config.model_type)
+    embeddings = base_model.embeddings.word_embeddings
+    return embeddings
 
-    # Convert triggers from ids to tokens
-    triggers = tokenizer.convert_ids_to_tokens(trigger_tokens)
 
-    if use_ctx:
-        prompt_list.append(context)
+def hotflip_attack(averaged_grad,
+                   embedding_matrix,
+                   increase_loss=False,
+                   num_candidates=1):
+    """Returns the top candidate replacements."""
+    with torch.no_grad():
+        gradient_dot_embedding_matrix = torch.matmul(
+            embedding_matrix,
+            averaged_grad
+        )
+        if not increase_loss:
+            gradient_dot_embedding_matrix *= -1
+        _, top_k_ids = gradient_dot_embedding_matrix.topk(num_candidates)
 
-    trigger_idx = 0
-    for part in prompt_format:
-        if part == 'H':
-            prompt_list.append(hyp)
-        elif part == 'Y':
-            prompt_list.append(obj)
-        elif part == 'P':
-            prompt_list.append(prem)
-        elif part == 'S':
-            pass
-        else:
-            num_trigger_tokens = int(part)
-            prompt_list.extend(triggers[trigger_idx:trigger_idx+num_trigger_tokens])
-            # Update trigger idx
-            trigger_idx += num_trigger_tokens
+    return top_k_ids
 
-    # Add period
-    prompt_list.append('.')
-    # Detokenize output and remove hashtags in subwords
-    prompt = ' '.join(prompt_list)
-    # Combine subwords with the previous word
-    prompt = prompt.replace(' ##', '')
-    # Remove hashtags from subword if its in the beginning of the prompt
-    prompt = prompt.replace('##', '')
-    return prompt
+
+def replace_trigger_tokens(model_inputs, trigger_ids, trigger_mask):
+    """Replaces the trigger tokens in input_ids."""
+    out = model_inputs.copy()
+    input_ids = model_inputs['input_ids']
+    trigger_ids = trigger_ids.repeat(trigger_mask.size(0), 1)
+    filled = input_ids.masked_scatter(trigger_mask, trigger_ids)
+    out['input_ids'] = filled
+    return out
+
+
+def get_loss(model, model_inputs, trigger_ids, label_token_ids):
+    # Copy dict so pop operations don't have unwanted side-effects
+    model_inputs = model_inputs.copy()
+    trigger_mask = model_inputs.pop('trigger_mask')
+    predict_mask = model_inputs.pop('predict_mask')
+    model_inputs = replace_trigger_tokens(model_inputs, trigger_ids, trigger_mask)
+    logits, *_ = model(**model_inputs)
+    predict_logits = logits.masked_select(predict_mask.unsqueeze(-1)).view(logits.size(0), -1)
+    return F.cross_entropy(predict_logits, label_token_ids)
+
 
 def run_model(args):
     set_seed(args.seed)
-
     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 
+    logger.info('Loading model, tokenizer, etc.')
     config, model, tokenizer = load_pretrained(args.model_name)
-    model.eval()
     model.to(device)
-
-    # Get embeddings and ensure that pytorch will backprop gradients.
+    templatizer = utils.TriggerTemplatizer(args.template, tokenizer)
     embeddings = get_embeddings(model, config)
-    if not embeddings.requires_grad:
-        embeddings.requires_grad = True
+    embedding_gradient = GradientStorage(embeddings)
 
-    add_hooks(model) # add gradient hooks to embeddings
-    embedding_weight = get_embedding_weight(model) # save the word embedding matrix
-    total_vocab_size = constants.BERT_EMB_DIM  # total number of subword pieces in the specified model
+    # Obtain the initial trigger tokens and label mapping
+    if args.initial_trigger:
+        trigger_ids = tokenizer.encode(args.initial_trigger, add_special_tokens=False)
+        assert len(trigger_ids) == templatizer.num_trigger_tokens
+    else:
+        trigger_ids = [tokenizer.mask_token_id] * templatizer.num_trigger_tokens
+    trigger_ids = torch.tensor(trigger_ids, device=device).unsqueeze(0)
+    label_map = json.loads(args.label_map)
 
-    # Number of iterations to wait before early stop if there is no progress on dev set
-    dev_patience = args.patience
+    logger.info('Loading datasets')
+    collator = utils.TriggerCollator(pad_token_id=tokenizer.pad_token_id)
+    train_dataset = utils.load_dataset(args.train, templatizer)
+    train_loader = DataLoader(train_dataset, batch_size=args.bsz, shuffle=True, collate_fn=collator)
+    dev_dataset = utils.load_dataset(args.dev, templatizer)
+    dev_loader = DataLoader(dev_dataset, batch_size=args.bsz, shuffle=False, collate_fn=collator)
 
-    # Measure elapsed time of trigger search algorithm
-    start = time.time()
+    for i in range(args.iters):
 
-    # TODO: remove this for loop over datasets. instead make the dataset a argument for script
-    # @rloganiv - Reconsider running all datasets at once. Since this is a rather long process it
-    # might be better to just call script multiple times..
-    for dataset in utils.get_all_datasets(args):
-        train_data, dev_data = dataset
+        logger.info(f'Iteration: {i}')
 
-        # Get all unique objects from train data
-        unique_objects = utils.get_unique_objects(train_data)
-        # Store token ids for each object in batch to check if candidate == object later on
-        obj_token_ids = tokenizer.convert_tokens_to_ids(unique_objects)
+        logger.info('Training')
+        for model_inputs, labels in tqdm(train_loader):
+            # Shuttle inputs to GPU
+            model_inputs = {k: v.to(device) for k, v in model_inputs.items()}
 
-        # TODO: make this dynamic to work for other datasets. Make special symbols dictionary
-        # Initialize special tokens
-        # @rloganiv - All of this is readily accessible from the tokenizer.
-        # If subsequent code has access to tokenizer then delete...
-        cls_token = tokenizer.convert_tokens_to_ids(tokenizer.tokenize(constants.BERT_CLS))
-        unk_token = tokenizer.convert_tokens_to_ids(tokenizer.tokenize(constants.BERT_UNK))
-        sep_token = tokenizer.convert_tokens_to_ids(tokenizer.tokenize(constants.BERT_SEP))
-        mask_token = tokenizer.convert_tokens_to_ids(tokenizer.tokenize(constants.MASK))
-        pad_token = tokenizer.convert_tokens_to_ids(tokenizer.tokenize(constants.BERT_PAD))
-        period_token = tokenizer.convert_tokens_to_ids(tokenizer.tokenize('.'))
+            # TODO: Clean up. Biggest difficulty will be allowing label mapper to handle multiple
+            # candidate labels if that is a desired function.
+            label_tokens = [label_map[x] for x in labels]
+            label_token_ids = tokenizer.convert_tokens_to_ids(label_tokens)
+            label_token_ids = torch.tensor(label_token_ids, device=device)
 
-        # constants.SPECIAL_SYMBOLS
-        special_token_ids = [cls_token, unk_token, sep_token, mask_token, pad_token]
+            for token_to_flip in range(templatizer.num_trigger_tokens):
+                model.zero_grad()
+                loss = get_loss(model, model_inputs, trigger_ids, label_token_ids)
+                loss.backward()
 
-        # TODO: @rloganiv - Looks like this does not need to be in the loop?
-        # Trigger Initialization Options
-        # 1. Manual -> provide prompt format + manual prompt
-        # 2. Random (manual length OR different format/length) -> provide only prompt format
-        # Parse prompt format
-        prompt_format = args.format.split('-')
-        trigger_token_length = sum([int(x) for x in prompt_format if x.isdigit()])
-        if args.manual:
-            print('Trigger initialization: MANUAL')
-            init_trigger = args.manual
-            init_tokens = tokenizer.tokenize(init_trigger)
-            trigger_token_length = len(init_tokens)
-            trigger_tokens = tokenizer.convert_tokens_to_ids(init_tokens)
-        else:
-            print('Trigger initialization: RANDOM')
-            init_token = tokenizer.convert_tokens_to_ids([constants.INIT_WORD])[0]
-            trigger_tokens = np.array([init_token] * trigger_token_length)
-        print('Initial trigger tokens: {}, Length: {}'.format(trigger_tokens, trigger_token_length))
+                # Perform hotflip attack
+                grad = embedding_gradient.get()
+                bsz, _, emb_dim = grad.size()
+                selection_mask = model_inputs['trigger_mask'].unsqueeze(-1)
+                grad = torch.masked_select(grad, selection_mask).view(bsz, -1, emb_dim)
+                averaged_grad = grad.mean(dim=0)[token_to_flip]
+                candidates = hotflip_attack(averaged_grad,
+                                            embeddings.weight,
+                                            increase_loss=False,
+                                            num_candidates=args.num_cand)
+                for candidate in candidates:
+                    temp_trigger = trigger_ids.clone()
+                    temp_trigger[:, token_to_flip] = candidate
+                    with torch.no_grad():
+                        new_loss = get_loss(model, model_inputs, temp_trigger, label_token_ids)
+                    if new_loss < loss:
+                        trigger_ids = temp_trigger
+                        loss = new_loss
 
-        best_dev_loss = 999999
-        best_trigger_tokens = None
-        best_iter = 0
-        train_losses = []
-        dev_losses = []
-        dev_num_no_improve = 0
-        count = 0
-        iter_time_p = time.time()
-        for i in range(args.iters):
-            iter_time_n = time.time()
-            # print('Elapsed time: {} sec'.format(iter_time_n - iter_time_p))
-            iter_time_p = time.time()
-            print('Iteration:', i)
-            end_iter = False
-            best_loss_iter = 999999
-            counter = 0
+        logger.info('Evaluating')
+        all_label_ids = tokenizer.convert_tokens_to_ids(list(label_map.values()))
+        lookup = {label: i for i, label in enumerate(label_map.keys())}
+        all_label_ids = torch.tensor(all_label_ids, device=device).unsqueeze(0)
+        correct = 0
+        total = 0
+        for model_inputs, labels in tqdm(dev_loader):
+            true = torch.tensor([lookup[l] for l in labels], device=device)
+            # Shuttle inputs to GPU
+            model_inputs = {k: v.to(device) for k, v in model_inputs.items()}
+            model_inputs.pop('trigger_mask')  # Gotta do it
+            predict_mask = model_inputs.pop('predict_mask')
+            with torch.no_grad():
+                logits, *_ = model(**model_inputs)
+            predict_logits = logits.masked_select(predict_mask.unsqueeze(-1)).view(logits.size(0), -1)
+            predict_logits = predict_logits.gather(-1, all_label_ids.repeat(predict_logits.size(0), 1))
+            predictions = predict_logits.argmax(-1)
+            correct += (predictions == true).sum().float()
+            total += predictions.size(0)
+        dev_acc = correct / total
 
-            losses_batch_train = []
-            # Full pass over training data set in batches of subject-object-context triplets
-            batch_time_p = time.time()
-            for batch in utils.iterate_batches(train_data, args.bsz, True):
-                batch_time_n = time.time()
-                # print('Elapsed time: {} sec'.format(batch_time_n - batch_time_p))
-                batch_time_p = time.time()
-                # Tokenize and pad batch
-
-                # YAS source_tokens, target_tokens, trigger_mask, segment_ids = utils.make_batch(tokenizer, batch, trigger_tokens, prompt_format, args.use_ctx, cls_token, sep_token, mask_token, pad_token, period_token, device)
-                source_tokens, target_tokens, trigger_mask, segment_ids, tmp_labels = utils.make_batch_glue(tokenizer, batch, trigger_tokens, prompt_format, args.use_ctx, cls_token, sep_token, mask_token, pad_token, period_token, device)
-                # print('SOURCE TOKENS:', source_tokens, source_tokens.size())
-                # print('TARGET TOKENS:', target_tokens, target_tokens.size())
-                # print('TRIGGER MASK:', trigger_mask, trigger_mask.size())
-                # print('SEGMENT IDS:', segment_ids, segment_ids.size())
-
-                # Iteratively update tokens in the trigger
-                for token_to_flip in range(trigger_token_length):
-                    # Early stopping if no improvements to trigger
-                    if end_iter:
-                        continue
-
-
-                    model.zero_grad() # clear previous gradients
-                    loss = get_loss(model, source_tokens, target_tokens, trigger_tokens, trigger_mask, segment_ids, device)
-                    loss.backward() # compute derivative of loss w.r.t. params using backprop
-
-                    # TODO: @rloganiv - This seems bad...
-                    global extracted_grads
-                    grad = extracted_grads[0]
-                    bsz, _, emb_dim = grad.size() # middle dimension is number of trigger tokens
-
-                    # TODO: @rloganiv - Really bad...
-                    extracted_grads = [] # clear gradients from past iterations
-
-                    trigger_mask_matrix = trigger_mask.unsqueeze(-1).repeat(1, 1, emb_dim).to(torch.uint8).to(device)
-                    grad = torch.masked_select(grad, trigger_mask_matrix).view(bsz, -1, emb_dim)
-
-                    if args.beam_size > 1:
-                        # TODO: @rloganiv - This seems sketchy...
-                        # Get "averaged" gradient w.r.t. ALL trigger tokens
-                        averaged_grad = grad.sum(dim=0)
-
-                        # print('AVERAGED GRAD:', averaged_grad, averaged_grad.size())
-                        # Use hotflip (linear approximation) attack to get the top num_candidates
-                        candidates = hotflip_attack(averaged_grad,
-                                                    embedding_weight,
-                                                    trigger_tokens,
-                                                    increase_loss=False,
-                                                    num_candidates=args.num_cand)
-                    else:
-                        # Get averaged gradient of current trigger token
-                        averaged_grad = grad.sum(dim=0)[token_to_flip].unsqueeze(0)
-                        # Use hotflip (linear approximation) attack to get the top num_candidates
-                        candidates = hotflip_attack(averaged_grad,
-                                                    embedding_weight,
-                                                    [trigger_tokens[token_to_flip]],
-                                                    increase_loss=False,
-                                                    num_candidates=args.num_cand)[0]
-
-                    # Update trigger to the best one out of the candidates
-                    # old_trigger_tokens = deepcopy(trigger_tokens)
-                    # trigger_tokens, best_curr_loss = get_best_candidates(model,
-                    #                                                     tokenizer,
-                    #                                                     source_tokens,
-                    #                                                     target_tokens,
-                    #                                                     trigger_tokens,
-                    #                                                     trigger_mask,
-                    #                                                     segment_ids,
-                    #                                                     candidates,
-                    #                                                     args.beam_size,
-                    #                                                     token_to_flip,
-                    #                                                     obj_token_ids,
-                    #                                                     special_token_ids,
-                    #                                                     device)
-                    best_curr_trigger_tokens, best_curr_loss = get_best_candidates(model,
-                                                                        tokenizer,
-                                                                        source_tokens,
-                                                                        target_tokens,
-                                                                        trigger_tokens,
-                                                                        trigger_mask,
-                                                                        segment_ids,
-                                                                        candidates,
-                                                                        args.beam_size,
-                                                                        token_to_flip,
-                                                                        obj_token_ids,
-                                                                        special_token_ids,
-                                                                        device)
-                    losses_batch_train.append(best_curr_loss)
-
-                    # TODO: figure out if i need this extra early stopping
-                    # if np.array_equal(old_trigger_tokens, trigger_tokens):
-                    #     count += 1
-                    #     if count == len(trigger_tokens):
-                    #         print('Early Stopping: trigger not updating')
-                    #         end_iter = True
-                    # else:
-                    #     count = 0
-
-                    if best_curr_loss < best_loss_iter:
-                        counter = 0
-                        best_loss_iter = best_curr_loss
-                        trigger_tokens = deepcopy(best_curr_trigger_tokens)
-                    elif counter == len(trigger_tokens):
-                        print('Early stopping: counter equal to len trigger tokens')
-                        end_iter = True
-                    else:
-                        counter += 1
-
-                    # DEBUGO MODE
-                    if args.debug:
-                        input()
-
-            # Compute average train loss across all batches
-            # train_loss = np.mean(losses_batch_train) if losses_batch_train else 999999
-            train_loss = best_loss_iter
-
-            # Evaluate on dev set
-            # TODO: @rloganiv - Really we want to use accuracy or something instead of dev loss here
-            losses_batch_dev = []
-            for batch in utils.iterate_batches(dev_data, args.bsz, True):
-                #YAS source_tokens, target_tokens, trigger_mask, segment_ids = utils.make_batch(tokenizer, batch, trigger_tokens, prompt_format, args.use_ctx, cls_token, sep_token, mask_token, pad_token, period_token, device)
-                source_tokens, target_tokens, trigger_mask, segment_ids, tmp_labels = utils.make_batch_glue(tokenizer, batch, trigger_tokens, prompt_format, args.use_ctx, cls_token, sep_token, mask_token, pad_token, period_token, device)
-                # Don't compute gradient to save memory
-                with torch.no_grad():
-                    loss = get_loss(model, source_tokens, target_tokens, trigger_tokens, trigger_mask, segment_ids, device)
-                    losses_batch_dev.append(loss.item())
-            dev_loss = np.mean(losses_batch_dev)
-
-            # Early stopping on dev set
-            if dev_loss < best_dev_loss:
-                best_dev_loss = dev_loss
-                best_trigger_tokens = deepcopy(trigger_tokens)
-                dev_num_no_improve = 0
-                best_iter = i
-            else:
-                dev_num_no_improve += 1
-            if dev_num_no_improve == dev_patience:
-                print('Early Stopping: dev loss not decreasing')
-                break
-
-            # Only print out train loss, dev loss, and sample prediction before early stopping
-            print('Trigger tokens:', tokenizer.convert_ids_to_tokens(trigger_tokens))
-            print('Train loss:', train_loss)
-            print('Dev loss:', dev_loss)
-            # Store train loss of last batch, which should be the best because we update the same trigger
-            train_losses.append(train_loss)
-            dev_losses.append(dev_loss)
-
-            # Print model prediction on dev data point with current trigger
-            rand_idx = random.randint(0, len(dev_data) - 1) # Follow progress of random dev data pair
-            prompt = build_prompt(tokenizer, dev_data[rand_idx], trigger_tokens, args.use_ctx, prompt_format, masking=True)
-            print('Prompt:', prompt)
-            # Sanity check
-            # original_log_probs_list, [token_ids], [masked_indices], _, _ = model.get_batch_generation([[prompt]], try_cuda=False)
-            # print_sentence_predictions(original_log_probs_list[0], token_ids, model.vocab, masked_indices=masked_indices)
-            # get_prediction(model, dev_data[rand_idx], trigger_tokens, trigger_mask, segment_ids, device)
-
-        print('Best dev loss: {} (iter {})'.format(round(best_dev_loss, 3), best_iter))
-        print('Best trigger: ', ' '.join(tokenizer.convert_ids_to_tokens(best_trigger_tokens)))
-
-        # Measure elapsed time
-        end = time.time()
-        print('Elapsed time: {} sec'.format(end - start))
+        logger.info(f'Trigger tokens: {tokenizer.decode(trigger_ids.squeeze(0).tolist())}')
+        logger.info(f'Dev accuracy: {dev_acc}')
 
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
-    parser.add_argument('data_dir', type=str)
-    parser.add_argument('out_dir', type=str)
-    parser.add_argument('--model-name', type=str, default='bert-base-cased', help='Model name passed to HuggingFace AutoX classes.')
-    parser.add_argument('--use_ctx', action='store_true', help='Use context sentences for open-book probing')
-    parser.add_argument('--iters', type=int, default='100', help='Number of iterations to run trigger search algorithm')
+    parser.add_argument('--train', type=Path, required=True, help='Train data path')
+    parser.add_argument('--dev', type=Path, required=True, help='Dev data path')
+    parser.add_argument('--template', type=str, help='Template string')
+    parser.add_argument('--label-map', type=str, help='JSON object defining label map')
+
+    parser.add_argument('--initial-trigger', type=str, default=None, help='Manual prompt')
+
     parser.add_argument('--bsz', type=int, default=32, help='Batch size')
+    parser.add_argument('--iters', type=int, default='100', help='Number of iterations to run trigger search algorithm')
+    parser.add_argument('--model-name', type=str, default='bert-base-cased', help='Model name passed to HuggingFace AutoX classes.')
+    parser.add_argument('--seed', type=int, default=0)
+    parser.add_argument('--use_ctx', action='store_true', help='Use context sentences for open-book probing')
     parser.add_argument('--patience', type=int, default=5)
     parser.add_argument('--num_cand', type=int, default=10)
-    parser.add_argument('--beam_size', type=int, default=3)
-    parser.add_argument('--format', type=str, default='X-5-Y', help='Prompt format')
-    parser.add_argument('--manual', type=str, help='Manual prompt')
-    parser.add_argument('--debug', default=False, action='store_true')
-    parser.add_argument('--dataset', type=str, default="MNLI")
     parser.add_argument('--sentence_size', type=int, default=50)
-    parser.add_argument('--class_count', type=int, default=2, help='number of classes')
-    parser.add_argument('--masked_words', type=str, default="and-but", help='mask words')
-    parser.add_argument('--class_labels', type=str, default="entailment-contradiction", help='class labels')
+
+    parser.add_argument('--debug', action='store_true')
     args = parser.parse_args()
+
+    if args.debug:
+        level = logging.DEBUG
+    else:
+        level = logging.INFO
+    logging.basicConfig(level=level)
 
     run_model(args)
