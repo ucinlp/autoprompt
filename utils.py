@@ -7,44 +7,6 @@ import torch
 from transformers import glue_processors as processors
 
 
-# def load_GLUE_data(args, filename, is_train, glue_name, ent_word, cont_word, sentence_size, down_sample = False):
-#     facts = []
-#     tokenizer = BertTokenizer.from_pretrained('bert-base-cased', do_lower_case=False)
-#     processor = processors[glue_name.lower()]()
-#     #TOOD: make this filepath as input
-#     #/home/yrazeghi/data
-#     if is_train:
-#         data = processor.get_train_examples(args+glue_name)
-#     else:
-#         data = processor.get_dev_examples(args+glue_name)
-#     for d in data:
-#         label = d.label
-#         if label=="neutral":
-#             continue
-#         premiss = d.text_a
-#         premiss = premiss[:-1]
-#         hypothesis = d.text_b
-#         hypothesis = hypothesis[:-1]
-#
-#         sub = premiss + " *%* " + hypothesis
-#         # sub = "pick a context sentence that has obj_surface equal equal equal equal "
-#         if label == "entailment":
-#             obj = ent_word #"##tail"
-#         else:
-#             obj = cont_word #"##dict"
-#
-#         if len(tokenizer.tokenize(sub)) > sentence_size:
-#             continue
-#         if down_sample:
-#             r_rand = random.uniform(0, 1)
-#             if r_rand < 0.005:
-#                 facts.append((sub, obj))
-#         else:
-#             facts.append((sub, obj))
-#         # print('Total facts before:', len(lines))
-#         # print('Invalid facts:', num_invalid_facts)
-#     print('Total facts after:', len(facts))
-#     return facts
 def load_GLUE_data(args, filename, is_train, glue_name, sentence_size, class_labels, masked_words, down_sample = False):
     facts = []
     # tokenizer = BertTokenizer.from_pretrained('bert-base-cased', do_lower_case=False)
