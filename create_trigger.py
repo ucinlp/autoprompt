@@ -35,6 +35,20 @@ def hotflip_attack(averaged_grad, embedding_matrix, trigger_token_ids,
     return best_at_each_step[0].detach().cpu().numpy()
 
 
+
+def load_pretrained(model_name):
+    config = AutoConfig.from_pretrained(args.model_name)
+    model = AutoModelWithLMHead.from_pretrained(args.model_name)
+    tokenizer = AutoTokenizer.from_pretrained(args.model_name)
+    return config, model, tokenizer
+
+
+def set_seed(seed: int):
+    np.random.seed(seed)
+    torch.random.manual_seed(seed)
+    torch.cuda.manual_seed(seed)
+
+
 def get_embeddings(model, config):
     """Returns the wordpiece embedding module."""
     base_model = getattr(model, config.model_type)
@@ -225,16 +239,11 @@ def build_prompt(tokenizer, pair, trigger_tokens, use_ctx, prompt_format, maskin
     return prompt
 
 def run_model(args):
-    # TODO: Make seed an arg.
-    np.random.seed(0)
-    torch.random.manual_seed(0)
-    torch.cuda.manual_seed(0)
+    set_seed(args.seed)
 
     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 
-    config = AutoConfig.from_pretrained(args.model_name)
-    model = AutoModelWithLMHead.from_pretrained(args.model_name)
-    tokenizer = AutoTokenizer.from_pretrained(args.model_name)
+    config, model, tokenizer = load_pretrained(args.model_name)
     model.eval()
     model.to(device)
 
