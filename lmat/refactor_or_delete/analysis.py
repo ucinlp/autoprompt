@@ -20,6 +20,7 @@ def inspect_dataset(args):
         filename = os.fsdecode(file)
         rel_name = filename.replace('.jsonl', '')
         if filename.endswith('.jsonl'):
+            # TODO: Following line is broken..
             facts = utils.load_TREx_data(args, os.path.join(args.data_dir, filename))
             num_common = 0 # Number of samples in the common vocab subset which is a subset of model vocab
             num_model = 0 # Number of samples in model vocab but not in common vocab

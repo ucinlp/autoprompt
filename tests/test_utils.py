@@ -4,7 +4,7 @@ import torch
 from torch.utils.data import DataLoader
 from transformers import AutoTokenizer
 
-import utils
+import lmat.utils as utils
 
 
 class TestTriggerTemplatizer(TestCase):

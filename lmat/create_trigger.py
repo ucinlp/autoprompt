@@ -11,7 +11,7 @@ from torch.utils.data import DataLoader
 from transformers import AutoConfig, AutoModelWithLMHead, AutoTokenizer
 from tqdm import tqdm
 
-import utils
+import lmat.utils as utils
 
 
 logger = logging.getLogger(__name__)
@@ -116,7 +116,6 @@ def process_labels(label_map, tokenizer):
     return all_label_ids, lookup
 
 
-
 def run_model(args):
     set_seed(args.seed)
     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
@@ -158,7 +157,7 @@ def run_model(args):
     correct = 0
     total = 0
     for model_inputs, labels in tqdm(dev_loader):
-        true = torch.tensor([lookup[l] for l in labels], device=device)
+        true = torch.tensor([lookup[label] for label in labels], device=device)
         # Shuttle inputs to GPU
         model_inputs = {k: v.to(device) for k, v in model_inputs.items()}
         trigger_mask = model_inputs.pop('trigger_mask')  # Gotta do it
@@ -206,7 +205,8 @@ def run_model(args):
             grad = embedding_gradient.get()
             bsz, _, emb_dim = grad.size()
             selection_mask = model_inputs['trigger_mask'].unsqueeze(-1)
-            grad = torch.masked_select(grad, selection_mask).view(bsz, templatizer.num_trigger_tokens, emb_dim)
+            grad = torch.masked_select(grad, selection_mask)
+            grad = grad.view(bsz, templatizer.num_trigger_tokens, emb_dim)
 
             if averaged_grad is None:
                 averaged_grad = grad.mean(dim=0) / args.accumulation_steps
@@ -247,7 +247,7 @@ def run_model(args):
         correct = 0
         total = 0
         for model_inputs, labels in tqdm(dev_loader):
-            true = torch.tensor([lookup[l] for l in labels], device=device)
+            true = torch.tensor([lookup[label] for label in labels], device=device)
             # Shuttle inputs to GPU
             model_inputs = {k: v.to(device) for k, v in model_inputs.items()}
             trigger_mask = model_inputs.pop('trigger_mask')  # Gotta do it
@@ -276,11 +276,14 @@ if __name__ == '__main__':
     parser.add_argument('--initial-trigger', type=str, default=None, help='Manual prompt')
 
     parser.add_argument('--bsz', type=int, default=32, help='Batch size')
-    parser.add_argument('--iters', type=int, default=100, help='Number of iterations to run trigger search algorithm')
+    parser.add_argument('--iters', type=int, default=100,
+                        help='Number of iterations to run trigger search algorithm')
     parser.add_argument('--accumulation-steps', type=int, default=10)
-    parser.add_argument('--model-name', type=str, default='bert-base-cased', help='Model name passed to HuggingFace AutoX classes.')
+    parser.add_argument('--model-name', type=str, default='bert-base-cased',
+                        help='Model name passed to HuggingFace AutoX classes.')
     parser.add_argument('--seed', type=int, default=0)
-    parser.add_argument('--use_ctx', action='store_true', help='Use context sentences for open-book probing')
+    parser.add_argument('--use_ctx', action='store_true',
+                        help='Use context sentences for open-book probing')
     parser.add_argument('--patience', type=int, default=5)
     parser.add_argument('--num_cand', type=int, default=10)
     parser.add_argument('--sentence_size', type=int, default=50)
