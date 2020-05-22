@@ -123,7 +123,12 @@ def run_model(args):
     logger.info('Loading model, tokenizer, etc.')
     config, model, tokenizer = load_pretrained(args.model_name)
     model.to(device)
-    templatizer = utils.TriggerTemplatizer(args.template, tokenizer, add_special_tokens=False)
+    templatizer = utils.TriggerTemplatizer(
+        args.template,
+        tokenizer,
+        label_field=args.label_field,
+        add_special_tokens=False
+    )
     embeddings = get_embeddings(model, config)
     embedding_gradient = GradientStorage(embeddings)
 
@@ -274,6 +279,8 @@ if __name__ == '__main__':
     parser.add_argument('--label-map', type=str, help='JSON object defining label map')
 
     parser.add_argument('--initial-trigger', type=str, default=None, help='Manual prompt')
+    parser.add_argument('--label-field', type=str, default='label',
+                        help='Name of the label field')
 
     parser.add_argument('--bsz', type=int, default=32, help='Batch size')
     parser.add_argument('--iters', type=int, default=100,
