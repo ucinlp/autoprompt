@@ -99,6 +99,24 @@ def get_loss(model, model_inputs, trigger_ids, label_token_ids):
     return F.cross_entropy(predict_logits, label_token_ids)
 
 
+def process_labels(label_map, tokenizer):
+    all_label_ids = []
+    for label in label_map.values():
+        label_ids = tokenizer.encode(
+            label,
+            add_special_tokens=False,
+            add_prefix_space=True
+        )
+        if len(label_ids) > 1:
+            raise ValueError('Label "{label}" is split into multiple tokens')
+        else:
+            all_label_ids.append(label_ids[0])
+    all_label_ids = torch.tensor(all_label_ids)
+    lookup = {label: i for i, label in enumerate(label_map.keys())}
+    return all_label_ids, lookup
+
+
+
 def run_model(args):
     set_seed(args.seed)
     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
@@ -106,13 +124,17 @@ def run_model(args):
     logger.info('Loading model, tokenizer, etc.')
     config, model, tokenizer = load_pretrained(args.model_name)
     model.to(device)
-    templatizer = utils.TriggerTemplatizer(args.template, tokenizer)
+    templatizer = utils.TriggerTemplatizer(args.template, tokenizer, add_special_tokens=False)
     embeddings = get_embeddings(model, config)
     embedding_gradient = GradientStorage(embeddings)
 
     # Obtain the initial trigger tokens and label mapping
     if args.initial_trigger:
-        trigger_ids = tokenizer.encode(args.initial_trigger, add_special_tokens=False)
+        trigger_ids = tokenizer.encode(
+            args.initial_trigger,
+            add_special_tokens=False,
+            add_prefix_space=True
+        )
         assert len(trigger_ids) == templatizer.num_trigger_tokens
     else:
         trigger_ids = [tokenizer.mask_token_id] * templatizer.num_trigger_tokens
@@ -126,57 +148,111 @@ def run_model(args):
     dev_dataset = utils.load_dataset(args.dev, templatizer)
     dev_loader = DataLoader(dev_dataset, batch_size=args.bsz, shuffle=False, collate_fn=collator)
 
+    logger.info('Evaluating')
+    all_label_ids, lookup = process_labels(label_map, tokenizer)
+    all_label_ids = all_label_ids.to(device)
+    logger.debug(f'Label map: {label_map}')
+    logger.debug(f'All label ids: {all_label_ids}')
+    logger.debug(f'Detokenized: {tokenizer.convert_ids_to_tokens(all_label_ids)}')
+
+    correct = 0
+    total = 0
+    for model_inputs, labels in tqdm(dev_loader):
+        true = torch.tensor([lookup[l] for l in labels], device=device)
+        # Shuttle inputs to GPU
+        model_inputs = {k: v.to(device) for k, v in model_inputs.items()}
+        trigger_mask = model_inputs.pop('trigger_mask')  # Gotta do it
+        predict_mask = model_inputs.pop('predict_mask')
+        model_inputs = replace_trigger_tokens(model_inputs, trigger_ids, trigger_mask)
+        with torch.no_grad():
+            logits, *_ = model(**model_inputs)
+        predict_logits = logits.masked_select(predict_mask.unsqueeze(-1)).view(logits.size(0), -1)
+        predict_logits = predict_logits.gather(-1, all_label_ids.repeat(predict_logits.size(0), 1))
+        predictions = predict_logits.argmax(-1)
+        correct += (predictions == true).sum().float()
+        total += predictions.size(0)
+    dev_acc = correct / total
+    logger.info(f'Dev accuracy: {dev_acc}')
+
     for i in range(args.iters):
 
         logger.info(f'Iteration: {i}')
 
         logger.info('Training')
-        for model_inputs, labels in tqdm(train_loader):
+        j = 0
+        model.zero_grad()
+        pbar = tqdm(train_loader)
+        averaged_grad = None
+
+        for model_inputs, labels in pbar:
+            j += 1
             # Shuttle inputs to GPU
             model_inputs = {k: v.to(device) for k, v in model_inputs.items()}
 
             # TODO: Clean up. Biggest difficulty will be allowing label mapper to handle multiple
             # candidate labels if that is a desired function.
             label_tokens = [label_map[x] for x in labels]
-            label_token_ids = tokenizer.convert_tokens_to_ids(label_tokens)
+            label_token_ids = [tokenizer.encode(
+                label,
+                add_special_tokens=False,
+                add_prefix_space=True
+            )[0] for label in label_tokens]
             label_token_ids = torch.tensor(label_token_ids, device=device)
 
-            for token_to_flip in range(templatizer.num_trigger_tokens):
-                model.zero_grad()
-                loss = get_loss(model, model_inputs, trigger_ids, label_token_ids)
-                loss.backward()
+            loss = get_loss(model, model_inputs, trigger_ids, label_token_ids)
+            loss = loss / args.accumulation_steps
+            loss.backward()
 
-                # Perform hotflip attack
-                grad = embedding_gradient.get()
-                bsz, _, emb_dim = grad.size()
-                selection_mask = model_inputs['trigger_mask'].unsqueeze(-1)
-                grad = torch.masked_select(grad, selection_mask).view(bsz, -1, emb_dim)
-                averaged_grad = grad.mean(dim=0)[token_to_flip]
-                candidates = hotflip_attack(averaged_grad,
+            grad = embedding_gradient.get()
+            bsz, _, emb_dim = grad.size()
+            selection_mask = model_inputs['trigger_mask'].unsqueeze(-1)
+            grad = torch.masked_select(grad, selection_mask).view(bsz, templatizer.num_trigger_tokens, emb_dim)
+
+            if averaged_grad is None:
+                averaged_grad = grad.mean(dim=0) / args.accumulation_steps
+            else:
+                averaged_grad += grad.mean(dim=0) / args.accumulation_steps
+
+            if not j % args.accumulation_steps:
+
+                # NOTE: Instead of iterating over tokens to flip we randomly change just one each
+                # time so the gradients don't get stale.
+                token_to_flip = random.randrange(templatizer.num_trigger_tokens)
+
+                candidates = hotflip_attack(averaged_grad[token_to_flip],
                                             embeddings.weight,
                                             increase_loss=False,
                                             num_candidates=args.num_cand)
+
                 for candidate in candidates:
+                    if candidate.item() in all_label_ids.tolist():
+                        continue
                     temp_trigger = trigger_ids.clone()
                     temp_trigger[:, token_to_flip] = candidate
                     with torch.no_grad():
                         new_loss = get_loss(model, model_inputs, temp_trigger, label_token_ids)
+                        new_loss = new_loss / args.accumulation_steps
                     if new_loss < loss:
                         trigger_ids = temp_trigger
                         loss = new_loss
 
+                model.zero_grad()
+                averaged_grad = None
+                pbar.set_description(f'Loss: {loss : 0.4f}')
+
+                if args.debug:
+                    logger.debug(f'Trigger tokens: {tokenizer.decode(trigger_ids.squeeze(0).tolist())}')
+
         logger.info('Evaluating')
-        all_label_ids = tokenizer.convert_tokens_to_ids(list(label_map.values()))
-        lookup = {label: i for i, label in enumerate(label_map.keys())}
-        all_label_ids = torch.tensor(all_label_ids, device=device).unsqueeze(0)
         correct = 0
         total = 0
         for model_inputs, labels in tqdm(dev_loader):
             true = torch.tensor([lookup[l] for l in labels], device=device)
             # Shuttle inputs to GPU
             model_inputs = {k: v.to(device) for k, v in model_inputs.items()}
-            model_inputs.pop('trigger_mask')  # Gotta do it
+            trigger_mask = model_inputs.pop('trigger_mask')  # Gotta do it
             predict_mask = model_inputs.pop('predict_mask')
+            model_inputs = replace_trigger_tokens(model_inputs, trigger_ids, trigger_mask)
             with torch.no_grad():
                 logits, *_ = model(**model_inputs)
             predict_logits = logits.masked_select(predict_mask.unsqueeze(-1)).view(logits.size(0), -1)
@@ -200,7 +276,8 @@ if __name__ == '__main__':
     parser.add_argument('--initial-trigger', type=str, default=None, help='Manual prompt')
 
     parser.add_argument('--bsz', type=int, default=32, help='Batch size')
-    parser.add_argument('--iters', type=int, default='100', help='Number of iterations to run trigger search algorithm')
+    parser.add_argument('--iters', type=int, default=100, help='Number of iterations to run trigger search algorithm')
+    parser.add_argument('--accumulation-steps', type=int, default=10)
     parser.add_argument('--model-name', type=str, default='bert-base-cased', help='Model name passed to HuggingFace AutoX classes.')
     parser.add_argument('--seed', type=int, default=0)
     parser.add_argument('--use_ctx', action='store_true', help='Use context sentences for open-book probing')

@@ -41,3 +41,23 @@ class TestGradientStorage(TestCase):
         loss.backward()
 
         assert torch.equal(outputs.grad, embedding_storage.get())
+
+
+def test_replace_trigger_tokens():
+    model_inputs = {
+        'input_ids': torch.tensor([
+            [1, 2, 3, 4],
+            [1, 1, 1, 0]
+        ])
+    }
+    trigger_ids = torch.tensor([[5, 6]])
+    trigger_mask = torch.tensor([
+            [True, True, False, False],
+            [False, True, False, True]
+    ])
+    replaced = ct.replace_trigger_tokens(model_inputs, trigger_ids, trigger_mask)
+    expected = torch.tensor([
+        [5, 6, 3, 4],
+        [1, 5, 1, 6]
+    ])
+    assert torch.equal(expected, replaced['input_ids'])
