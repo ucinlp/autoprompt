@@ -76,6 +76,8 @@ class TriggerTemplatizer:
         label = format_kwargs.pop('label')
         text = self._template.format(**format_kwargs)
         logger.debug(f'Formatted text: {text}')
+        if label is None:
+            raise Exception(f'Bad data: {text}')
 
         # Have the tokenizer encode the text and process the output to:
         # - Create a trigger and predict mask

@@ -200,7 +200,7 @@ def run_model(args):
             label_token_ids = torch.tensor(label_token_ids, device=device)
 
             loss = get_loss(model, model_inputs, trigger_ids, label_token_ids)
-            loss = loss / args.accumulation_steps
+            loss = loss
             loss.backward()
 
             grad = embedding_gradient.get()
@@ -231,7 +231,7 @@ def run_model(args):
                     temp_trigger[:, token_to_flip] = candidate
                     with torch.no_grad():
                         new_loss = get_loss(model, model_inputs, temp_trigger, label_token_ids)
-                        new_loss = new_loss / args.accumulation_steps
+                        new_loss = new_loss
                     if new_loss < loss:
                         trigger_ids = temp_trigger
                         loss = new_loss
