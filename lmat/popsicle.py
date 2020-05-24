@@ -1,6 +1,8 @@
 """
 Frozen model with a linear topping...I'm really sleepy...
 """
+import logging
+
 import torch
 from torch.nn import CrossEntropyLoss, MSELoss
 from transformers import (
@@ -11,6 +13,9 @@ from transformers import (
     RobertaConfig,
     RobertaForSequenceClassification
 )
+
+
+logger = logging.getLogger(__name__)
 
 
 class Bertsicle(BertForSequenceClassification):
@@ -92,8 +97,8 @@ class Robertasicle(RobertaForSequenceClassification):
 
 
 MODEL_MAPPING = {
-        BertConfig: Bertsicle,
-        RobertaConfig: Robertasicle
+        RobertaConfig: Robertasicle,
+        BertConfig: Bertsicle
 }
 
 
@@ -117,6 +122,8 @@ class AutoPopsicle:
 
         for config_class, model_class in MODEL_MAPPING.items():
             if isinstance(config, config_class):
+                logger.info(f'Config class: {config_class}')
+                logger.info(f'Model class: {model_class}')
                 return model_class.from_pretrained(pretrained_model_name_or_path, *model_args, config=config, **kwargs)
 
         raise ValueError('We do not support "{pretrained_model_name_or_path}".')
