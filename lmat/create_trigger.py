@@ -33,6 +33,72 @@ class GradientStorage:
         return self._stored_gradient
 
 
+class PredictWrapper:
+    """
+    PyTorch transformers model wrapper. Handles necc. preprocessing of inputs for triggers
+    experiments.
+    """
+    def __init__(self, model):
+        self._model = model
+
+    def __call__(self, model_inputs, trigger_ids):
+        # Copy dict so pop operations don't have unwanted side-effects
+        model_inputs = model_inputs.copy()
+        trigger_mask = model_inputs.pop('trigger_mask')
+        predict_mask = model_inputs.pop('predict_mask')
+        model_inputs = replace_trigger_tokens(model_inputs, trigger_ids, trigger_mask)
+        logits, *_ = self._model(**model_inputs)
+        predict_logits = logits.masked_select(predict_mask.unsqueeze(-1)).view(logits.size(0), -1)
+        return predict_logits
+
+
+class AccuracyFn:
+    """
+    Computing the accuracy when a label is mapped to multiple tokens is difficult in the current
+    framework, since the data generator only gives us the token ids. To get around this we
+    compare the target logp to the logp of all labels. If target logp is greater than all (but)
+    one of the label logps we know we are accurate.
+    """
+    def __init__(self, tokenizer, label_map, device):
+        self._all_label_ids = []
+        self._pred_to_label = []
+        for label, label_tokens in label_map.items():
+            self._all_label_ids.append(utils.encode_label(tokenizer, label_tokens).to(device))
+            self._pred_to_label.append(label)
+
+    def __call__(self, predict_logits, gold_label_ids):
+        # Get total log-probability for the true label
+        gold_logp = get_loss(predict_logits, gold_label_ids)
+
+        # Get total log-probability for all labels
+        bsz = predict_logits.size(0)
+        all_label_logp = []
+        for label_ids in self._all_label_ids:
+            label_logp = get_loss(predict_logits, label_ids.repeat(bsz, 1))
+            all_label_logp.append(label_logp)
+        all_label_logp = torch.stack(all_label_logp, dim=-1)
+        _, predictions = all_label_logp.max(dim=-1)
+        predictions = [self._pred_to_label[x] for x in predictions.tolist()]
+
+        # Add up the number of entries where loss is greater than or equal to gold_logp.
+        ge_count = all_label_logp.le(gold_logp.unsqueeze(-1)).sum(-1)
+        correct = ge_count.le(1)  # less than in case of num. prec. issues
+
+        return correct.float()
+
+    # TODO: @rloganiv - This is hacky. Replace with something sensible.
+    def predict(self, predict_logits):
+        bsz = predict_logits.size(0)
+        all_label_logp = []
+        for label_ids in self._all_label_ids:
+            label_logp = get_loss(predict_logits, label_ids.repeat(bsz, 1))
+            all_label_logp.append(label_logp)
+        all_label_logp = torch.stack(all_label_logp, dim=-1)
+        _, predictions = all_label_logp.max(dim=-1)
+        predictions = [self._pred_to_label[x] for x in predictions.tolist()]
+        return predictions
+
+
 def load_pretrained(model_name):
     """
     Loads pretrained HuggingFace config/model/tokenizer, as well as performs required
@@ -88,32 +154,12 @@ def replace_trigger_tokens(model_inputs, trigger_ids, trigger_mask):
     return out
 
 
-def get_loss(model, model_inputs, trigger_ids, label_token_ids):
-    # Copy dict so pop operations don't have unwanted side-effects
-    model_inputs = model_inputs.copy()
-    trigger_mask = model_inputs.pop('trigger_mask')
-    predict_mask = model_inputs.pop('predict_mask')
-    model_inputs = replace_trigger_tokens(model_inputs, trigger_ids, trigger_mask)
-    logits, *_ = model(**model_inputs)
-    predict_logits = logits.masked_select(predict_mask.unsqueeze(-1)).view(logits.size(0), -1)
-    return F.cross_entropy(predict_logits, label_token_ids)
-
-
-def process_labels(label_map, tokenizer):
-    all_label_ids = []
-    for label in label_map.values():
-        label_ids = tokenizer.encode(
-            label,
-            add_special_tokens=False,
-            add_prefix_space=True
-        )
-        if len(label_ids) > 1:
-            raise ValueError('Label "{label}" is split into multiple tokens')
-        else:
-            all_label_ids.append(label_ids[0])
-    all_label_ids = torch.tensor(all_label_ids)
-    lookup = {label: i for i, label in enumerate(label_map.keys())}
-    return all_label_ids, lookup
+def get_loss(predict_logits, label_ids):
+    predict_logp = F.log_softmax(predict_logits, dim=-1)
+    target_logp = predict_logp.gather(-1, label_ids)
+    target_logp = target_logp - 1e32 * label_ids.eq(0)  # Apply mask
+    target_logp = torch.logsumexp(target_logp, dim=-1)
+    return -target_logp
 
 
 def run_model(args):
@@ -123,14 +169,19 @@ def run_model(args):
     logger.info('Loading model, tokenizer, etc.')
     config, model, tokenizer = load_pretrained(args.model_name)
     model.to(device)
+    embeddings = get_embeddings(model, config)
+    embedding_gradient = GradientStorage(embeddings)
+    predictor = PredictWrapper(model)
+
+    label_map = json.loads(args.label_map)
+    logger.info(f"Label map: {label_map}")
     templatizer = utils.TriggerTemplatizer(
         args.template,
         tokenizer,
+        label_map=label_map,
         label_field=args.label_field,
         add_special_tokens=False
     )
-    embeddings = get_embeddings(model, config)
-    embedding_gradient = GradientStorage(embeddings)
 
     # Obtain the initial trigger tokens and label mapping
     if args.initial_trigger:
@@ -143,40 +194,44 @@ def run_model(args):
     else:
         trigger_ids = [tokenizer.mask_token_id] * templatizer.num_trigger_tokens
     trigger_ids = torch.tensor(trigger_ids, device=device).unsqueeze(0)
-    label_map = json.loads(args.label_map)
+
+    # NOTE: Accuracy can only be computed if a fixed pool of labels is given, which currently
+    # requires the label map to be specified. Since producing a label map may be cumbersome (e.g.,
+    # for link prediction tasks), we just use loss as the evaluation metric in these cases.
+    if label_map:
+        evaluation_fn = AccuracyFn(tokenizer, label_map, device)
+    else:
+        evaluation_fn = get_loss
+
+    # TODO: @rloganiv - Something a little cleaner.
+    filter_candidates = set()
+    if label_map:
+        for label_tokens in label_map.values():
+            filter_candidates.update(
+                utils.encode_label(tokenizer, label_tokens).tolist().pop()
+            )
+    logger.info(f'Filter candidates: {filter_candidates}')
 
     logger.info('Loading datasets')
-    collator = utils.TriggerCollator(pad_token_id=tokenizer.pad_token_id)
-    train_dataset = utils.load_dataset(args.train, templatizer)
+    collator = utils.Collator(pad_token_id=tokenizer.pad_token_id)
+    train_dataset = utils.load_trigger_dataset(args.train, templatizer)
     train_loader = DataLoader(train_dataset, batch_size=args.bsz, shuffle=True, collate_fn=collator)
-    dev_dataset = utils.load_dataset(args.dev, templatizer)
-    dev_loader = DataLoader(dev_dataset, batch_size=args.bsz, shuffle=False, collate_fn=collator)
+    eval_loader = DataLoader(train_dataset, batch_size=args.eval_size, shuffle=True, collate_fn=collator)
+    dev_dataset = utils.load_trigger_dataset(args.dev, templatizer)
+    dev_loader = DataLoader(dev_dataset, batch_size=args.eval_size, shuffle=False, collate_fn=collator)
 
     logger.info('Evaluating')
-    all_label_ids, lookup = process_labels(label_map, tokenizer)
-    all_label_ids = all_label_ids.to(device)
-    logger.debug(f'Label map: {label_map}')
-    logger.debug(f'All label ids: {all_label_ids}')
-    logger.debug(f'Detokenized: {tokenizer.convert_ids_to_tokens(all_label_ids)}')
-
-    correct = 0
-    total = 0
+    numerator = 0
+    denominator = 0
     for model_inputs, labels in tqdm(dev_loader):
-        true = torch.tensor([lookup[label] for label in labels], device=device)
-        # Shuttle inputs to GPU
         model_inputs = {k: v.to(device) for k, v in model_inputs.items()}
-        trigger_mask = model_inputs.pop('trigger_mask')  # Gotta do it
-        predict_mask = model_inputs.pop('predict_mask')
-        model_inputs = replace_trigger_tokens(model_inputs, trigger_ids, trigger_mask)
+        labels = labels.to(device)
         with torch.no_grad():
-            logits, *_ = model(**model_inputs)
-        predict_logits = logits.masked_select(predict_mask.unsqueeze(-1)).view(logits.size(0), -1)
-        predict_logits = predict_logits.gather(-1, all_label_ids.repeat(predict_logits.size(0), 1))
-        predictions = predict_logits.argmax(-1)
-        correct += (predictions == true).sum().float()
-        total += predictions.size(0)
-    dev_acc = correct / total
-    logger.info(f'Dev accuracy: {dev_acc}')
+            predict_logits = predictor(model_inputs, trigger_ids)
+        numerator += evaluation_fn(predict_logits, labels).sum().item()
+        denominator += labels.size(0)
+    dev_metric = numerator / (denominator + 1e-13)
+    logger.info(f'Dev metric: {dev_metric}')
 
     for i in range(args.iters):
 
@@ -186,25 +241,16 @@ def run_model(args):
         j = 0
         model.zero_grad()
         pbar = tqdm(train_loader)
+        eval_iter = iter(eval_loader)
         averaged_grad = None
 
         for model_inputs, labels in pbar:
             j += 1
             # Shuttle inputs to GPU
             model_inputs = {k: v.to(device) for k, v in model_inputs.items()}
-
-            # TODO: Clean up. Biggest difficulty will be allowing label mapper to handle multiple
-            # candidate labels if that is a desired function.
-            label_tokens = [label_map[x] for x in labels]
-            label_token_ids = [tokenizer.encode(
-                label,
-                add_special_tokens=False,
-                add_prefix_space=True
-            )[0] for label in label_tokens]
-            label_token_ids = torch.tensor(label_token_ids, device=device)
-
-            loss = get_loss(model, model_inputs, trigger_ids, label_token_ids)
-            loss = loss
+            labels = labels.to(device)
+            predict_logits = predictor(model_inputs, trigger_ids)
+            loss = get_loss(predict_logits, labels).mean()
             loss.backward()
 
             grad = embedding_gradient.get()
@@ -214,61 +260,63 @@ def run_model(args):
             grad = grad.view(bsz, templatizer.num_trigger_tokens, emb_dim)
 
             if averaged_grad is None:
-                averaged_grad = grad.mean(dim=0) / args.accumulation_steps
+                averaged_grad = grad.sum(dim=0) / args.accumulation_steps
             else:
-                averaged_grad += grad.mean(dim=0) / args.accumulation_steps
+                averaged_grad += grad.sum(dim=0) / args.accumulation_steps
 
+            # TODO: @rloganiv - Candidate selection is currently done w.r.t a single batch. Since
+            # batch sizes can be rather small, it would be preferable to do something similar to
+            # gradient accumulation to increase the amount of data points considered.
             if not j % args.accumulation_steps:
+
+                # Fetch a separate (larger) batch of inputs from the training data to eval on
+                model_inputs, labels = next(eval_iter)
+                model_inputs = {k: v.to(device) for k, v in model_inputs.items()}
+                labels = labels.to(device)
+                with torch.no_grad():
+                    predict_logits = predictor(model_inputs, trigger_ids)
+                    eval_metric = evaluation_fn(predict_logits, labels).mean()
 
                 # NOTE: Instead of iterating over tokens to flip we randomly change just one each
                 # time so the gradients don't get stale.
                 token_to_flip = random.randrange(templatizer.num_trigger_tokens)
-
                 candidates = hotflip_attack(averaged_grad[token_to_flip],
                                             embeddings.weight,
                                             increase_loss=False,
                                             num_candidates=args.num_cand)
-
                 for candidate in candidates:
-                    if candidate.item() in all_label_ids.tolist():
+                    if candidate.item() in filter_candidates:
                         continue
                     temp_trigger = trigger_ids.clone()
                     temp_trigger[:, token_to_flip] = candidate
                     with torch.no_grad():
-                        new_loss = get_loss(model, model_inputs, temp_trigger, label_token_ids)
-                        new_loss = new_loss
-                    if new_loss < loss:
+                        predict_logits = predictor(model_inputs, temp_trigger)
+                        new_eval_metric = evaluation_fn(predict_logits, labels).mean()
+                    if new_eval_metric > eval_metric:
                         trigger_ids = temp_trigger
-                        loss = new_loss
+                        eval_metric = new_eval_metric
 
                 model.zero_grad()
                 averaged_grad = None
-                pbar.set_description(f'Loss: {loss : 0.4f}')
+                pbar.set_description(f'Train metric: {eval_metric : 0.4f}')
 
                 if args.debug:
                     logger.debug(f'Trigger tokens: {tokenizer.decode(trigger_ids.squeeze(0).tolist())}')
 
         logger.info('Evaluating')
-        correct = 0
-        total = 0
+        numerator = 0
+        denominator = 0
         for model_inputs, labels in tqdm(dev_loader):
-            true = torch.tensor([lookup[label] for label in labels], device=device)
-            # Shuttle inputs to GPU
             model_inputs = {k: v.to(device) for k, v in model_inputs.items()}
-            trigger_mask = model_inputs.pop('trigger_mask')  # Gotta do it
-            predict_mask = model_inputs.pop('predict_mask')
-            model_inputs = replace_trigger_tokens(model_inputs, trigger_ids, trigger_mask)
+            labels = labels.to(device)
             with torch.no_grad():
-                logits, *_ = model(**model_inputs)
-            predict_logits = logits.masked_select(predict_mask.unsqueeze(-1)).view(logits.size(0), -1)
-            predict_logits = predict_logits.gather(-1, all_label_ids.repeat(predict_logits.size(0), 1))
-            predictions = predict_logits.argmax(-1)
-            correct += (predictions == true).sum().float()
-            total += predictions.size(0)
-        dev_acc = correct / total
+                predict_logits = predictor(model_inputs, trigger_ids)
+            numerator += evaluation_fn(predict_logits, labels).sum().item()
+            denominator += labels.size(0)
+        dev_metric = numerator / (denominator + 1e-13)
 
         logger.info(f'Trigger tokens: {tokenizer.decode(trigger_ids.squeeze(0).tolist())}')
-        logger.info(f'Dev accuracy: {dev_acc}')
+        logger.info(f'Dev metric: {dev_metric}')
 
 
 if __name__ == '__main__':
@@ -283,6 +331,7 @@ if __name__ == '__main__':
                         help='Name of the label field')
 
     parser.add_argument('--bsz', type=int, default=32, help='Batch size')
+    parser.add_argument('--eval-size', type=int, default=256, help='Eval size')
     parser.add_argument('--iters', type=int, default=100,
                         help='Number of iterations to run trigger search algorithm')
     parser.add_argument('--accumulation-steps', type=int, default=10)

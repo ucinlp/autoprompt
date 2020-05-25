@@ -47,7 +47,7 @@ def main(args):
         label_map
     )
     dev_loader = DataLoader(dev_dataset, batch_size=args.bsz, shuffle=True, collate_fn=collator)
-    optimizer = torch.optim.Adam(model.classifier.parameters(), lr=args.lr)
+    optimizer = torch.optim.Adam(model.classifier.parameters(), lr=args.lr, weight_decay=1e-6)
 
     if not args.ckpt_dir.exists():
         logger.info(f'Making checkpoint directory: {args.ckpt_dir}')
@@ -58,7 +58,8 @@ def main(args):
     best_accuracy = 0
     for epoch in range(args.epochs):
         logger.info('Training...')
-        model.train()
+        model.eval()  # Just linear regression - don't want model outputs changing during training.
+        avg_loss = utils.ExponentialMovingAverage()
         pbar = tqdm(train_loader)
         for model_inputs, labels in pbar:
             model_inputs = {k: v.to(device) for k, v in model_inputs.items()}
@@ -68,7 +69,8 @@ def main(args):
             loss = F.cross_entropy(logits, labels.squeeze(-1))
             loss.backward()
             optimizer.step()
-            pbar.set_description(f'loss: {loss: 0.4f}')
+            avg_loss.update(loss.item())
+            pbar.set_description(f'loss: {avg_loss.get_metric(): 0.4f}')
 
         logger.info('Evaluating...')
         model.eval()
