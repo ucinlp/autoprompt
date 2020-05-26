@@ -11,7 +11,9 @@ from pathlib import Path
 import torch
 import torch.nn.functional as F
 from torch.utils.data import DataLoader
-from transformers import AutoConfig, AutoModelWithLMHead, AutoTokenizer
+from transformers import (
+    AutoConfig, AutoModelWithLMHead, AutoTokenizer, BertForMaskedLM, RobertaForMaskedLM
+)
 from tqdm import tqdm
 
 import lmat.utils as utils
@@ -26,12 +28,30 @@ def load_pretrained(model_name):
     Loads pretrained HuggingFace config/model/tokenizer, as well as performs required
     initialization steps to facilitate working with triggers.
     """
-    config = AutoConfig.from_pretrained(args.model_name, output_hidden_states=True)
+    config = AutoConfig.from_pretrained(args.model_name)
     model = AutoModelWithLMHead.from_pretrained(args.model_name, config=config)
     model.eval()
     tokenizer = AutoTokenizer.from_pretrained(args.model_name)
     utils.add_task_specific_tokens(tokenizer)
     return config, model, tokenizer
+
+
+def get_final_embeddings(model):
+    if isinstance(model, BertForMaskedLM):
+        return model.cls.transform
+    elif isinstance(model, RobertaForMaskedLM):
+        return model.lm_head.layer_norm
+    else:
+        raise NotImplementedError(f'{model} not currently supported')
+
+
+def get_word_embeddings(model):
+    if isinstance(model, BertForMaskedLM):
+        return model.cls.predictions.decoder.weight
+    elif isinstance(model, RobertaForMaskedLM):
+        return model.lm_head.decoder.weight
+    else:
+        raise NotImplementedError(f'{model} not currently supported')
 
 
 def main(args):
@@ -41,6 +61,9 @@ def main(args):
     logger.info('Loading model, tokenizer, etc.')
     config, model, tokenizer = load_pretrained(args.model_name)
     model.to(device)
+    final_embeddings = get_final_embeddings(model)
+    embedding_storage = utils.OutputStorage(final_embeddings)
+    word_embeddings = get_word_embeddings(model)
 
     label_map = json.loads(args.label_map)
     reverse_label_map = {y: x for x, y in label_map.items()}
@@ -75,17 +98,12 @@ def main(args):
 
     optimizer = torch.optim.Adam(projection.parameters(), lr=args.lr)
 
-    # Output vocab projection weights
-    word_embeddings = model.cls.predictions.decoder.weight
-    transform = model.cls.predictions.transform
-
     scores = torch.matmul(projection.weight, word_embeddings.transpose(0, 1))
-    _, topk_class0 = (scores[0] - scores[1]).topk(k=10)
-    _, topk_class1 = (scores[1] - scores[0]).topk(k=10)
-    decoded0 = [tokenizer.decode([x.item()]) for x in topk_class0]
-    decoded1 = [tokenizer.decode([x.item()]) for x in topk_class1]
-    logger.info(f"Top k for class 0: {', '.join(decoded0)}")
-    logger.info(f"Top k for class 1: {', '.join(decoded1)}")
+    scores = F.softmax(scores, dim=0)
+    for i, row in enumerate(scores):
+        _, top10 = row.topk(10)
+        decoded = tokenizer.convert_ids_to_tokens(top10)
+        logger.info(f"Top k for class {reverse_label_map[i]}: {', '.join(decoded)}")
 
     logger.info('Training')
     for i in range(args.iters):
@@ -98,23 +116,22 @@ def main(args):
             predict_mask = model_inputs.pop('predict_mask')
             model_inputs = ct.replace_trigger_tokens(model_inputs, trigger_ids, trigger_mask)
             with torch.no_grad():
-                _, hidden, *_ = model(**model_inputs)
-                hidden = hidden[-1]  # Last hidden layer outputs
-                predict_hidden = hidden.masked_select(predict_mask.unsqueeze(-1)).view(hidden.size(0), -1)
-                predict_transform = transform(predict_hidden)
-            logits = projection(predict_transform)
+                model(**model_inputs)
+            embeddings = embedding_storage.get()
+            predict_embeddings = embeddings.masked_select(predict_mask.unsqueeze(-1)).view(embeddings.size(0), -1)
+            logits = projection(predict_embeddings)
             loss = F.cross_entropy(logits, labels.squeeze(-1))
             loss.backward()
             optimizer.step()
             pbar.set_description(f'loss: {loss : 0.4f}')
 
         scores = torch.matmul(projection.weight, word_embeddings.transpose(0, 1))
-        _, topk_class0 = (scores[0] - scores[1]).topk(k=10)
-        _, topk_class1 = (scores[1] - scores[0]).topk(k=10)
-        decoded0 = [tokenizer.decode([x.item()]) for x in topk_class0]
-        decoded1 = [tokenizer.decode([x.item()]) for x in topk_class1]
-        logger.info(f"Top k for class 0: {', '.join(decoded0)}")
-        logger.info(f"Top k for class 1: {', '.join(decoded1)}")
+        scores = F.softmax(scores, dim=0)
+        for i, row in enumerate(scores):
+            _, top10 = row.topk(10)
+            decoded = tokenizer.convert_ids_to_tokens(top10)
+            logger.info(f"Top k for class {reverse_label_map[i]}: {', '.join(decoded)}")
+
 
 
 if __name__ == '__main__':
