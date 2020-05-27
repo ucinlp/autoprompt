@@ -129,7 +129,7 @@ def main(args):
         scores = F.softmax(scores, dim=0)
         for i, row in enumerate(scores):
             _, top = row.topk(args.k)
-            decoded = tokenizer.convert_ids_to_tokens(args.k)
+            decoded = tokenizer.convert_ids_to_tokens(top)
             logger.info(f"Top k for class {reverse_label_map[i]}: {', '.join(decoded)}")
 
 
