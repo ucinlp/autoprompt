@@ -184,7 +184,7 @@ def run_model(args):
     )
 
     # Obtain the initial trigger tokens and label mapping
-    if len(args.initial_trigger) > 0:
+    if args.initial_trigger:
         trigger_ids = tokenizer.convert_tokens_to_ids(args.initial_trigger)
         assert len(trigger_ids) == templatizer.num_trigger_tokens
     else:
@@ -229,6 +229,7 @@ def run_model(args):
     dev_metric = numerator / (denominator + 1e-13)
     logger.info(f'Dev metric: {dev_metric}')
 
+    best_dev_metric = 0
     for i in range(args.iters):
 
         logger.info(f'Iteration: {i}')
@@ -327,6 +328,14 @@ def run_model(args):
 
         logger.info(f'Trigger tokens: {tokenizer.convert_ids_to_tokens(trigger_ids.squeeze(0))}')
         logger.info(f'Dev metric: {dev_metric}')
+
+        if dev_metric > best_dev_metric:
+            logger.info('Best performance so far')
+            best_trigger_ids = trigger_ids.clone()
+
+    logger.info(f'Best tokens: {tokenizer.convert_ids_to_tokens(best_trigger_ids.squeeze(0))}')
+    logger.info(f'Best dev metric: {best_dev_metric}')
+
 
 
 if __name__ == '__main__':
