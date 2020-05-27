@@ -101,8 +101,8 @@ def main(args):
     scores = torch.matmul(projection.weight, word_embeddings.transpose(0, 1))
     scores = F.softmax(scores, dim=0)
     for i, row in enumerate(scores):
-        _, top10 = row.topk(10)
-        decoded = tokenizer.convert_ids_to_tokens(top10)
+        _, top = row.topk(args.k)
+        decoded = tokenizer.convert_ids_to_tokens(top)
         logger.info(f"Top k for class {reverse_label_map[i]}: {', '.join(decoded)}")
 
     logger.info('Training')
@@ -128,8 +128,8 @@ def main(args):
         scores = torch.matmul(projection.weight, word_embeddings.transpose(0, 1))
         scores = F.softmax(scores, dim=0)
         for i, row in enumerate(scores):
-            _, top10 = row.topk(10)
-            decoded = tokenizer.convert_ids_to_tokens(top10)
+            _, top = row.topk(args.k)
+            decoded = tokenizer.convert_ids_to_tokens(args.k)
             logger.info(f"Top k for class {reverse_label_map[i]}: {', '.join(decoded)}")
 
 
@@ -145,6 +145,7 @@ if __name__ == '__main__':
                         help='Name of the label field')
 
     parser.add_argument('--lr', type=float, default=3e-4, help='Learning rate')
+    parser.add_argument('--k', type=int, default=50, help='Number of label tokens to print')
     parser.add_argument('--bsz', type=int, default=32, help='Batch size')
     parser.add_argument('--eval-size', type=int, default=256, help='Eval size')
     parser.add_argument('--iters', type=int, default=10,
