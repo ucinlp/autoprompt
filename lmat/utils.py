@@ -14,6 +14,22 @@ def pad_squeeze_sequence(sequence, *args, **kwargs):
     return pad_sequence([x.squeeze(0) for x in sequence], *args, **kwargs)
 
 
+class OutputStorage:
+    """
+    This object stores the intermediate gradients of the output a the given PyTorch module, which
+    otherwise might not be retained.
+    """
+    def __init__(self, module):
+        self._stored_output = None
+        module.register_forward_hook(self.hook)
+
+    def hook(self, module, input, output):
+        self._stored_output = output
+
+    def get(self):
+        return self._stored_output
+
+
 class ExponentialMovingAverage:
     def __init__(self, weight=0.3):
         self._weight = weight
@@ -64,26 +80,13 @@ def encode_label(tokenizer, label):
     Helper function for encoding labels. Deals with the subtleties of handling multiple tokens.
     """
     if isinstance(label, str):
-        encoded = tokenizer.encode(
-            label,
-            add_special_tokens=False,
-            add_prefix_space=True,
-            return_tensors='pt'
-        )
-        if encoded.size(1) > 1:
-            raise ValueError(f'Label "{label}" gets split into multiple word pieces.')
+        encoded = torch.tensor(tokenizer.convert_tokens_to_ids([label])).unsqueeze(0)
+        if encoded.eq(tokenizer.unk_token_id).any():
+            raise ValueError(f'Label "{label}" gets mapped to unk.')
     elif isinstance(label, list):
-        all_ids = []
-        for label_ in label:
-            id_ = tokenizer.encode(
-                label_,
-                add_special_tokens=False,
-                add_prefix_space=True
-            )
-            if len(id_) > 1:
-                raise ValueError(f'Label "{label_}" gets split into multiple word pieces.')
-            all_ids.append(id_.pop())
-        encoded = torch.tensor(all_ids).unsqueeze(0)
+        encoded = torch.tensor(tokenizer.convert_tokens_to_ids(label)).unsqueeze(0)
+        if encoded.eq(tokenizer.unk_token_id).any():
+            raise ValueError(f'Label "{label}" gets mapped to unk.')
     # TODO: This is hacky.
     elif isinstance(label, int):
         encoded = torch.tensor([[label]])

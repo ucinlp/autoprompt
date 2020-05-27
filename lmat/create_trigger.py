@@ -185,11 +185,7 @@ def run_model(args):
 
     # Obtain the initial trigger tokens and label mapping
     if args.initial_trigger:
-        trigger_ids = tokenizer.encode(
-            args.initial_trigger,
-            add_special_tokens=False,
-            add_prefix_space=True
-        )
+        trigger_ids = tokenizer.convert_tokens_to_ids(args.initial_trigger)
         assert len(trigger_ids) == templatizer.num_trigger_tokens
     else:
         trigger_ids = [tokenizer.mask_token_id] * templatizer.num_trigger_tokens
@@ -233,20 +229,22 @@ def run_model(args):
     dev_metric = numerator / (denominator + 1e-13)
     logger.info(f'Dev metric: {dev_metric}')
 
+    best_dev_metric = 0
     for i in range(args.iters):
 
         logger.info(f'Iteration: {i}')
 
-        logger.info('Training')
-        j = 0
+        logger.info('Accumulating Gradient')
         model.zero_grad()
-        pbar = tqdm(train_loader)
-        eval_iter = iter(eval_loader)
+
+        pbar = tqdm(range(args.accumulation_steps))
+        train_iter = iter(train_loader)
         averaged_grad = None
 
-        for model_inputs, labels in pbar:
-            j += 1
+        # Accumulate
+        for step in pbar:
             # Shuttle inputs to GPU
+            model_inputs, labels = next(train_iter)
             model_inputs = {k: v.to(device) for k, v in model_inputs.items()}
             labels = labels.to(device)
             predict_logits = predictor(model_inputs, trigger_ids)
@@ -264,44 +262,57 @@ def run_model(args):
             else:
                 averaged_grad += grad.sum(dim=0) / args.accumulation_steps
 
-            # TODO: @rloganiv - Candidate selection is currently done w.r.t a single batch. Since
-            # batch sizes can be rather small, it would be preferable to do something similar to
-            # gradient accumulation to increase the amount of data points considered.
-            if not j % args.accumulation_steps:
+        logger.info('Evaluating Candidates')
+        pbar = tqdm(range(args.accumulation_steps))
+        train_iter = iter(train_loader)
 
-                # Fetch a separate (larger) batch of inputs from the training data to eval on
-                model_inputs, labels = next(eval_iter)
-                model_inputs = {k: v.to(device) for k, v in model_inputs.items()}
-                labels = labels.to(device)
+        token_to_flip = random.randrange(templatizer.num_trigger_tokens)
+        candidates = hotflip_attack(averaged_grad[token_to_flip],
+                                    embeddings.weight,
+                                    increase_loss=False,
+                                    num_candidates=args.num_cand)
+
+        current_score = 0
+        candidate_scores = torch.zeros(args.num_cand, device=device)
+        denom = 0
+        for step in pbar:
+
+            model_inputs, labels = next(train_iter)
+            model_inputs = {k: v.to(device) for k, v in model_inputs.items()}
+            labels = labels.to(device)
+            with torch.no_grad():
+                predict_logits = predictor(model_inputs, trigger_ids)
+                eval_metric = evaluation_fn(predict_logits, labels)
+
+            # Update current score
+            current_score += eval_metric.sum()
+            denom += labels.size(0)
+
+            # NOTE: Instead of iterating over tokens to flip we randomly change just one each
+            # time so the gradients don't get stale.
+            for i, candidate in enumerate(candidates):
+
+                if candidate.item() in filter_candidates:
+                    candidate_scores[i] = -1e32
+                    continue
+
+                temp_trigger = trigger_ids.clone()
+                temp_trigger[:, token_to_flip] = candidate
                 with torch.no_grad():
-                    predict_logits = predictor(model_inputs, trigger_ids)
-                    eval_metric = evaluation_fn(predict_logits, labels).mean()
+                    predict_logits = predictor(model_inputs, temp_trigger)
+                    eval_metric = evaluation_fn(predict_logits, labels)
 
-                # NOTE: Instead of iterating over tokens to flip we randomly change just one each
-                # time so the gradients don't get stale.
-                token_to_flip = random.randrange(templatizer.num_trigger_tokens)
-                candidates = hotflip_attack(averaged_grad[token_to_flip],
-                                            embeddings.weight,
-                                            increase_loss=False,
-                                            num_candidates=args.num_cand)
-                for candidate in candidates:
-                    if candidate.item() in filter_candidates:
-                        continue
-                    temp_trigger = trigger_ids.clone()
-                    temp_trigger[:, token_to_flip] = candidate
-                    with torch.no_grad():
-                        predict_logits = predictor(model_inputs, temp_trigger)
-                        new_eval_metric = evaluation_fn(predict_logits, labels).mean()
-                    if new_eval_metric > eval_metric:
-                        trigger_ids = temp_trigger
-                        eval_metric = new_eval_metric
+                candidate_scores[i] += eval_metric.sum()
 
-                model.zero_grad()
-                averaged_grad = None
-                pbar.set_description(f'Train metric: {eval_metric : 0.4f}')
-
-                if args.debug:
-                    logger.debug(f'Trigger tokens: {tokenizer.decode(trigger_ids.squeeze(0).tolist())}')
+        if (candidate_scores > current_score).any():
+            logger.info('Better trigger detected.')
+            best_candidate_score = candidate_scores.max()
+            best_candidate_idx = candidate_scores.argmax()
+            trigger_ids[:, token_to_flip] = candidates[best_candidate_idx]
+            logger.info(f'Train Accuracy: {best_candidate_score / (denom + 1e-13): 0.4f}')
+        else:
+            logger.info('No improvement detected. Skipping evaluation.')
+            continue
 
         logger.info('Evaluating')
         numerator = 0
@@ -315,8 +326,16 @@ def run_model(args):
             denominator += labels.size(0)
         dev_metric = numerator / (denominator + 1e-13)
 
-        logger.info(f'Trigger tokens: {tokenizer.decode(trigger_ids.squeeze(0).tolist())}')
+        logger.info(f'Trigger tokens: {tokenizer.convert_ids_to_tokens(trigger_ids.squeeze(0))}')
         logger.info(f'Dev metric: {dev_metric}')
+
+        if dev_metric > best_dev_metric:
+            logger.info('Best performance so far')
+            best_trigger_ids = trigger_ids.clone()
+
+    logger.info(f'Best tokens: {tokenizer.convert_ids_to_tokens(best_trigger_ids.squeeze(0))}')
+    logger.info(f'Best dev metric: {best_dev_metric}')
+
 
 
 if __name__ == '__main__':
@@ -326,7 +345,7 @@ if __name__ == '__main__':
     parser.add_argument('--template', type=str, help='Template string')
     parser.add_argument('--label-map', type=str, help='JSON object defining label map')
 
-    parser.add_argument('--initial-trigger', type=str, default=None, help='Manual prompt')
+    parser.add_argument('--initial-trigger', nargs='+', type=str, default=None, help='Manual prompt')
     parser.add_argument('--label-field', type=str, default='label',
                         help='Name of the label field')
 
