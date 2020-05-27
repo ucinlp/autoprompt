@@ -332,6 +332,7 @@ def run_model(args):
         if dev_metric > best_dev_metric:
             logger.info('Best performance so far')
             best_trigger_ids = trigger_ids.clone()
+            best_dev_metric = dev_metric
 
     logger.info(f'Best tokens: {tokenizer.convert_ids_to_tokens(best_trigger_ids.squeeze(0))}')
     logger.info(f'Best dev metric: {best_dev_metric}')
