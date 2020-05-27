@@ -184,12 +184,8 @@ def run_model(args):
     )
 
     # Obtain the initial trigger tokens and label mapping
-    if args.initial_trigger:
-        trigger_ids = tokenizer.encode(
-            args.initial_trigger,
-            add_special_tokens=False,
-            add_prefix_space=True
-        )
+    if len(args.initial_trigger) > 0:
+        trigger_ids = tokenizer.convert_tokens_to_ids(args.initial_trigger)
         assert len(trigger_ids) == templatizer.num_trigger_tokens
     else:
         trigger_ids = [tokenizer.mask_token_id] * templatizer.num_trigger_tokens
@@ -329,7 +325,7 @@ def run_model(args):
             denominator += labels.size(0)
         dev_metric = numerator / (denominator + 1e-13)
 
-        logger.info(f'Trigger tokens: {tokenizer.decode(trigger_ids.squeeze(0).tolist())}')
+        logger.info(f'Trigger tokens: {tokenizer.convert_ids_to_tokens(trigger_ids.squeeze(0))}')
         logger.info(f'Dev metric: {dev_metric}')
 
 
@@ -340,7 +336,7 @@ if __name__ == '__main__':
     parser.add_argument('--template', type=str, help='Template string')
     parser.add_argument('--label-map', type=str, help='JSON object defining label map')
 
-    parser.add_argument('--initial-trigger', type=str, default=None, help='Manual prompt')
+    parser.add_argument('--initial-trigger', nargs='+', type=str, default=None, help='Manual prompt')
     parser.add_argument('--label-field', type=str, default='label',
                         help='Name of the label field')
 

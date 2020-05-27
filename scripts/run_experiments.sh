@@ -1,33 +1,9 @@
 #!/bin/bash
-# counter=0
-# sentence_size=100
-# mkdir ./out/$counter
-# python create_trigger.py  /home/yrazeghi/data/  ./out/$counter  --iters 50 --bsz 32 --patience 20 --num_cand 50 --beam_size 2 --manual "the sentence" --format "P-S-2-H-Y" --ent_word "Yes" --cont_word "No" --sentence_size $sentence_size --dataset "MNLI" > ./out/$counter.txt
-# counter=1
-# mkdir ./out/$counter
-# python create_trigger.py  /home/yrazeghi/data/  ./out/$counter  --iters 50 --bsz 32 --patience 20 --num_cand 50 --beam_size 2 --manual "the sentence" --format "Y-P-S-2-Y-H" --ent_word "Yes" --cont_word "No" --sentence_size $sentence_size --dataset "MNLI" > ./out/$counter.txt
-# counter=2
-# mkdir ./out/$counter
-# python create_trigger.py  /home/yrazeghi/data/  ./out/$counter  --iters 50 --bsz 32 --patience 20 --num_cand 50 --beam_size 2 --manual "the sentence" --format "P-S-2-H-Y" --ent_word "Yes" --cont_word "No" --sentence_size $sentence_size --dataset "MNLI" > ./out/$counter.txt
-# counter=3
-# mkdir ./out/$counter
-# python create_trigger.py  /home/yrazeghi/data/ ./out/$counter  --iters 50 --bsz 32 --patience 20 --num_cand 50 --beam_size 2 --manual "the the the" --format "Y-P-S-3-Y-H" --ent_word "Yes" --cont_word "No" --sentence_size $sentence_size --dataset "MNLI" > ./out/$counter.txt
-# counter=4
-# sentence_size=100
-# mkdir ./out/$counter
-# python create_trigger.py  /home/yrazeghi/data/  ./out/$counter  --iters 50 --bsz 32 --patience 20 --num_cand 50 --beam_size 2 --manual "the sentence the" --format "P-S-3-Y-H-" --ent_word "and" --cont_word "but" --sentence_size $sentence_size --dataset "MNLI" > ./out/$counter.txt
-# counter=5
-# mkdir ./out/$counter
-# python create_trigger.py  /home/yrazeghi/data/  ./out/$counter  --iters 50 --bsz 32 --patience 20 --num_cand 50 --beam_size 2 --manual "the sentence the" --format "P-S-Y-3-H" --ent_word "and" --cont_word "but" --sentence_size $sentence_size --dataset "MNLI" > ./out/$counter.txt
-# counter=6
-# mkdir ./out/$counter
-# python create_trigger.py  /home/yrazeghi/data/  ./out/$counter  --iters 50 --bsz 32 --patience 20 --num_cand 50 --beam_size 2 --manual "the sentence the the" --format "P-S-4-H-Y" --ent_word "and" --cont_word "but" --sentence_size $sentence_size --dataset "MNLI" > ./out/$counter.txt
-# counter=7
-# mkdir ./out/$counter
-# python create_trigger.py  /home/yrazeghi/data/ ./out/$counter  --iters 50 --bsz 32 --patience 20 --num_cand 50 --beam_size 2 --manual "the the the the" --format "P-S-4-Y-H" --ent_word "and" --cont_word "but" --sentence_size $sentence_size --dataset "MNLI" > ./out/$counter.txt
-counter=8
-mkdir ./out/$counter
-python create_trigger.py  /home/yrazeghi/data/  ./out/$counter  --iters 50 --bsz 32 --patience 20 --num_cand 50 --beam_size 2 --manual "the sentence the the the" --format "P-S-5-H-Y" --ent_word "and" --cont_word "but" --sentence_size $sentence_size --dataset "MNLI" > ./out/$counter.txt
-counter=9
-mkdir ./out/$counter
-python create_trigger.py  /home/yrazeghi/data/ ./out/$counter  --iters 50 --bsz 32 --patience 20 --num_cand 50 --beam_size 2 --manual "the the the the the" --format "P-S-5-Y-H" --ent_word "and" --cont_word "but" --sentence_size $sentence_size --dataset "MNLI" > ./out/$counter.txt
+python -m lmat.create_trigger --train glue_data/SST-2/train.tsv --dev glue_data/SST-2/dev.tsv --template '<s> {sentence} [T] [T] [T] [P] . </s>' --label-map '{"0": ["Ġworse", "Ġincompetence", "ĠWorse", "Ġblamed", "Ġsucked"] , "1": ["ĠCris", "Ġmarvelous", "Ġphilanthrop", "Ġvisionary", "Ġwonderful"]}' --num_cand 10 --accumulation-steps 20 --model-name roberta-large --bsz 32 --eval-size 64 2> roberta-large-3t-10c.log
+python -m lmat.create_trigger --train glue_data/SST-2/train.tsv --dev glue_data/SST-2/dev.tsv --template '<s> {sentence} [T] [T] [T] [T] [P] . </s>' --label-map '{"0": ["Ġworse", "Ġincompetence", "ĠWorse", "Ġblamed", "Ġsucked"] , "1": ["ĠCris", "Ġmarvelous", "Ġphilanthrop", "Ġvisionary", "Ġwonderful"]}' --num_cand 10 --accumulation-steps 20 --model-name roberta-large --bsz 32 --eval-size 64 2> roberta-large-4t-10c.log
+python -m lmat.create_trigger --train glue_data/SST-2/train.tsv --dev glue_data/SST-2/dev.tsv --template '<s> {sentence} [T] [T] [T] [T] [T] [P] . </s>' --label-map '{"0": ["Ġworse", "Ġincompetence", "ĠWorse", "Ġblamed", "Ġsucked"] , "1": ["ĠCris", "Ġmarvelous", "Ġphilanthrop", "Ġvisionary", "Ġwonderful"]}' --num_cand 10 --accumulation-steps 30 --model-name roberta-large --bsz 24 --eval-size 48 2> roberta-large-5t-10c.log
+python -m lmat.create_trigger --train glue_data/SST-2/train.tsv --dev glue_data/SST-2/dev.tsv --template '<s> {sentence} [T] [T] [T] [T] [T] [T] [P] . </s>' --label-map '{"0": ["Ġworse", "Ġincompetence", "ĠWorse", "Ġblamed", "Ġsucked"] , "1": ["ĠCris", "Ġmarvelous", "Ġphilanthrop", "Ġvisionary", "Ġwonderful"]}' --num_cand 10 --accumulation-steps 30 --model-name roberta-large --bsz 24 --eval-size 48 2> roberta-large-6t-10c.log
+python -m lmat.create_trigger --train glue_data/SST-2/train.tsv --dev glue_data/SST-2/dev.tsv --template '<s> {sentence} [T] [T] [T] [P] . </s>' --label-map '{"0": ["Ġworse", "Ġincompetence", "ĠWorse", "Ġblamed", "Ġsucked"] , "1": ["ĠCris", "Ġmarvelous", "Ġphilanthrop", "Ġvisionary", "Ġwonderful"]}' --num_cand 100 --accumulation-steps 20 --model-name roberta-large --bsz 32 --eval-size 64 2> roberta-large-3t-100c.log
+python -m lmat.create_trigger --train glue_data/SST-2/train.tsv --dev glue_data/SST-2/dev.tsv --template '<s> {sentence} [T] [T] [T] [T] [P] . </s>' --label-map '{"0": ["Ġworse", "Ġincompetence", "ĠWorse", "Ġblamed", "Ġsucked"] , "1": ["ĠCris", "Ġmarvelous", "Ġphilanthrop", "Ġvisionary", "Ġwonderful"]}' --num_cand 100 --accumulation-steps 20 --model-name roberta-large --bsz 32 --eval-size 64 2> roberta-large-4t-100c.log
+python -m lmat.create_trigger --train glue_data/SST-2/train.tsv --dev glue_data/SST-2/dev.tsv --template '<s> {sentence} [T] [T] [T] [T] [T] [P] . </s>' --label-map '{"0": ["Ġworse", "Ġincompetence", "ĠWorse", "Ġblamed", "Ġsucked"] , "1": ["ĠCris", "Ġmarvelous", "Ġphilanthrop", "Ġvisionary", "Ġwonderful"]}' --num_cand 100 --accumulation-steps 30 --model-name roberta-large --bsz 24 --eval-size 48 2> roberta-large-5t-100c.log
+python -m lmat.create_trigger --train glue_data/SST-2/train.tsv --dev glue_data/SST-2/dev.tsv --template '<s> {sentence} [T] [T] [T] [T] [T] [T] [P] . </s>' --label-map '{"0": ["Ġworse", "Ġincompetence", "ĠWorse", "Ġblamed", "Ġsucked"] , "1": ["ĠCris", "Ġmarvelous", "Ġphilanthrop", "Ġvisionary", "Ġwonderful"]}' --num_cand 100 --accumulation-steps 30 --model-name roberta-large --bsz 24 --eval-size 48 2> roberta-large-6t-100c.log

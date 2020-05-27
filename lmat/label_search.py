@@ -38,7 +38,7 @@ def load_pretrained(model_name):
 
 def get_final_embeddings(model):
     if isinstance(model, BertForMaskedLM):
-        return model.cls.transform
+        return model.cls.predictions.transform
     elif isinstance(model, RobertaForMaskedLM):
         return model.lm_head.layer_norm
     else:
