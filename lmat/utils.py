@@ -202,6 +202,8 @@ def load_trigger_dataset(fname, templatizer, limit=None):
     instances = [templatizer(x) for x in loader(fname)]
     if limit:
         return random.sample(instances, limit)
+    else:
+        return instances
 
 
 def load_classification_dataset(
