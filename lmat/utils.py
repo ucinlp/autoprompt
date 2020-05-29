@@ -1,6 +1,7 @@
 import csv
 import json
 import logging
+import random
 
 import torch
 from torch.nn.utils.rnn import pad_sequence
@@ -196,9 +197,11 @@ LOADERS = {
 }
 
 
-def load_trigger_dataset(fname, templatizer):
+def load_trigger_dataset(fname, templatizer, limit=None):
     loader = LOADERS[fname.suffix]
-    return [templatizer(x) for x in loader(fname)]
+    instances = [templatizer(x) for x in loader(fname)]
+    if limit:
+        return random.sample(instances, limit)
 
 
 def load_classification_dataset(

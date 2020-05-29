@@ -210,9 +210,8 @@ def run_model(args):
 
     logger.info('Loading datasets')
     collator = utils.Collator(pad_token_id=tokenizer.pad_token_id)
-    train_dataset = utils.load_trigger_dataset(args.train, templatizer)
+    train_dataset = utils.load_trigger_dataset(args.train, templatizer, limit=args.limit)
     train_loader = DataLoader(train_dataset, batch_size=args.bsz, shuffle=True, collate_fn=collator)
-    eval_loader = DataLoader(train_dataset, batch_size=args.eval_size, shuffle=True, collate_fn=collator)
     dev_dataset = utils.load_trigger_dataset(args.dev, templatizer)
     dev_loader = DataLoader(dev_dataset, batch_size=args.eval_size, shuffle=False, collate_fn=collator)
 
@@ -358,6 +357,7 @@ if __name__ == '__main__':
     parser.add_argument('--model-name', type=str, default='bert-base-cased',
                         help='Model name passed to HuggingFace AutoX classes.')
     parser.add_argument('--seed', type=int, default=0)
+    parser.add_argument('--limit', type=int, default=None)
     parser.add_argument('--use_ctx', action='store_true',
                         help='Use context sentences for open-book probing')
     parser.add_argument('--patience', type=int, default=5)
