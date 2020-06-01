@@ -213,6 +213,7 @@ def load_classification_dataset(
     input_field_b=None,
     label_field='label',
     label_map=None,
+    limit=None
 ):
     """
     Loads a dataset for classification
@@ -243,4 +244,6 @@ def load_classification_dataset(
         label_id = torch.tensor([[label_id]])  # To make collator expectation
         logger.debug(f'Label id: {label_id}')
         instances.append((model_inputs, label_id))
+    if limit:
+        instances = random.sample(instances, limit)
     return instances, label_map
