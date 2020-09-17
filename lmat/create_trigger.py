@@ -173,7 +173,10 @@ def run_model(args):
     embedding_gradient = GradientStorage(embeddings)
     predictor = PredictWrapper(model)
 
-    label_map = json.loads(args.label_map)
+    # Fact retrieval and relation extraction don't need label map
+    label_map = None
+    if args.label_map:
+        label_map = json.loads(args.label_map)
     logger.info(f"Label map: {label_map}")
     templatizer = utils.TriggerTemplatizer(
         args.template,
@@ -347,7 +350,7 @@ if __name__ == '__main__':
 
     parser.add_argument('--initial-trigger', nargs='+', type=str, default=None, help='Manual prompt')
     parser.add_argument('--label-field', type=str, default='label',
-                        help='Name of the label field')
+                        help='Name of the label field. For fact retrieval, it should be obj_label.')
 
     parser.add_argument('--bsz', type=int, default=32, help='Batch size')
     parser.add_argument('--eval-size', type=int, default=256, help='Eval size')
