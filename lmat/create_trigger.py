@@ -250,7 +250,11 @@ def run_model(args):
         # Accumulate
         for step in pbar:
             # Shuttle inputs to GPU
-            model_inputs, labels = next(train_iter)
+            try:
+                model_inputs, labels = next(train_iter)
+            except StopIteration:
+                logger.info('No more training data, skipping to next step')
+                break
             model_inputs = {k: v.to(device) for k, v in model_inputs.items()}
             labels = labels.to(device)
             predict_logits = predictor(model_inputs, trigger_ids)
@@ -283,8 +287,11 @@ def run_model(args):
         candidate_scores = torch.zeros(args.num_cand, device=device)
         denom = 0
         for step in pbar:
-
-            model_inputs, labels = next(train_iter)
+            try:
+                model_inputs, labels = next(train_iter)
+            except StopIteration:
+                logger.info('No more training data, skipping to next step')
+                break
             model_inputs = {k: v.to(device) for k, v in model_inputs.items()}
             labels = labels.to(device)
             with torch.no_grad():
