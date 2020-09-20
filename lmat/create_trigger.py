@@ -231,9 +231,13 @@ def run_model(args):
     dev_metric = numerator / (denominator + 1e-13)
     logger.info(f'Dev metric: {dev_metric}')
 
-    best_dev_metric = 0
-    for i in range(args.iters):
+    # NOTE: For sentiment analysis and NLI, we want to maximize accuracy. But for fact retrieval and relation extraction, we want to minimize loss.
+    if label_map:
+        best_dev_metric = 0
+    else:
+        best_dev_metric = 999999
 
+    for i in range(args.iters):
         logger.info(f'Iteration: {i}')
 
         logger.info('Accumulating Gradient')
@@ -273,6 +277,7 @@ def run_model(args):
                                     embeddings.weight,
                                     increase_loss=False,
                                     num_candidates=args.num_cand)
+        # print('CANDIDATES:', tokenizer.convert_ids_to_tokens(candidates))
 
         current_score = 0
         candidate_scores = torch.zeros(args.num_cand, device=device)
@@ -306,15 +311,27 @@ def run_model(args):
 
                 candidate_scores[i] += eval_metric.sum()
 
-        if (candidate_scores > current_score).any():
-            logger.info('Better trigger detected.')
-            best_candidate_score = candidate_scores.max()
-            best_candidate_idx = candidate_scores.argmax()
-            trigger_ids[:, token_to_flip] = candidates[best_candidate_idx]
-            logger.info(f'Train Accuracy: {best_candidate_score / (denom + 1e-13): 0.4f}')
+        # TODO: make this block of code more elegant and concise
+        if label_map:
+            if (candidate_scores > current_score).any():
+                logger.info('Better trigger detected.')
+                best_candidate_score = candidate_scores.max()
+                best_candidate_idx = candidate_scores.argmax()
+                trigger_ids[:, token_to_flip] = candidates[best_candidate_idx]
+                logger.info(f'Train Accuracy: {best_candidate_score / (denom + 1e-13): 0.4f}')
+            else:
+                logger.info('No improvement detected. Skipping evaluation.')
+                continue
         else:
-            logger.info('No improvement detected. Skipping evaluation.')
-            continue
+            if (candidate_scores < current_score).any():
+                logger.info('Better trigger detected.')
+                best_candidate_score = candidate_scores.min()
+                best_candidate_idx = candidate_scores.argmin()
+                trigger_ids[:, token_to_flip] = candidates[best_candidate_idx]
+                logger.info(f'Train Accuracy: {best_candidate_score / (denom + 1e-13): 0.4f}')
+            else:
+                logger.info('No improvement detected. Skipping evaluation.')
+                continue
 
         logger.info('Evaluating')
         numerator = 0
@@ -331,7 +348,7 @@ def run_model(args):
         logger.info(f'Trigger tokens: {tokenizer.convert_ids_to_tokens(trigger_ids.squeeze(0))}')
         logger.info(f'Dev metric: {dev_metric}')
 
-        if dev_metric > best_dev_metric:
+        if (label_map and dev_metric > best_dev_metric) or (not label_map and dev_metric < best_dev_metric):
             logger.info('Best performance so far')
             best_trigger_ids = trigger_ids.clone()
             best_dev_metric = dev_metric
