@@ -83,7 +83,9 @@ def encode_label(tokenizer, label):
     if isinstance(label, str):
         encoded = torch.tensor(tokenizer.convert_tokens_to_ids([label])).unsqueeze(0)
         if encoded.eq(tokenizer.unk_token_id).any():
-            raise ValueError(f'Label "{label}" gets mapped to unk.')
+            # TODO: MAKE THIS SKIPPING UNK LABELS LOGIC BETTER
+            # raise ValueError(f'Label "{label}" gets mapped to unk.')
+            return None
     elif isinstance(label, list):
         encoded = torch.tensor(tokenizer.convert_tokens_to_ids(label)).unsqueeze(0)
         if encoded.eq(tokenizer.unk_token_id).any():
@@ -149,7 +151,7 @@ class TriggerTemplatizer:
         model_inputs = self._tokenizer.encode_plus(
             text,
             add_special_tokens=self._add_special_tokens,
-            add_prefix_space=True,
+            # add_prefix_space=True,
             return_tensors='pt'
         )
         input_ids = model_inputs['input_ids']
@@ -199,7 +201,14 @@ LOADERS = {
 
 def load_trigger_dataset(fname, templatizer, limit=None):
     loader = LOADERS[fname.suffix]
-    instances = [templatizer(x) for x in loader(fname)]
+    # TODO: MAKE THIS SKIPPING UNK LABELS LOGIC BETTER
+    # instances = [templatizer(x) for x in loader(fname)]
+    instances = []
+    for x in loader(fname):
+        t = templatizer(x)
+        if t[1] != None:
+            instances.append(t)
+
     if limit:
         return random.sample(instances, limit)
     else:
@@ -247,3 +256,15 @@ def load_classification_dataset(
     if limit:
         instances = random.sample(instances, limit)
     return instances, label_map
+
+
+def get_unique_objects(fname):
+    """
+    Return all the unique objects from a JSONL file of TREx triplets
+    """
+    # TODO: handle USE_CTX a.k.a. relation extraction
+    unique_objs = set()
+    samples = load_jsonl(fname)
+    for sample in samples:
+        unique_objs.add(sample['obj_label'].lower())
+    return list(unique_objs)

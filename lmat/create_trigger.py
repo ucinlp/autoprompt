@@ -1,8 +1,9 @@
-import argparse
+import time
 import json
+import random
+import argparse
 import logging
 from pathlib import Path
-import random
 
 import numpy as np
 import torch
@@ -15,6 +16,8 @@ import lmat.utils as utils
 
 
 logger = logging.getLogger(__name__)
+# TODO: remove when not running script that applies trigger search to all relations
+logger.disabled = True
 
 
 class GradientStorage:
@@ -173,6 +176,15 @@ def run_model(args):
     embedding_gradient = GradientStorage(embeddings)
     predictor = PredictWrapper(model)
 
+    # Special tokens that will be filtered out when selecting the top candidates for each token flip (only for fact retrieval and relation extraction)
+    special_token_ids = [
+        tokenizer.cls_token_id,
+        tokenizer.unk_token_id,
+        tokenizer.sep_token_id,
+        tokenizer.mask_token_id,
+        tokenizer.pad_token_id
+    ]
+
     # Fact retrieval and relation extraction don't need label map
     label_map = None
     if args.label_map:
@@ -218,6 +230,10 @@ def run_model(args):
     dev_dataset = utils.load_trigger_dataset(args.dev, templatizer)
     dev_loader = DataLoader(dev_dataset, batch_size=args.eval_size, shuffle=False, collate_fn=collator)
 
+    logger.info('Getting all unique objects')
+    # Get all unique objects from train data and check if hotflip candidates == object later on
+    unique_objects = utils.get_unique_objects(args.train)
+
     logger.info('Evaluating')
     numerator = 0
     denominator = 0
@@ -231,12 +247,16 @@ def run_model(args):
     dev_metric = numerator / (denominator + 1e-13)
     logger.info(f'Dev metric: {dev_metric}')
 
+    # Measure elapsed time of trigger search
+    start = time.time()
+
     # NOTE: For sentiment analysis and NLI, we want to maximize accuracy. But for fact retrieval and relation extraction, we want to minimize loss.
     if label_map:
         best_dev_metric = 0
     else:
         best_dev_metric = 999999
 
+    # TODO: consider adding early stopping
     for i in range(args.iters):
         logger.info(f'Iteration: {i}')
 
@@ -283,8 +303,36 @@ def run_model(args):
                                     num_candidates=args.num_cand)
         # print('CANDIDATES:', tokenizer.convert_ids_to_tokens(candidates))
 
+        # Filter candidates if task is fact retrieval or relation extraction
+        # TODO: handle edge case where ALL candidates are filtered out
+        # TODO: follow the footsteps of filter_candidates logic on line 356
+        if not label_map:
+            filtered_candidates = []
+            for cand in candidates:
+                # print('CAND:', cand, tokenizer.decode([cand]))
+                # Make sure to exclude special tokens like [CLS] from candidates
+                if cand in special_token_ids:
+                    # logger.info("Skipping candidate {} because it's a special symbol: {}".format(cand, tokenizer.decode([cand])))
+                    continue
+
+                # Make sure object/answer token is not included in the trigger -> prevents biased/overfitted triggers for each relation
+                if tokenizer.decode([cand]).strip().lower() in unique_objects:
+                    # logger.info("Skipping candidate {} because it's the same as a gold object: {}".format(cand, tokenizer.decode([cand])))
+                    continue
+
+                # Ignore capitalized word pieces and hopefully this heuristic will deal with proper nouns like Antarctica and ABC
+                # if any(c.isupper() for c in tokenizer.decode([cand])):
+                #     logger.info("Skipping candidate {} because it's probably a proper noun: {}".format(cand, tokenizer.decode([cand])))
+                #     continue
+                
+                filtered_candidates.append(cand)
+
+            # Update candidates
+            candidates = filtered_candidates[:]
+
         current_score = 0
-        candidate_scores = torch.zeros(args.num_cand, device=device)
+        # candidate_scores = torch.zeros(args.num_cand, device=device)
+        candidate_scores = torch.zeros(len(candidates), device=device)
         denom = 0
         for step in pbar:
             try:
@@ -362,6 +410,15 @@ def run_model(args):
 
     logger.info(f'Best tokens: {tokenizer.convert_ids_to_tokens(best_trigger_ids.squeeze(0))}')
     logger.info(f'Best dev metric: {best_dev_metric}')
+    print(args.train)
+    print(f'Best tokens: {tokenizer.convert_ids_to_tokens(best_trigger_ids.squeeze(0))}')
+    print(f'Best dev metric: {best_dev_metric}')
+
+    # TODO: print out trigger friendly format (i.e. handling ##subwords, combinging the trigger tokens together)
+
+    # Measure elapsed time
+    end = time.time()
+    print('Elapsed time: {} min\n'.format(round((end - start) / 60, 4)))
 
 
 
