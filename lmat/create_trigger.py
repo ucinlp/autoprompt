@@ -296,9 +296,13 @@ def run_model(args):
         pbar = tqdm(range(args.accumulation_steps))
         train_iter = iter(train_loader)
 
-        # NOTE: line below is for random token flipping while the line below that is for sequential token flipping
-        # token_to_flip = random.randrange(templatizer.num_trigger_tokens)
-        for token_to_flip in range(templatizer.num_trigger_tokens):
+        # Sentiment analysis and NLI use random token flipping while fact retrieval and relation extraction use sequential token flipping
+        if label_map:
+            token_to_flip_list = [random.randrange(templatizer.num_trigger_tokens)]
+        else:
+            token_to_flip_list = list(range(templatizer.num_trigger_tokens))
+
+        for token_to_flip in token_to_flip_list:
             candidates = hotflip_attack(averaged_grad[token_to_flip],
                                         embeddings.weight,
                                         increase_loss=False,
