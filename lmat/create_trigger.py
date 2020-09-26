@@ -17,7 +17,7 @@ import lmat.utils as utils
 
 logger = logging.getLogger(__name__)
 # TODO: remove when not running script that applies trigger search to all relations
-logger.disabled = True
+# logger.disabled = True
 
 
 class GradientStorage:
@@ -296,97 +296,99 @@ def run_model(args):
         pbar = tqdm(range(args.accumulation_steps))
         train_iter = iter(train_loader)
 
-        token_to_flip = random.randrange(templatizer.num_trigger_tokens)
-        candidates = hotflip_attack(averaged_grad[token_to_flip],
-                                    embeddings.weight,
-                                    increase_loss=False,
-                                    num_candidates=args.num_cand)
-        # print('CANDIDATES:', tokenizer.convert_ids_to_tokens(candidates))
+        # NOTE: line below is for random token flipping while the line below that is for sequential token flipping
+        # token_to_flip = random.randrange(templatizer.num_trigger_tokens)
+        for token_to_flip in range(templatizer.num_trigger_tokens):
+            candidates = hotflip_attack(averaged_grad[token_to_flip],
+                                        embeddings.weight,
+                                        increase_loss=False,
+                                        num_candidates=args.num_cand)
+            # print('CANDIDATES:', tokenizer.convert_ids_to_tokens(candidates))
 
-        # Filter candidates if task is fact retrieval or relation extraction
-        # TODO: handle edge case where ALL candidates are filtered out
-        # TODO: follow the footsteps of filter_candidates logic on line 356
-        if not label_map:
-            filtered_candidates = []
-            for cand in candidates:
-                # print('CAND:', cand, tokenizer.decode([cand]))
-                # Make sure to exclude special tokens like [CLS] from candidates
-                if cand in special_token_ids:
-                    # logger.info("Skipping candidate {} because it's a special symbol: {}".format(cand, tokenizer.decode([cand])))
-                    continue
+            # Filter candidates if task is fact retrieval or relation extraction
+            # TODO: handle edge case where ALL candidates are filtered out
+            # TODO: follow the footsteps of filter_candidates logic on line 356
+            if not label_map:
+                filtered_candidates = []
+                for cand in candidates:
+                    # print('CAND:', cand, tokenizer.decode([cand]))
+                    # Make sure to exclude special tokens like [CLS] from candidates
+                    if cand in special_token_ids:
+                        # logger.info("Skipping candidate {} because it's a special symbol: {}".format(cand, tokenizer.decode([cand])))
+                        continue
 
-                # Make sure object/answer token is not included in the trigger -> prevents biased/overfitted triggers for each relation
-                if tokenizer.decode([cand]).strip().lower() in unique_objects:
-                    # logger.info("Skipping candidate {} because it's the same as a gold object: {}".format(cand, tokenizer.decode([cand])))
-                    continue
+                    # Make sure object/answer token is not included in the trigger -> prevents biased/overfitted triggers for each relation
+                    if tokenizer.decode([cand]).strip().lower() in unique_objects:
+                        # logger.info("Skipping candidate {} because it's the same as a gold object: {}".format(cand, tokenizer.decode([cand])))
+                        continue
 
-                # Ignore capitalized word pieces and hopefully this heuristic will deal with proper nouns like Antarctica and ABC
-                # if any(c.isupper() for c in tokenizer.decode([cand])):
-                #     logger.info("Skipping candidate {} because it's probably a proper noun: {}".format(cand, tokenizer.decode([cand])))
-                #     continue
-                
-                filtered_candidates.append(cand)
+                    # Ignore capitalized word pieces and hopefully this heuristic will deal with proper nouns like Antarctica and ABC
+                    # if any(c.isupper() for c in tokenizer.decode([cand])):
+                    #     logger.info("Skipping candidate {} because it's probably a proper noun: {}".format(cand, tokenizer.decode([cand])))
+                    #     continue
+                    
+                    filtered_candidates.append(cand)
 
-            # Update candidates
-            candidates = filtered_candidates[:]
+                # Update candidates
+                candidates = filtered_candidates[:]
 
-        current_score = 0
-        # candidate_scores = torch.zeros(args.num_cand, device=device)
-        candidate_scores = torch.zeros(len(candidates), device=device)
-        denom = 0
-        for step in pbar:
-            try:
-                model_inputs, labels = next(train_iter)
-            except StopIteration:
-                logger.info('No more training data, skipping to next step')
-                break
-            model_inputs = {k: v.to(device) for k, v in model_inputs.items()}
-            labels = labels.to(device)
-            with torch.no_grad():
-                predict_logits = predictor(model_inputs, trigger_ids)
-                eval_metric = evaluation_fn(predict_logits, labels)
-
-            # Update current score
-            current_score += eval_metric.sum()
-            denom += labels.size(0)
-
-            # NOTE: Instead of iterating over tokens to flip we randomly change just one each
-            # time so the gradients don't get stale.
-            for i, candidate in enumerate(candidates):
-
-                if candidate.item() in filter_candidates:
-                    candidate_scores[i] = -1e32
-                    continue
-
-                temp_trigger = trigger_ids.clone()
-                temp_trigger[:, token_to_flip] = candidate
+            current_score = 0
+            # candidate_scores = torch.zeros(args.num_cand, device=device)
+            candidate_scores = torch.zeros(len(candidates), device=device)
+            denom = 0
+            for step in pbar:
+                try:
+                    model_inputs, labels = next(train_iter)
+                except StopIteration:
+                    logger.info('No more training data, skipping to next step')
+                    break
+                model_inputs = {k: v.to(device) for k, v in model_inputs.items()}
+                labels = labels.to(device)
                 with torch.no_grad():
-                    predict_logits = predictor(model_inputs, temp_trigger)
+                    predict_logits = predictor(model_inputs, trigger_ids)
                     eval_metric = evaluation_fn(predict_logits, labels)
 
-                candidate_scores[i] += eval_metric.sum()
+                # Update current score
+                current_score += eval_metric.sum()
+                denom += labels.size(0)
 
-        # TODO: make this block of code more elegant and concise
-        if label_map:
-            if (candidate_scores > current_score).any():
-                logger.info('Better trigger detected.')
-                best_candidate_score = candidate_scores.max()
-                best_candidate_idx = candidate_scores.argmax()
-                trigger_ids[:, token_to_flip] = candidates[best_candidate_idx]
-                logger.info(f'Train Accuracy: {best_candidate_score / (denom + 1e-13): 0.4f}')
+                # NOTE: Instead of iterating over tokens to flip we randomly change just one each
+                # time so the gradients don't get stale.
+                for i, candidate in enumerate(candidates):
+
+                    if candidate.item() in filter_candidates:
+                        candidate_scores[i] = -1e32
+                        continue
+
+                    temp_trigger = trigger_ids.clone()
+                    temp_trigger[:, token_to_flip] = candidate
+                    with torch.no_grad():
+                        predict_logits = predictor(model_inputs, temp_trigger)
+                        eval_metric = evaluation_fn(predict_logits, labels)
+
+                    candidate_scores[i] += eval_metric.sum()
+
+            # TODO: make this block of code more elegant and concise
+            if label_map:
+                if (candidate_scores > current_score).any():
+                    logger.info('Better trigger detected.')
+                    best_candidate_score = candidate_scores.max()
+                    best_candidate_idx = candidate_scores.argmax()
+                    trigger_ids[:, token_to_flip] = candidates[best_candidate_idx]
+                    logger.info(f'Train Accuracy: {best_candidate_score / (denom + 1e-13): 0.4f}')
+                else:
+                    logger.info('No improvement detected. Skipping evaluation.')
+                    continue
             else:
-                logger.info('No improvement detected. Skipping evaluation.')
-                continue
-        else:
-            if (candidate_scores < current_score).any():
-                logger.info('Better trigger detected.')
-                best_candidate_score = candidate_scores.min()
-                best_candidate_idx = candidate_scores.argmin()
-                trigger_ids[:, token_to_flip] = candidates[best_candidate_idx]
-                logger.info(f'Train Accuracy: {best_candidate_score / (denom + 1e-13): 0.4f}')
-            else:
-                logger.info('No improvement detected. Skipping evaluation.')
-                continue
+                if (candidate_scores < current_score).any():
+                    logger.info('Better trigger detected.')
+                    best_candidate_score = candidate_scores.min()
+                    best_candidate_idx = candidate_scores.argmin()
+                    trigger_ids[:, token_to_flip] = candidates[best_candidate_idx]
+                    logger.info(f'Train Accuracy: {best_candidate_score / (denom + 1e-13): 0.4f}')
+                else:
+                    logger.info('No improvement detected. Skipping evaluation.')
+                    continue
 
         logger.info('Evaluating')
         numerator = 0
