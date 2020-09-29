@@ -85,18 +85,15 @@ def encode_label(tokenizer, label, tokenize=False):
             # Ensure label is properly tokenized, and only retain first token
             # if it gets split into multiple tokens. TODO: Make sure this is
             # desired behavior.
-            tokens = tokenizer.tokenize(label)
+            tokens = tokenizer.tokenize(label, add_prefix_space=True)
             if len(tokens) > 1:
-                logger.warning('Label "%s" gets split into multiple tokens: %s', label, tokens)
+                logger.debug('Label "%s" gets split into multiple tokens: %s', label, tokens)
+            if tokens[0] == tokenizer.unk_token:
+                raise ValueError(f'Label "{label}" gets mapped to unk.')
             label = tokens[0]
         encoded = torch.tensor(tokenizer.convert_tokens_to_ids([label])).unsqueeze(0)
-        if encoded.eq(tokenizer.unk_token_id).any():
-            raise ValueError(f'Label "{label}" gets mapped to unk.')
     elif isinstance(label, list):
         encoded = torch.tensor(tokenizer.convert_tokens_to_ids(label)).unsqueeze(0)
-        if encoded.eq(tokenizer.unk_token_id).any():
-            raise ValueError(f'Label "{label}" gets mapped to unk.')
-    # TODO: This is hacky.
     elif isinstance(label, int):
         encoded = torch.tensor([[label]])
     return encoded
@@ -149,7 +146,6 @@ class TriggerTemplatizer:
         format_kwargs = format_kwargs.copy()
         label = format_kwargs.pop(self._label_field)
         text = self._template.format(**format_kwargs)
-        logger.debug(f'Formatted text: {text}')
         if label is None:
             raise Exception(f'Bad data: {text}')
 
@@ -213,7 +209,14 @@ LOADERS = {
 
 def load_trigger_dataset(fname, templatizer, limit=None):
     loader = LOADERS[fname.suffix]
-    instances = [templatizer(x) for x in loader(fname)]
+    instances = []
+    for x in loader(fname):
+        try:
+            model_inputs, label_id = templatizer(x)
+        except ValueError as e:
+            logger.warning('Encountered error "%s" when processing "%s".  Skipping.', e, x)
+        else:
+            instances.append((model_inputs, label_id))
     if limit:
         return random.sample(instances, limit)
     else:
