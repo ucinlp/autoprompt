@@ -173,13 +173,18 @@ def run_model(args):
     embedding_gradient = GradientStorage(embeddings)
     predictor = PredictWrapper(model)
 
-    label_map = json.loads(args.label_map)
-    logger.info(f"Label map: {label_map}")
+    if args.label_map is not None:
+        label_map = json.loads(args.label_map)
+        logger.info(f"Label map: {label_map}")
+    else:
+        label_map = None
+
     templatizer = utils.TriggerTemplatizer(
         args.template,
         tokenizer,
         label_map=label_map,
         label_field=args.label_field,
+        tokenize_labels=args.tokenize_labels,
         add_special_tokens=False
     )
 
@@ -193,11 +198,11 @@ def run_model(args):
 
     # NOTE: Accuracy can only be computed if a fixed pool of labels is given, which currently
     # requires the label map to be specified. Since producing a label map may be cumbersome (e.g.,
-    # for link prediction tasks), we just use loss as the evaluation metric in these cases.
+    # for link prediction tasks), we just use (negative) loss as the evaluation metric in these cases.
     if label_map:
         evaluation_fn = AccuracyFn(tokenizer, label_map, device)
     else:
-        evaluation_fn = get_loss
+        evaluation_fn = lambda x, y: -get_loss(x, y)
 
     # TODO: @rloganiv - Something a little cleaner.
     filter_candidates = set()
@@ -228,7 +233,7 @@ def run_model(args):
     dev_metric = numerator / (denominator + 1e-13)
     logger.info(f'Dev metric: {dev_metric}')
 
-    best_dev_metric = 0
+    best_dev_metric = -float('inf')
     for i in range(args.iters):
 
         logger.info(f'Iteration: {i}')
@@ -343,7 +348,10 @@ if __name__ == '__main__':
     parser.add_argument('--train', type=Path, required=True, help='Train data path')
     parser.add_argument('--dev', type=Path, required=True, help='Dev data path')
     parser.add_argument('--template', type=str, help='Template string')
-    parser.add_argument('--label-map', type=str, help='JSON object defining label map')
+    parser.add_argument('--label-map', type=str, default=None, help='JSON object defining label map')
+    parser.add_argument('--tokenize-labels', action='store_true',
+                        help='If specified labels are split into word pieces.'
+                             'Needed for LAMA probe experiments.')
 
     parser.add_argument('--initial-trigger', nargs='+', type=str, default=None, help='Manual prompt')
     parser.add_argument('--label-field', type=str, default='label',

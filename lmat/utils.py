@@ -76,11 +76,19 @@ class Collator:
         return padded_inputs, labels
 
 
-def encode_label(tokenizer, label):
+def encode_label(tokenizer, label, tokenize=False):
     """
     Helper function for encoding labels. Deals with the subtleties of handling multiple tokens.
     """
     if isinstance(label, str):
+        if tokenize:
+            # Ensure label is properly tokenized, and only retain first token
+            # if it gets split into multiple tokens. TODO: Make sure this is
+            # desired behavior.
+            tokens = tokenizer.tokenize(label)
+            if len(tokens) > 1:
+                logger.warning('Label "%s" gets split into multiple tokens: %s', label, tokens)
+            label = tokens[0]
         encoded = torch.tensor(tokenizer.convert_tokens_to_ids([label])).unsqueeze(0)
         if encoded.eq(tokenizer.unk_token_id).any():
             raise ValueError(f'Label "{label}" gets mapped to unk.')
@@ -117,6 +125,7 @@ class TriggerTemplatizer:
                  tokenizer,
                  label_field='label',
                  label_map=None,
+                 tokenize_labels=False,
                  add_special_tokens=False):
         if not hasattr(tokenizer, 'predict_token') or \
            not hasattr(tokenizer, 'trigger_token'):
@@ -128,6 +137,7 @@ class TriggerTemplatizer:
         self._tokenizer = tokenizer
         self._label_field = label_field
         self._label_map = label_map
+        self._tokenize_labels = tokenize_labels
         self._add_special_tokens = add_special_tokens
 
     @property
@@ -163,7 +173,11 @@ class TriggerTemplatizer:
         # Encode the label(s)
         if self._label_map is not None:
             label = self._label_map[label]
-        label_id = encode_label(self._tokenizer, label)
+        label_id = encode_label(
+            tokenizer=self._tokenizer,
+            label=label,
+            tokenize=self._tokenize_labels
+        )
 
         return model_inputs, label_id
 
