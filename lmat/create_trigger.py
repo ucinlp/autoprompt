@@ -1,3 +1,4 @@
+import time
 import argparse
 import json
 import logging
@@ -15,6 +16,8 @@ import lmat.utils as utils
 
 
 logger = logging.getLogger(__name__)
+# TODO: remove when not running script that applies trigger search to all relations
+# logger.disabled = True
 
 
 class GradientStorage:
@@ -165,7 +168,28 @@ def get_loss(predict_logits, label_ids):
     return -target_logp
 
 
+def print_prompt(config, tokenizer, template, trigger_token_ids):
+    """
+    Fills in the template with trigger tokens and pretty prints the prompt
+    """
+    prompt = template
+    for token_id in trigger_token_ids.tolist():
+        if config.model_type == 'roberta':
+            prompt = prompt.replace(' [T]', tokenizer.decode([token_id]), 1)
+        else:
+            prompt = prompt.replace('[T]', tokenizer.decode([token_id]), 1)
+    # For BERT, combine subwords with the previous word
+    if config.model_type == 'roberta':
+        prompt = prompt.replace('<mask>', ' <mask>')
+    else:
+        prompt = prompt.replace(' ##', '')
+    print('Prompt: {}'.format(prompt))
+
+
 def run_model(args):
+    # TODO: remove this
+    print(args.train)
+
     set_seed(args.seed)
     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 
@@ -191,6 +215,15 @@ def run_model(args):
         add_special_tokens=False
     )
 
+    # Special tokens that will be filtered out when selecting the top candidates for each token flip (only for fact retrieval and relation extraction)
+    special_token_ids = [
+        tokenizer.cls_token_id,
+        tokenizer.unk_token_id,
+        tokenizer.sep_token_id,
+        tokenizer.mask_token_id,
+        tokenizer.pad_token_id
+    ]
+
     # Obtain the initial trigger tokens and label mapping
     if args.initial_trigger:
         trigger_ids = tokenizer.convert_tokens_to_ids(args.initial_trigger)
@@ -207,6 +240,17 @@ def run_model(args):
     else:
         evaluation_fn = lambda x, y: -get_loss(x, y)
 
+    logger.info('Loading datasets')
+    collator = utils.Collator(pad_token_id=tokenizer.pad_token_id)
+    train_dataset = utils.load_trigger_dataset(args.train, templatizer, limit=args.limit)
+    train_loader = DataLoader(train_dataset, batch_size=args.bsz, shuffle=True, collate_fn=collator)
+    dev_dataset = utils.load_trigger_dataset(args.dev, templatizer)
+    dev_loader = DataLoader(dev_dataset, batch_size=args.eval_size, shuffle=False, collate_fn=collator)
+
+    logger.info('Getting all unique objects')
+    # Get all unique objects from train data and check if hotflip candidates == object later on
+    unique_objects = utils.get_unique_objects(args.train)
+
     # To "filter" unwanted trigger tokens, we subtract a huge number from their logits.
     vocab_size = len(tokenizer.get_vocab()) - len(tokenizer.additional_special_tokens)
     filter = torch.zeros(vocab_size, dtype=torch.float32, device=device)
@@ -215,22 +259,27 @@ def run_model(args):
         for label_tokens in label_map.values():
             token_ids = utils.encode_label(tokenizer, label_tokens).unsqueeze(0)
             filter[token_ids] = -1e32
-    if args.filter_caps:
-        logger.info('Filtering capitalized words.')
+    if args.filter:
+        logger.info('Filtering special tokens, gold objects, and capitalized words.')
         first_letter_idx = 1 if 'roberta' in args.model_name else 0
         for word, idx in tokenizer.get_vocab().items():
             if len(word) == 1 or idx >= vocab_size:
                 continue
+            # Make sure to exclude special tokens like [CLS] from candidates
+            if word in special_token_ids:
+                logger.debug('Filtered: %s', word)
+                filter[idx] = -1e32
+                continue
+            # Make sure object/answer token is not included in the trigger -> prevents biased/overfitted triggers for each relation
+            if word in unique_objects:
+                logger.debug('Filtered: %s', word)
+                filter[idx] = -1e32
+                continue
+            # Ignore capitalized word pieces and which is a heuristic to deal with proper nouns like Antarctica and ABC
             if word[first_letter_idx].isupper():
                 logger.debug('Filtered: %s', word)
                 filter[idx] = -1e32
-
-    logger.info('Loading datasets')
-    collator = utils.Collator(pad_token_id=tokenizer.pad_token_id)
-    train_dataset = utils.load_trigger_dataset(args.train, templatizer, limit=args.limit)
-    train_loader = DataLoader(train_dataset, batch_size=args.bsz, shuffle=True, collate_fn=collator)
-    dev_dataset = utils.load_trigger_dataset(args.dev, templatizer)
-    dev_loader = DataLoader(dev_dataset, batch_size=args.eval_size, shuffle=False, collate_fn=collator)
+                continue
 
     logger.info('Evaluating')
     numerator = 0
@@ -246,6 +295,9 @@ def run_model(args):
     logger.info(f'Dev metric: {dev_metric}')
 
     best_dev_metric = -float('inf')
+    # Measure elapsed time of trigger search
+    start = time.time()
+
     for i in range(args.iters):
 
         logger.info(f'Iteration: {i}')
@@ -351,8 +403,16 @@ def run_model(args):
             best_trigger_ids = trigger_ids.clone()
             best_dev_metric = dev_metric
 
-    logger.info(f'Best tokens: {tokenizer.convert_ids_to_tokens(best_trigger_ids.squeeze(0))}')
+    best_trigger_tokens = tokenizer.convert_ids_to_tokens(best_trigger_ids.squeeze(0))
+    logger.info(f'Best tokens: {best_trigger_tokens}')
     logger.info(f'Best dev metric: {best_dev_metric}')
+    if not label_map:
+        print('Best tokens: {}'.format(best_trigger_tokens))
+        print('Best dev metric: {}'.format(best_dev_metric))
+        print_prompt(config, tokenizer, args.template, best_trigger_ids.squeeze(0))
+    # Measure elapsed time
+    end = time.time()
+    print('Elapsed time: {} min\n'.format(round((end - start) / 60, 4)))
 
 
 
@@ -367,8 +427,9 @@ if __name__ == '__main__':
     parser.add_argument('--tokenize-labels', action='store_true',
                         help='If specified labels are split into word pieces.'
                              'Needed for LAMA probe experiments.')
-    parser.add_argument('--filter-caps', action='store_true',
-                        help='If specified, tokens starting with capital '
+    parser.add_argument('--filter', action='store_true',
+                        help='If specified, filter out special tokens and gold objects.' 
+                             'Furthermore, tokens starting with capital '
                              'letters will not appear in triggers. Lazy '
                              'approach for removing proper nouns.')
 
