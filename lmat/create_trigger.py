@@ -130,13 +130,16 @@ def get_embeddings(model, config):
 def hotflip_attack(averaged_grad,
                    embedding_matrix,
                    increase_loss=False,
-                   num_candidates=1):
+                   num_candidates=1,
+                   filter=None):
     """Returns the top candidate replacements."""
     with torch.no_grad():
         gradient_dot_embedding_matrix = torch.matmul(
             embedding_matrix,
             averaged_grad
         )
+        if filter is not None:
+            gradient_dot_embedding_matrix -= filter
         if not increase_loss:
             gradient_dot_embedding_matrix *= -1
         _, top_k_ids = gradient_dot_embedding_matrix.topk(num_candidates)
@@ -173,13 +176,18 @@ def run_model(args):
     embedding_gradient = GradientStorage(embeddings)
     predictor = PredictWrapper(model)
 
-    label_map = json.loads(args.label_map)
-    logger.info(f"Label map: {label_map}")
+    if args.label_map is not None:
+        label_map = json.loads(args.label_map)
+        logger.info(f"Label map: {label_map}")
+    else:
+        label_map = None
+
     templatizer = utils.TriggerTemplatizer(
         args.template,
         tokenizer,
         label_map=label_map,
         label_field=args.label_field,
+        tokenize_labels=args.tokenize_labels,
         add_special_tokens=False
     )
 
@@ -193,20 +201,29 @@ def run_model(args):
 
     # NOTE: Accuracy can only be computed if a fixed pool of labels is given, which currently
     # requires the label map to be specified. Since producing a label map may be cumbersome (e.g.,
-    # for link prediction tasks), we just use loss as the evaluation metric in these cases.
+    # for link prediction tasks), we just use (negative) loss as the evaluation metric in these cases.
     if label_map:
         evaluation_fn = AccuracyFn(tokenizer, label_map, device)
     else:
-        evaluation_fn = get_loss
+        evaluation_fn = lambda x, y: -get_loss(x, y)
 
-    # TODO: @rloganiv - Something a little cleaner.
-    filter_candidates = set()
+    # To "filter" unwanted trigger tokens, we subtract a huge number from their logits.
+    vocab_size = len(tokenizer.get_vocab()) - len(tokenizer.additional_special_tokens)
+    filter = torch.zeros(vocab_size, dtype=torch.float32, device=device)
     if label_map:
+        logger.info('Filtering label tokens')
         for label_tokens in label_map.values():
-            filter_candidates.update(
-                utils.encode_label(tokenizer, label_tokens).tolist().pop()
-            )
-    logger.info(f'Filter candidates: {filter_candidates}')
+            token_ids = utils.encode_label(tokenizer, label_tokens).unsqueeze(0)
+            filter[token_ids] = -1e32
+    if args.filter_caps:
+        logger.info('Filtering capitalized words.')
+        first_letter_idx = 1 if 'roberta' in args.model_name else 0
+        for word, idx in tokenizer.get_vocab().items():
+            if len(word) == 1 or idx >= vocab_size:
+                continue
+            if word[first_letter_idx].isupper():
+                logger.debug('Filtered: %s', word)
+                filter[idx] = -1e32
 
     logger.info('Loading datasets')
     collator = utils.Collator(pad_token_id=tokenizer.pad_token_id)
@@ -228,7 +245,7 @@ def run_model(args):
     dev_metric = numerator / (denominator + 1e-13)
     logger.info(f'Dev metric: {dev_metric}')
 
-    best_dev_metric = 0
+    best_dev_metric = -float('inf')
     for i in range(args.iters):
 
         logger.info(f'Iteration: {i}')
@@ -269,7 +286,8 @@ def run_model(args):
         candidates = hotflip_attack(averaged_grad[token_to_flip],
                                     embeddings.weight,
                                     increase_loss=False,
-                                    num_candidates=args.num_cand)
+                                    num_candidates=args.num_cand,
+                                    filter=filter)
 
         current_score = 0
         candidate_scores = torch.zeros(args.num_cand, device=device)
@@ -291,9 +309,9 @@ def run_model(args):
             # time so the gradients don't get stale.
             for i, candidate in enumerate(candidates):
 
-                if candidate.item() in filter_candidates:
-                    candidate_scores[i] = -1e32
-                    continue
+                # if candidate.item() in filter_candidates:
+                #     candidate_scores[i] = -1e32
+                #     continue
 
                 temp_trigger = trigger_ids.clone()
                 temp_trigger[:, token_to_flip] = candidate
@@ -308,7 +326,7 @@ def run_model(args):
             best_candidate_score = candidate_scores.max()
             best_candidate_idx = candidate_scores.argmax()
             trigger_ids[:, token_to_flip] = candidates[best_candidate_idx]
-            logger.info(f'Train Accuracy: {best_candidate_score / (denom + 1e-13): 0.4f}')
+            logger.info(f'Train metric: {best_candidate_score / (denom + 1e-13): 0.4f}')
         else:
             logger.info('No improvement detected. Skipping evaluation.')
             continue
@@ -343,7 +361,16 @@ if __name__ == '__main__':
     parser.add_argument('--train', type=Path, required=True, help='Train data path')
     parser.add_argument('--dev', type=Path, required=True, help='Dev data path')
     parser.add_argument('--template', type=str, help='Template string')
-    parser.add_argument('--label-map', type=str, help='JSON object defining label map')
+    parser.add_argument('--label-map', type=str, default=None, help='JSON object defining label map')
+
+    # LAMA-specific
+    parser.add_argument('--tokenize-labels', action='store_true',
+                        help='If specified labels are split into word pieces.'
+                             'Needed for LAMA probe experiments.')
+    parser.add_argument('--filter-caps', action='store_true',
+                        help='If specified, tokens starting with capital '
+                             'letters will not appear in triggers. Lazy '
+                             'approach for removing proper nouns.')
 
     parser.add_argument('--initial-trigger', nargs='+', type=str, default=None, help='Manual prompt')
     parser.add_argument('--label-field', type=str, default='label',

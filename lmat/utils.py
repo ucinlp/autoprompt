@@ -76,19 +76,24 @@ class Collator:
         return padded_inputs, labels
 
 
-def encode_label(tokenizer, label):
+def encode_label(tokenizer, label, tokenize=False):
     """
     Helper function for encoding labels. Deals with the subtleties of handling multiple tokens.
     """
     if isinstance(label, str):
+        if tokenize:
+            # Ensure label is properly tokenized, and only retain first token
+            # if it gets split into multiple tokens. TODO: Make sure this is
+            # desired behavior.
+            tokens = tokenizer.tokenize(label, add_prefix_space=True)
+            if len(tokens) > 1:
+                logger.debug('Label "%s" gets split into multiple tokens: %s', label, tokens)
+            if tokens[0] == tokenizer.unk_token:
+                raise ValueError(f'Label "{label}" gets mapped to unk.')
+            label = tokens[0]
         encoded = torch.tensor(tokenizer.convert_tokens_to_ids([label])).unsqueeze(0)
-        if encoded.eq(tokenizer.unk_token_id).any():
-            raise ValueError(f'Label "{label}" gets mapped to unk.')
     elif isinstance(label, list):
         encoded = torch.tensor(tokenizer.convert_tokens_to_ids(label)).unsqueeze(0)
-        if encoded.eq(tokenizer.unk_token_id).any():
-            raise ValueError(f'Label "{label}" gets mapped to unk.')
-    # TODO: This is hacky.
     elif isinstance(label, int):
         encoded = torch.tensor([[label]])
     return encoded
@@ -117,6 +122,7 @@ class TriggerTemplatizer:
                  tokenizer,
                  label_field='label',
                  label_map=None,
+                 tokenize_labels=False,
                  add_special_tokens=False):
         if not hasattr(tokenizer, 'predict_token') or \
            not hasattr(tokenizer, 'trigger_token'):
@@ -128,6 +134,7 @@ class TriggerTemplatizer:
         self._tokenizer = tokenizer
         self._label_field = label_field
         self._label_map = label_map
+        self._tokenize_labels = tokenize_labels
         self._add_special_tokens = add_special_tokens
 
     @property
@@ -139,7 +146,6 @@ class TriggerTemplatizer:
         format_kwargs = format_kwargs.copy()
         label = format_kwargs.pop(self._label_field)
         text = self._template.format(**format_kwargs)
-        logger.debug(f'Formatted text: {text}')
         if label is None:
             raise Exception(f'Bad data: {text}')
 
@@ -163,7 +169,11 @@ class TriggerTemplatizer:
         # Encode the label(s)
         if self._label_map is not None:
             label = self._label_map[label]
-        label_id = encode_label(self._tokenizer, label)
+        label_id = encode_label(
+            tokenizer=self._tokenizer,
+            label=label,
+            tokenize=self._tokenize_labels
+        )
 
         return model_inputs, label_id
 
@@ -199,7 +209,14 @@ LOADERS = {
 
 def load_trigger_dataset(fname, templatizer, limit=None):
     loader = LOADERS[fname.suffix]
-    instances = [templatizer(x) for x in loader(fname)]
+    instances = []
+    for x in loader(fname):
+        try:
+            model_inputs, label_id = templatizer(x)
+        except ValueError as e:
+            logger.warning('Encountered error "%s" when processing "%s".  Skipping.', e, x)
+        else:
+            instances.append((model_inputs, label_id))
     if limit:
         return random.sample(instances, limit)
     else:
