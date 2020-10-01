@@ -180,14 +180,14 @@ class TriggerTemplatizer:
 
 def add_task_specific_tokens(tokenizer):
     tokenizer.add_special_tokens({
-        'additional_special_tokens': ['[T]', '[P]', '[Y]']
+        'additional_special_tokens': ['[T]', '[P]', '[X]', '[Y]']
     })
     tokenizer.trigger_token = '[T]'
     tokenizer.trigger_token_id = tokenizer.convert_tokens_to_ids('[T]')
     tokenizer.predict_token = '[P]'
     tokenizer.predict_token_id = tokenizer.convert_tokens_to_ids('[P]')
-    # tokenizer.lama_x = '[X]'
-    # tokenizer.lama_x_id = tokenizer.convert_tokens_to_ids('[X]')
+    tokenizer.lama_x = '[X]'
+    tokenizer.lama_x_id = tokenizer.convert_tokens_to_ids('[X]')
     tokenizer.lama_y = '[Y]'
     tokenizer.lama_x_id = tokenizer.convert_tokens_to_ids('[Y]')
 

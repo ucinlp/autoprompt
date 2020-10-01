@@ -162,7 +162,7 @@ def replace_trigger_tokens(model_inputs, trigger_ids, trigger_mask):
 def get_loss(predict_logits, label_ids):
     predict_logp = F.log_softmax(predict_logits, dim=-1)
     target_logp = predict_logp.gather(-1, label_ids)
-    target_logp = target_logp - 1e32 * label_ids.eq(0)  # Apply mask
+    target_logp = target_logp - 1e32 * label_ids.eq(0).float()  # Apply mask
     target_logp = torch.logsumexp(target_logp, dim=-1)
     return -target_logp
 
@@ -420,7 +420,7 @@ def run_model(args):
     if args.print_lama:
         # Templatize with [X] and [Y]
         model_inputs, label_ids = templatizer({
-            'sub_label': '[X]',
+            'sub_label': tokenizer.lama_x,
             'obj_label': tokenizer.lama_y,
         })
         lama_template = model_inputs['input_ids']
