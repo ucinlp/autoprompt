@@ -87,7 +87,7 @@ def encode_label(tokenizer, label, tokenize=False):
             # desired behavior.
             tokens = tokenizer.tokenize(label, add_prefix_space=True)
             if len(tokens) > 1:
-                logger.debug('Label "%s" gets split into multiple tokens: %s', label, tokens)
+                logger.warning('Label "%s" gets split into multiple tokens: %s', label, tokens)
             if tokens[0] == tokenizer.unk_token:
                 raise ValueError(f'Label "{label}" gets mapped to unk.')
             label = tokens[0]
@@ -180,12 +180,17 @@ class TriggerTemplatizer:
 
 def add_task_specific_tokens(tokenizer):
     tokenizer.add_special_tokens({
-        'additional_special_tokens': ['[T]', '[P]']
+        'additional_special_tokens': ['[T]', '[P]', '[Y]']
     })
     tokenizer.trigger_token = '[T]'
     tokenizer.trigger_token_id = tokenizer.convert_tokens_to_ids('[T]')
     tokenizer.predict_token = '[P]'
     tokenizer.predict_token_id = tokenizer.convert_tokens_to_ids('[P]')
+    # tokenizer.lama_x = '[X]'
+    # tokenizer.lama_x_id = tokenizer.convert_tokens_to_ids('[X]')
+    tokenizer.lama_y = '[Y]'
+    tokenizer.lama_x_id = tokenizer.convert_tokens_to_ids('[Y]')
+
 
 
 def load_tsv(fname):
@@ -215,6 +220,7 @@ def load_trigger_dataset(fname, templatizer, limit=None):
             model_inputs, label_id = templatizer(x)
         except ValueError as e:
             logger.warning('Encountered error "%s" when processing "%s".  Skipping.', e, x)
+            continue
         else:
             instances.append((model_inputs, label_id))
     if limit:
