@@ -215,6 +215,7 @@ def load_trigger_dataset(fname, templatizer, limit=None):
             model_inputs, label_id = templatizer(x)
         except ValueError as e:
             logger.warning('Encountered error "%s" when processing "%s".  Skipping.', e, x)
+            continue
         else:
             instances.append((model_inputs, label_id))
     if limit:
@@ -264,15 +265,3 @@ def load_classification_dataset(
     if limit:
         instances = random.sample(instances, limit)
     return instances, label_map
-
-
-def get_unique_objects(fname):
-    """
-    Return all the unique objects from a JSONL file of TREx triplets
-    """
-    # TODO: handle USE_CTX a.k.a. relation extraction
-    unique_objs = set()
-    samples = load_jsonl(fname)
-    for sample in samples:
-        unique_objs.add(sample['obj_label'].lower())
-    return list(unique_objs)

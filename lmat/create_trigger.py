@@ -9,6 +9,7 @@ import numpy as np
 import torch
 import torch.nn.functional as F
 from torch.utils.data import DataLoader
+import transformers
 from transformers import AutoConfig, AutoModelWithLMHead, AutoTokenizer
 from tqdm import tqdm
 
@@ -16,8 +17,6 @@ import lmat.utils as utils
 
 
 logger = logging.getLogger(__name__)
-# TODO: remove when not running script that applies trigger search to all relations
-# logger.disabled = True
 
 
 class GradientStorage:
@@ -186,9 +185,26 @@ def print_prompt(config, tokenizer, template, trigger_token_ids):
     print('Prompt: {}'.format(prompt))
 
 
+def isupper(idx, tokenizer):
+    """
+    Determines whether a token (e.g., word piece) begins with a capital letter.
+    """
+    _isupper = False
+    # We only want to check tokens that begin words. Since byte-pair encoding
+    # captures a prefix space, we need to check that the decoded token begins
+    # with a space, and has a capitalized second character.
+    if isinstance(tokenizer, transformers.GPT2Tokenizer):
+        decoded = tokenizer.decode([idx])
+        if decoded[0] == ' ' and decoded[1].isupper():
+            _isupper = True
+    # For all other tokenization schemes, we can just check the first character
+    # is capitalized.
+    elif tokenizer.decode([idx])[0].isupper():
+            _isupper = True
+    return _isupper
+
+
 def run_model(args):
-    # TODO: remove this
-    print(args.train)
 
     set_seed(args.seed)
     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
@@ -215,18 +231,11 @@ def run_model(args):
         add_special_tokens=False
     )
 
-    # Special tokens that will be filtered out when selecting the top candidates for each token flip (only for fact retrieval and relation extraction)
-    special_token_ids = [
-        tokenizer.cls_token_id,
-        tokenizer.unk_token_id,
-        tokenizer.sep_token_id,
-        tokenizer.mask_token_id,
-        tokenizer.pad_token_id
-    ]
-
     # Obtain the initial trigger tokens and label mapping
     if args.initial_trigger:
         trigger_ids = tokenizer.convert_tokens_to_ids(args.initial_trigger)
+        logger.debug(f'Initial trigger: {args.initial_trigger}')
+        logger.debug(f'Trigger ids: {trigger_ids}')
         assert len(trigger_ids) == templatizer.num_trigger_tokens
     else:
         trigger_ids = [tokenizer.mask_token_id] * templatizer.num_trigger_tokens
@@ -247,39 +256,29 @@ def run_model(args):
     dev_dataset = utils.load_trigger_dataset(args.dev, templatizer)
     dev_loader = DataLoader(dev_dataset, batch_size=args.eval_size, shuffle=False, collate_fn=collator)
 
-    logger.info('Getting all unique objects')
-    # Get all unique objects from train data and check if hotflip candidates == object later on
-    unique_objects = utils.get_unique_objects(args.train)
-
     # To "filter" unwanted trigger tokens, we subtract a huge number from their logits.
-    vocab_size = len(tokenizer.get_vocab()) - len(tokenizer.additional_special_tokens)
-    filter = torch.zeros(vocab_size, dtype=torch.float32, device=device)
-    if label_map:
-        logger.info('Filtering label tokens')
-        for label_tokens in label_map.values():
-            token_ids = utils.encode_label(tokenizer, label_tokens).unsqueeze(0)
-            filter[token_ids] = -1e32
+    filter = torch.zeros(tokenizer.vocab_size, dtype=torch.float32, device=device)
     if args.filter:
-        logger.info('Filtering special tokens, gold objects, and capitalized words.')
-        first_letter_idx = 1 if 'roberta' in args.model_name else 0
+        logger.info('Filtering label tokens.')
+        if label_map:
+            for label_tokens in label_map.values():
+                label_ids = utils.encode_label(tokenizer, label_tokens).unsqueeze(0)
+                filter[label_ids] = -1e32
+        else:
+            for _, label_ids in train_dataset:
+                filter[label_ids] = -1e32
+        logger.info('Filtering special tokens and capitalized words.')
         for word, idx in tokenizer.get_vocab().items():
-            if len(word) == 1 or idx >= vocab_size:
+            if len(word) == 1 or idx >= tokenizer.vocab_size:
                 continue
-            # Make sure to exclude special tokens like [CLS] from candidates
-            if word in special_token_ids:
+            # Filter special tokens.
+            if idx in tokenizer.all_special_ids:
                 logger.debug('Filtered: %s', word)
                 filter[idx] = -1e32
-                continue
-            # Make sure object/answer token is not included in the trigger -> prevents biased/overfitted triggers for each relation
-            if word in unique_objects:
+            # Filter capitalized words (lazy way to remove proper nouns).
+            if isupper(idx, tokenizer):
                 logger.debug('Filtered: %s', word)
                 filter[idx] = -1e32
-                continue
-            # Ignore capitalized word pieces and which is a heuristic to deal with proper nouns like Antarctica and ABC
-            if word[first_letter_idx].isupper():
-                logger.debug('Filtered: %s', word)
-                filter[idx] = -1e32
-                continue
 
     logger.info('Evaluating')
     numerator = 0
@@ -312,7 +311,14 @@ def run_model(args):
         # Accumulate
         for step in pbar:
             # Shuttle inputs to GPU
-            model_inputs, labels = next(train_iter)
+            try:
+                model_inputs, labels = next(train_iter)
+            except:
+                logger.warning(
+                    'Insufficient data for number of accumulation steps. '
+                    'Effective batch size will be smaller than specified.'
+                )
+                break
             model_inputs = {k: v.to(device) for k, v in model_inputs.items()}
             labels = labels.to(device)
             predict_logits = predictor(model_inputs, trigger_ids)
@@ -346,7 +352,14 @@ def run_model(args):
         denom = 0
         for step in pbar:
 
-            model_inputs, labels = next(train_iter)
+            try:
+                model_inputs, labels = next(train_iter)
+            except:
+                logger.warning(
+                    'Insufficient data for number of accumulation steps. '
+                    'Effective batch size will be smaller than specified.'
+                )
+                break
             model_inputs = {k: v.to(device) for k, v in model_inputs.items()}
             labels = labels.to(device)
             with torch.no_grad():
@@ -428,7 +441,7 @@ if __name__ == '__main__':
                         help='If specified labels are split into word pieces.'
                              'Needed for LAMA probe experiments.')
     parser.add_argument('--filter', action='store_true',
-                        help='If specified, filter out special tokens and gold objects.' 
+                        help='If specified, filter out special tokens and gold objects.'
                              'Furthermore, tokens starting with capital '
                              'letters will not appear in triggers. Lazy '
                              'approach for removing proper nouns.')
