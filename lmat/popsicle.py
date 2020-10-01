@@ -18,6 +18,7 @@ from transformers import (
 logger = logging.getLogger(__name__)
 
 
+
 class Bertsicle(BertForSequenceClassification):
     def forward(
         self,
@@ -39,7 +40,10 @@ class Bertsicle(BertForSequenceClassification):
                 inputs_embeds=inputs_embeds,
             )
 
-        pooled_output = outputs[1]
+        pooled_output = outputs[1]  #by ROB
+        pooled_output = outputs[0]
+        pooled_output = pooled_output[:,1:,:] #eliminating CLS token
+        pooled_output = torch.mean(pooled_output, dim=1)
 
         pooled_output = self.dropout(pooled_output)
         logits = self.classifier(pooled_output)
@@ -80,8 +84,9 @@ class Robertasicle(RobertaForSequenceClassification):
                 inputs_embeds=inputs_embeds,
             )
         sequence_output = outputs[0]
-        logits = self.classifier(sequence_output)
-
+        sequence_output = sequence_output[:, 1:, :]  # eliminating <s> token
+        pooled_sequence_output = torch.mean(sequence_output, dim=1)
+        logits = self.classifier(pooled_sequence_output)
         outputs = (logits,) + outputs[2:]
         if labels is not None:
             if self.num_labels == 1:

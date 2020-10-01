@@ -14,9 +14,8 @@ from torch.utils.data import DataLoader
 from transformers import AutoConfig, AutoTokenizer, WEIGHTS_NAME, CONFIG_NAME
 from tqdm import tqdm
 
-from lmat.popsicle import AutoPopsicle
-import lmat.utils as utils
-
+from popsicle import AutoPopsicle
+import utils as utils
 
 logger = logging.getLogger(__name__)
 
@@ -107,7 +106,7 @@ if __name__ == '__main__':
     parser.add_argument('--bsz', type=int, default=32)
     parser.add_argument('--epochs', type=int, default=10)
     parser.add_argument('--lr', type=float, default=1e-3)
-    parser.add_argument('-f', '--force-overwrite', action='store_true')
+    parser.add_argument('-f', '--force-overwrite', action='store_true', default=True)
     parser.add_argument('--debug', action='store_true')
     args = parser.parse_args()
 
