@@ -167,24 +167,6 @@ def get_loss(predict_logits, label_ids):
     return -target_logp
 
 
-def print_prompt(config, tokenizer, template, trigger_token_ids):
-    """
-    Fills in the template with trigger tokens and pretty prints the prompt
-    """
-    prompt = template
-    for token_id in trigger_token_ids.tolist():
-        if config.model_type == 'roberta':
-            prompt = prompt.replace(' [T]', tokenizer.decode([token_id]), 1)
-        else:
-            prompt = prompt.replace('[T]', tokenizer.decode([token_id]), 1)
-    # For BERT, combine subwords with the previous word
-    if config.model_type == 'roberta':
-        prompt = prompt.replace('<mask>', ' <mask>')
-    else:
-        prompt = prompt.replace(' ##', '')
-    print('Prompt: {}'.format(prompt))
-
-
 def isupper(idx, tokenizer):
     """
     Determines whether a token (e.g., word piece) begins with a capital letter.
@@ -240,6 +222,7 @@ def run_model(args):
     else:
         trigger_ids = [tokenizer.mask_token_id] * templatizer.num_trigger_tokens
     trigger_ids = torch.tensor(trigger_ids, device=device).unsqueeze(0)
+    best_trigger_ids = trigger_ids.clone()
 
     # NOTE: Accuracy can only be computed if a fixed pool of labels is given, which currently
     # requires the label map to be specified. Since producing a label map may be cumbersome (e.g.,
@@ -310,6 +293,7 @@ def run_model(args):
 
         # Accumulate
         for step in pbar:
+
             # Shuttle inputs to GPU
             try:
                 model_inputs, labels = next(train_iter)
@@ -386,6 +370,13 @@ def run_model(args):
 
                 candidate_scores[i] += eval_metric.sum()
 
+        # TODO: Something cleaner. LAMA templates can't have mask tokens, so if
+        # there are still mask tokens in the trigger then set the current score
+        # to -inf.
+        if args.print_lama:
+            if trigger_ids.eq(tokenizer.mask_token_id).any():
+                current_score = float('-inf')
+
         if (candidate_scores > current_score).any():
             logger.info('Better trigger detected.')
             best_candidate_score = candidate_scores.max()
@@ -411,6 +402,13 @@ def run_model(args):
         logger.info(f'Trigger tokens: {tokenizer.convert_ids_to_tokens(trigger_ids.squeeze(0))}')
         logger.info(f'Dev metric: {dev_metric}')
 
+        # TODO: Something cleaner. LAMA templates can't have mask tokens, so if
+        # there are still mask tokens in the trigger then set the current score
+        # to -inf.
+        if args.print_lama:
+            if best_trigger_ids.eq(tokenizer.mask_token_id).any():
+                best_dev_metric = float('-inf')
+
         if dev_metric > best_dev_metric:
             logger.info('Best performance so far')
             best_trigger_ids = trigger_ids.clone()
@@ -419,14 +417,28 @@ def run_model(args):
     best_trigger_tokens = tokenizer.convert_ids_to_tokens(best_trigger_ids.squeeze(0))
     logger.info(f'Best tokens: {best_trigger_tokens}')
     logger.info(f'Best dev metric: {best_dev_metric}')
-    if not label_map:
-        print('Best tokens: {}'.format(best_trigger_tokens))
-        print('Best dev metric: {}'.format(best_dev_metric))
-        print_prompt(config, tokenizer, args.template, best_trigger_ids.squeeze(0))
-    # Measure elapsed time
-    end = time.time()
-    print('Elapsed time: {} min\n'.format(round((end - start) / 60, 4)))
-
+    if args.print_lama:
+        # Templatize with [X] and [Y]
+        model_inputs, label_ids = templatizer({
+            'sub_label': '[X]',
+            'obj_label': tokenizer.lama_y,
+        })
+        lama_template = model_inputs['input_ids']
+        # Instantiate trigger tokens
+        lama_template.masked_scatter_(
+            mask=model_inputs['trigger_mask'],
+            source=best_trigger_ids.cpu())
+        # Instantiate label token
+        lama_template.masked_scatter_(
+            mask=model_inputs['predict_mask'],
+            source=label_ids)
+        # Print LAMA JSON template
+        relation = args.train.parent.stem
+        out = {
+            'relation': args.train.parent.stem,
+            'template': tokenizer.decode(lama_template.squeeze(0)[1:-1])
+        }
+        print(json.dumps(out))
 
 
 if __name__ == '__main__':
@@ -445,6 +457,8 @@ if __name__ == '__main__':
                              'Furthermore, tokens starting with capital '
                              'letters will not appear in triggers. Lazy '
                              'approach for removing proper nouns.')
+    parser.add_argument('--print-lama', action='store_true',
+                        help='Prints best trigger in LAMA format.')
 
     parser.add_argument('--initial-trigger', nargs='+', type=str, default=None, help='Manual prompt')
     parser.add_argument('--label-field', type=str, default='label',
