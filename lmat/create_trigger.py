@@ -206,11 +206,13 @@ def run_model(args):
 
     templatizer = utils.TriggerTemplatizer(
         args.template,
+        config,
         tokenizer,
         label_map=label_map,
         label_field=args.label_field,
         tokenize_labels=args.tokenize_labels,
-        add_special_tokens=False
+        add_special_tokens=False,
+        use_ctx=args.use_ctx
     )
 
     # Obtain the initial trigger tokens and label mapping
@@ -234,9 +236,9 @@ def run_model(args):
 
     logger.info('Loading datasets')
     collator = utils.Collator(pad_token_id=tokenizer.pad_token_id)
-    train_dataset = utils.load_trigger_dataset(args.train, templatizer, limit=args.limit)
+    train_dataset = utils.load_trigger_dataset(args.train, templatizer, use_ctx=args.use_ctx, augmented=args.augmented, limit=args.limit)
     train_loader = DataLoader(train_dataset, batch_size=args.bsz, shuffle=True, collate_fn=collator)
-    dev_dataset = utils.load_trigger_dataset(args.dev, templatizer)
+    dev_dataset = utils.load_trigger_dataset(args.dev, templatizer, use_ctx=args.use_ctx, augmented=args.augmented)
     dev_loader = DataLoader(dev_dataset, batch_size=args.eval_size, shuffle=False, collate_fn=collator)
 
     # To "filter" unwanted trigger tokens, we subtract a huge number from their logits.
@@ -419,10 +421,17 @@ def run_model(args):
     logger.info(f'Best dev metric: {best_dev_metric}')
     if args.print_lama:
         # Templatize with [X] and [Y]
-        model_inputs, label_ids = templatizer({
-            'sub_label': tokenizer.lama_x,
-            'obj_label': tokenizer.lama_y,
-        })
+        if args.use_ctx:
+            model_inputs, label_ids = templatizer({
+                'sub_label': '[X]',
+                'obj_label': tokenizer.lama_y,
+                'context': ''
+            })
+        else:
+            model_inputs, label_ids = templatizer({
+                'sub_label': '[X]',
+                'obj_label': tokenizer.lama_y,
+            })
         lama_template = model_inputs['input_ids']
         # Instantiate trigger tokens
         lama_template.masked_scatter_(
@@ -434,9 +443,14 @@ def run_model(args):
             source=label_ids)
         # Print LAMA JSON template
         relation = args.train.parent.stem
+        # TODO: replace this super hacky method
+        if args.use_ctx:
+            template = tokenizer.decode(lama_template.squeeze(0)[1:-1]).replace('[SEP] ', '').replace('</s> ', '').replace('[ X ]', '[X]')
+        else:
+            template = tokenizer.decode(lama_template.squeeze(0)[1:-1]).replace('[ X ]', '[X]')
         out = {
             'relation': args.train.parent.stem,
-            'template': tokenizer.decode(lama_template.squeeze(0)[1:-1])
+            'template': template
         }
         print(json.dumps(out))
 
@@ -473,8 +487,10 @@ if __name__ == '__main__':
                         help='Model name passed to HuggingFace AutoX classes.')
     parser.add_argument('--seed', type=int, default=0)
     parser.add_argument('--limit', type=int, default=None)
-    parser.add_argument('--use_ctx', action='store_true',
-                        help='Use context sentences for open-book probing')
+    parser.add_argument('--use-ctx', action='store_true',
+                        help='Use context sentences for relation extraction only')
+    parser.add_argument('--augmented', action='store_true',
+                        help='Augment relation extraction dataset by replacing each object with a random other object')
     parser.add_argument('--patience', type=int, default=5)
     parser.add_argument('--num_cand', type=int, default=10)
     parser.add_argument('--sentence_size', type=int, default=50)
