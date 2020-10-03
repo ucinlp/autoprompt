@@ -1,4 +1,5 @@
 import csv
+import copy
 import json
 import logging
 import random
@@ -227,12 +228,9 @@ LOADERS = {
 }
 
 
-def load_trigger_dataset(fname, templatizer, use_ctx, augmented, limit=None):
+def load_trigger_dataset(fname, templatizer, use_ctx, limit=None):
     loader = LOADERS[fname.suffix]
     instances = []
-
-    # For augmented relation extraction, we need to replace obj_label with another obj_label, and replace obj_surface with a surface form of the new obj_label
-    unique_objs_dict = defaultdict(list)
 
     for x in loader(fname):
         try:
@@ -243,13 +241,6 @@ def load_trigger_dataset(fname, templatizer, use_ctx, augmented, limit=None):
                     continue
 
                 evidences = x['evidences']
-
-                # Gather all UNIQUE objects and their surface forms if its augmented relation extraction
-                if augmented:
-                    for evidence in evidences:
-                        obj_surface = evidence['obj_surface']
-                        masked_sent = evidence['masked_sentence']
-                        unique_objs_dict[obj_label].append(obj_surface)
                     
                 # Randomly pick a context sentence
                 obj_surface, masked_sent = random.choice([(evidence['obj_surface'], evidence['masked_sentence']) for evidence in evidences])
@@ -258,15 +249,11 @@ def load_trigger_dataset(fname, templatizer, use_ctx, augmented, limit=None):
                     # If the masked sentence is too long, use the first X tokens. For training we want to keep as many samples as we can.
                     masked_sent = ' '.join(words[:MAX_CONTEXT_LEN])
                 
-                if augmented:
-                    x['context'] = masked_sent
-                    model_inputs, label_id = templatizer(x)
-                else:
-                    # If truncated context sentence still has MASK, we need to replace it with object surface
-                    # We explicitly use [MASK] because all TREx fact's context sentences use it
-                    context = masked_sent.replace('[MASK]', obj_surface)
-                    x['context'] = context
-                    model_inputs, label_id = templatizer(x)
+                # If truncated context sentence still has MASK, we need to replace it with object surface
+                # We explicitly use [MASK] because all TREx fact's context sentences use it
+                context = masked_sent.replace('[MASK]', obj_surface)
+                x['context'] = context
+                model_inputs, label_id = templatizer(x)
             else:
                 model_inputs, label_id = templatizer(x)
         except ValueError as e:
@@ -274,6 +261,74 @@ def load_trigger_dataset(fname, templatizer, use_ctx, augmented, limit=None):
             continue
         else:
             instances.append((model_inputs, label_id))
+    if limit:
+        return random.sample(instances, limit)
+    else:
+        return instances
+
+
+def load_augmented_trigger_dataset(fname, templatizer, limit=None):
+    loader = LOADERS[fname.suffix]
+    instances = []
+
+    # For augmented relation extraction, we need to replace obj_label with another obj_label, and replace obj_surface with a surface form of the new obj_label
+    unique_objs_dict = defaultdict(list)
+    # Also for augmented relation extraction, we need to accumulate all facts and process them afterwards
+    facts = []
+
+    for x in loader(fname):
+        try:
+            sub_label = x['sub_label']
+            obj_label = x['obj_label']
+
+            # For relation extraction, skip facts that don't have context sentence
+            if 'evidences' not in x:
+                logger.warning('Skipping RE sample because it lacks context sentences: {}'.format(x))
+                continue
+
+            evidences = x['evidences']
+
+            # Gather all UNIQUE objects and their surface forms if its augmented relation extraction
+            for evidence in evidences:
+                obj_surface = evidence['obj_surface']
+                masked_sent = evidence['masked_sentence']
+                unique_objs_dict[obj_label].append(obj_surface)
+                
+            # Randomly pick a context sentence
+            obj_surface, masked_sent = random.choice([(evidence['obj_surface'], evidence['masked_sentence']) for evidence in evidences])
+            words = masked_sent.split()
+            if len(words) > MAX_CONTEXT_LEN:
+                # If the masked sentence is too long, use the first X tokens. For training we want to keep as many samples as we can.
+                masked_sent = ' '.join(words[:MAX_CONTEXT_LEN])
+            
+            x['context'] = masked_sent
+            facts.append(x)
+        except ValueError as e:
+            logger.warning('Encountered error "%s" when processing "%s".  Skipping.', e, x)
+
+    # Go through all facts and replace each object with a new one. Also insert the new object (surface form) into the masked sentence
+    synth_facts = []
+    for fact in facts:
+        sub_label = fact['sub_label']
+        obj_label = fact['obj_label']
+        masked_sent = fact['context']
+        # print('Original fact: ({}, {}, {})'.format(sub_label, obj_label, masked_sent))
+        synth_obj_label = random.choice([x for x in unique_objs_dict.keys() if x != obj_label])
+        synth_obj_surface = random.choice(unique_objs_dict[synth_obj_label])
+        synth_ctx = masked_sent.replace('[MASK]', synth_obj_surface)
+        # print('Synthetic fact: ({}, {}, {})\n'.format(sub_label, synth_obj_label, synth_ctx))
+        # Reassign the labels and context sentence
+        synth_fact = copy.deepcopy(fact)
+        synth_fact['sub_label'] = sub_label
+        synth_fact['obj_label'] = synth_obj_label
+        synth_fact['context'] = synth_ctx
+        synth_facts.append(synth_fact)
+
+    # Go through facts, templatize each one, then append them to instances
+    for fact in synth_facts:
+        model_inputs, label_id = templatizer(fact)
+        instances.append((model_inputs, label_id))
+
     if limit:
         return random.sample(instances, limit)
     else:

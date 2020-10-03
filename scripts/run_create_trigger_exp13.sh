@@ -1,5 +1,5 @@
 #!/bin/bash
-# Experiment 9
+# Experiment 13
 # Task: relation extraction
 # Model: BERT
 # Batch size: 32
@@ -15,7 +15,7 @@ cat /dev/null > ${logfile}.log
 
 for path in $datadir/*; do
     filename=$(basename "$path")
-    time CUDA_VISIBLE_DEVICES=4 python -m lmat.create_trigger \
+    time CUDA_VISIBLE_DEVICES=1 python -m lmat.create_trigger \
         --train $path/train.jsonl \
         --dev $path/dev.jsonl \
         --template '[CLS] {context} [SEP] {sub_label} [T] [T] [T] [T] [T] [P] . [SEP]' \
@@ -29,5 +29,6 @@ for path in $datadir/*; do
         --tokenize-labels \
         --filter \
         --print-lama \
-        --use-ctx >> $logfile 2>> ${logfile}.log
+        --use-ctx \
+        --augmented >> $logfile 2>> ${logfile}.log
 done

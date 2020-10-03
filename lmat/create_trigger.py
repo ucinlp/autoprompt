@@ -236,9 +236,18 @@ def run_model(args):
 
     logger.info('Loading datasets')
     collator = utils.Collator(pad_token_id=tokenizer.pad_token_id)
-    train_dataset = utils.load_trigger_dataset(args.train, templatizer, use_ctx=args.use_ctx, augmented=args.augmented, limit=args.limit)
+
+    # TODO: remove this hacky hack later
+    if args.augmented:
+        train_dataset = utils.load_augmented_trigger_dataset(args.train, templatizer, limit=args.limit)
+    else:
+        train_dataset = utils.load_trigger_dataset(args.train, templatizer, use_ctx=args.use_ctx, limit=args.limit)
     train_loader = DataLoader(train_dataset, batch_size=args.bsz, shuffle=True, collate_fn=collator)
-    dev_dataset = utils.load_trigger_dataset(args.dev, templatizer, use_ctx=args.use_ctx, augmented=args.augmented)
+    # TODO: remove this hacky hack later
+    if args.augmented:
+        dev_dataset = utils.load_augmented_trigger_dataset(args.dev, templatizer)
+    else:
+        dev_dataset = utils.load_trigger_dataset(args.dev, templatizer, use_ctx=args.use_ctx)
     dev_loader = DataLoader(dev_dataset, batch_size=args.eval_size, shuffle=False, collate_fn=collator)
 
     # To "filter" unwanted trigger tokens, we subtract a huge number from their logits.
