@@ -46,10 +46,19 @@ def main(args):
         label_map
     )
     dev_loader = DataLoader(dev_dataset, batch_size=args.bsz, shuffle=True, collate_fn=collator)
+    test_dataset, _ = utils.load_classification_dataset(
+        args.test,
+        tokenizer,
+        args.field_a,
+        args.field_b,
+        args.label_field,
+        label_map
+    )
+    test_loader = DataLoader(test_dataset, batch_size=args.bsz, shuffle=True, collate_fn=collator)
     optimizer = torch.optim.Adam(model.classifier.parameters(), lr=args.lr, weight_decay=1e-6)
 
     if not args.ckpt_dir.exists():
-        logger.info(f'Making checkpoint directory: {args.ckpt_dir}')
+        # logger.info(f'Making checkpoint directory: {args.ckpt_dir}')
         args.ckpt_dir.mkdir(parents=True)
     elif not args.force_overwrite:
         raise RuntimeError('Checkpoint directory already exists.')
@@ -92,12 +101,29 @@ def main(args):
             tokenizer.save_pretrained(args.ckpt_dir)
             best_accuracy = accuracy
 
+    logger.info('Testing...')
+    checkpoint = torch.load(args.ckpt_dir / WEIGHTS_NAME)
+    model.load_state_dict(checkpoint)
+    model.eval()
+    correct = 0
+    total = 0
+    for model_inputs, labels in test_loader:
+        model_inputs = {k: v.to(device) for k, v in model_inputs.items()}
+        labels = labels.to(device)
+        logits, *_ = model(**model_inputs)
+        _, preds = logits.max(dim=-1)
+        correct += (preds == labels.squeeze(-1)).sum().item()
+        total += labels.size(0)
+    accuracy = correct / (total + 1e-13)
+    logger.info(f'Accuracy: {accuracy : 0.4f}')
+
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
     parser.add_argument('--model-name', type=str)
     parser.add_argument('--train', type=Path)
     parser.add_argument('--dev', type=Path)
+    parser.add_argument('--test', type=Path)
     parser.add_argument('--field-a', type=str)
     parser.add_argument('--field-b', type=str, default=None)
     parser.add_argument('--label-field', type=str, default='label')
@@ -108,12 +134,13 @@ if __name__ == '__main__':
     parser.add_argument('--lr', type=float, default=1e-3)
     parser.add_argument('-f', '--force-overwrite', action='store_true', default=True)
     parser.add_argument('--debug', action='store_true')
+    parser.add_argument('--log_file', type=str, default='log.txt')
     args = parser.parse_args()
 
     if args.debug:
         level = logging.DEBUG
     else:
         level = logging.INFO
-    logging.basicConfig(level=level)
+    logging.basicConfig(level=level, filename=args.log_file)
 
     main(args)
