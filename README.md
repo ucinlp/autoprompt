@@ -16,7 +16,7 @@ python -m spacy download en
 
 ### 1. Create a trigger for a particular relation
 ```
-python create_trigger.py $DATA_PATH out --lm bert --iters 50 --bsz 64 --patience 10 --num_cand 50 --beam_size 3 --manual misc/manual_prompts.txt --format misc/prompt_formats.txt
+python -m lmat.create_trigger $DATA_PATH out --lm bert --iters 50 --bsz 64 --patience 10 --num_cand 50 --beam_size 3 --manual misc/manual_prompts.txt --format misc/prompt_formats.txt
 ```
 
 ## Evaluation
