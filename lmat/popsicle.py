@@ -85,7 +85,7 @@ class Robertasicle(RobertaForSequenceClassification):
             )
         sequence_output = outputs[0]
         sequence_output = sequence_output[:, 1:, :]  # eliminating <s> token
-        pooled_sequence_output = torch.mean(sequence_output, dim=1)
+        pooled_sequence_output = torch.mean(sequence_output, dim=1, keepdim=True)
         logits = self.classifier(pooled_sequence_output)
         outputs = (logits,) + outputs[2:]
         if labels is not None:
