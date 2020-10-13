@@ -1,0 +1,64 @@
+description: AutoPrompt, an automated prompt discovery algorithm to get langauge models to do what you want.
+
+fulltitle: "AutoPrompt: Automatic Prompt Construction for Masked Language Models"
+
+authors:
+  - name: Taylor Shin
+    img: http://sameersingh.org/img/face/group/taylor.jpg
+    aff: University of California, Irvine
+  - name: Yasaman Razeghi
+    website: https://yasamanrazeghi.com/
+    img: http://sameersingh.org/img/face/group/yrazeghi.jpg
+    aff: University of California, Irvine
+  - name: Robert L. Logan IV
+    website: https://rloganiv.github.io/
+    img: http://sameersingh.org/img/face/group/rlogan.jpg
+    aff: University of California, Irvine
+  - name: Eric Wallace
+    website: https://www.ericswallace.com/
+    img: http://sameersingh.org/img/face/group/ewallace.jpg
+    aff: University of California, Berkeley
+  - name: Sameer Singh
+    website: http://sameersingh.org
+    img: http://sameersingh.org/img/face/sameer-sq.jpg
+    aff: University of California, Irvine
+
+venue: 
+  name: Empirical Methods in Natural Language Processing (EMNLP)
+  link: https://2020.emnlp.org/
+
+abstract: >
+  The remarkable success of pretrained language models has motivated the study of what kinds of knowledge these models learn during pretraining. Reformulating tasks as fill-in-the-blanks problems (e.g., cloze tests) is a natural approach for gauging such knowledge, however, its usage is limited by the manual effort and guesswork required to write suitable prompts. To address this, we develop AutoPrompt, an automated method to create prompts for a diverse set of tasks, based on a gradient-guided search. Using AutoPrompt, we show that masked language models (MLMs) have an inherent capability to perform sentiment analysis and natural language inference without additional parameters or finetuning, sometimes achieving performance on par with recent state-of-the-art supervised models. We also show that our prompts elicit more accurate factual knowledge from MLMs than the manually created prompts on the LAMA benchmark, and that MLMs can be used as relation extractors more effectively than supervised relation extraction models. These results demonstrate that automatically generated prompts are a viable parameter-free alternative to existing probing methods, and as pretrained LMs become more sophisticated and capable, potentially a replacement for finetuning.
+
+citation: >
+  @inproceedings{autoprompt:emnlp20,
+    author = {Taylor Shin and Yasaman Razeghi and Robert L. Logan IV and Eric Wallace and Sameer Singh},
+    title = { {AutoPrompt: Automatic Prompt Construction for Masked Language Models} },
+    booktitle = {Empirical Methods in Natural Language Processing (EMNLP)},
+    year = {2020}
+  }
+
+pdf: /files/autoprompt-emnlp20.pdf
+
+style: is-light
+height: is-small
+items:
+  # - title: 
+  #   subtitle: Lots of Tweets with Links
+  #   icon: fa-database
+  #   # description: >
+  #   #   The example description text goes here and can be multiple lines.
+
+  #   #   For example, such as this. 
+  #   call_to_action_name: Get the Data
+  #   call_to_action_link: https://github.com/ucinlp/autoprompt/data
+  - title: 
+    subtitle: Run AutoPrompt Yourself
+    icon: fa-file-code
+    call_to_action_name: Source Code
+    call_to_action_link: https://github.com/ucinlp/autoprompt
+  - title: 
+    subtitle: Read the Paper
+    icon: fa-file-alt
+    call_to_action_name: Download PDF
+    call_to_action_link: /files/autoprompt-emnlp.pdf
