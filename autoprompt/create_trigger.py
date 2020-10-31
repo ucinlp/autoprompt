@@ -13,7 +13,7 @@ import transformers
 from transformers import AutoConfig, AutoModelWithLMHead, AutoTokenizer
 from tqdm import tqdm
 
-import lmat.utils as utils
+import autoprompt.utils as utils
 
 
 logger = logging.getLogger(__name__)

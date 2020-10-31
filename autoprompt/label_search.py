@@ -16,8 +16,8 @@ from transformers import (
 )
 from tqdm import tqdm
 
-import lmat.utils as utils
-import lmat.create_trigger as ct
+import autoprompt.utils as utils
+import autoprompt.create_trigger as ct
 
 
 logger = logging.getLogger(__name__)
@@ -139,27 +139,17 @@ if __name__ == '__main__':
     parser.add_argument('--train', type=Path, required=True, help='Train data path')
     parser.add_argument('--template', type=str, help='Template string')
     parser.add_argument('--label-map', type=str, help='JSON object defining label map')
-
     parser.add_argument('--initial-trigger', type=str, default=None, help='Manual prompt')
     parser.add_argument('--label-field', type=str, default='label',
                         help='Name of the label field')
-
     parser.add_argument('--lr', type=float, default=3e-4, help='Learning rate')
     parser.add_argument('--k', type=int, default=50, help='Number of label tokens to print')
     parser.add_argument('--bsz', type=int, default=32, help='Batch size')
-    parser.add_argument('--eval-size', type=int, default=256, help='Eval size')
     parser.add_argument('--iters', type=int, default=10,
-                        help='Number of iterations to run trigger search algorithm')
-    parser.add_argument('--accumulation-steps', type=int, default=10)
+                        help='Number of iterations to run label search')
     parser.add_argument('--model-name', type=str, default='bert-base-cased',
                         help='Model name passed to HuggingFace AutoX classes.')
     parser.add_argument('--seed', type=int, default=0)
-    parser.add_argument('--use_ctx', action='store_true',
-                        help='Use context sentences for open-book probing')
-    parser.add_argument('--patience', type=int, default=5)
-    parser.add_argument('--num_cand', type=int, default=10)
-    parser.add_argument('--sentence_size', type=int, default=50)
-
     parser.add_argument('--debug', action='store_true')
     args = parser.parse_args()
 

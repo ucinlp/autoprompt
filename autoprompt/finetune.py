@@ -16,7 +16,7 @@ from torch.utils.data import DataLoader
 from transformers import AutoConfig, AutoModelForSequenceClassification, AutoTokenizer
 from tqdm import tqdm
 
-import lmat.utils as utils
+import autoprompt.utils as utils
 
 
 logger = logging.getLogger(__name__)

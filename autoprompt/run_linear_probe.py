@@ -14,8 +14,8 @@ from torch.utils.data import DataLoader
 from transformers import AutoConfig, AutoTokenizer, WEIGHTS_NAME, CONFIG_NAME
 from tqdm import tqdm
 
-from lmat.popsicle import AutoPopsicle
-import lmat.utils as utils
+from autoprompt.popsicle import AutoPopsicle
+import autoprompt.utils as utils
 
 logger = logging.getLogger(__name__)
 
