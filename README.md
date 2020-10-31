@@ -1,24 +1,27 @@
 # AutoPrompt
+An automated method based on gradient-guided search to create prompts for a diverse set of NLP tasks. AutoPrompt demonstrates that masked language models (MLMs) have an innate ability to perform sentiment analysis, natural language inference, fact retrieval, and relation extraction. Check out our [website](https://ucinlp.github.io/autoprompt/) for the paper and more information.
 
+## Setup
 
-## Setup/Installation
-
-### 1. Create conda environment and install requirements
+### 1. Create conda environment
 ```
 conda create -n autoprompt -y python=3.7 && conda activate autoprompt
-pip install -r requirements.txt
 ```
 
-### 2. Download stuff
-Install spacy model
+### 2. Install dependecies
+Install the required packages
+```
+pip install -r requirements.txt
+```
+Also download the spacy model
 ```
 python -m spacy download en
 ```
 
-### 3. Download data
-Download the data here: https://drive.google.com/drive/folders/1vVhgnSXmbuJb6GLPn_FErY1xDTh1xyv-?usp=sharing
+### 3. Get the data
+The datasets for sentiment analysis, NLI, fact retrieval, and relation extraction are available to download [here](https://drive.google.com/drive/folders/1vVhgnSXmbuJb6GLPn_FErY1xDTh1xyv-?usp=sharing)
 
-## How to Generate Prompts
+## Generating Prompts
 
 ### Quick Overview of Templates
 A prompt is constructed by mapping things like the original input and trigger tokens to a template that looks something like
@@ -45,6 +48,18 @@ python -m lmat.create_trigger \
     --tokenize-labels \
     --filter \
     --print-lama
+```
+
+## Label Token Selection
+
+For sentiment analysis
+```
+python -m autoprompt.label_search --train ../data/SST-2/train.tsv --template '[CLS] {sentence} [T] [T] [T] [P]. [SEP]' --label-map '{"0": 0, "1": 1}' --iters 50 --model-name 'bert-base-cased'
+```
+
+For NLI
+```
+python -m autoprompt.label_search --train ../data/SICK-E-balanced/3-balance/SICK_TRAIN_ALL_S.tsv --template '[CLS] {sentence} [T] [T] [T] [P]. [SEP]' --label-map '{"entailment": 0, "contradiction": 1, "neutral": 2}' --iters 50 --model-name 'bert-base-cased'
 ```
 
 ## Evaluation
