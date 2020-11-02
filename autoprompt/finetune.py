@@ -13,6 +13,7 @@ import numpy as np
 import torch
 import torch.nn.functional as F
 from torch.utils.data import DataLoader
+from torch.optim.lr_scheduler import LambdaLR
 from transformers import AutoConfig, AutoModelForSequenceClassification, AutoTokenizer
 from tqdm import tqdm
 
@@ -28,6 +29,24 @@ def set_seed(seed: int):
     np.random.seed(seed)
     torch.random.manual_seed(seed)
     torch.cuda.manual_seed(seed)
+
+
+def get_linear_schedule_with_warmup(optimizer, num_warmup_steps, num_training_steps, last_epoch=-1):
+    """ Create a schedule with a learning rate that decreases linearly after
+    linearly increasing during a warmup period.
+
+    From:
+        https://github.com/uds-lsv/bert-stable-fine-tuning/blob/master/src/transformers/optimization.py
+    """
+
+    def lr_lambda(current_step):
+        if current_step < num_warmup_steps:
+            return float(current_step) / float(max(1, num_warmup_steps))
+        return max(
+            0.0, float(num_training_steps - current_step) / float(max(1, num_training_steps - num_warmup_steps))
+        )
+
+    return LambdaLR(optimizer, lr_lambda, last_epoch)
 
 
 def main(args):
@@ -67,51 +86,60 @@ def main(args):
         label_map
     )
     test_loader = DataLoader(test_dataset, batch_size=args.bsz, shuffle=True, collate_fn=collator)
-    optimizer = torch.optim.Adam(model.classifier.parameters(), lr=args.lr, weight_decay=1e-6)
+    optimizer = torch.optim.AdamW(model.classifier.parameters(), lr=args.lr, weight_decay=1e-6)
 
-    # if not args.ckpt_dir.exists():
-    #     logger.info(f'Making checkpoint directory: {args.ckpt_dir}')
-    #     args.ckpt_dir.mkdir(parents=True)
-    # elif not args.force_overwrite:
-    #     raise RuntimeError('Checkpoint directory already exists.')
+    # Use suggested learning rate scheduler
+    num_training_steps = len(train_dataset) * args.epochs // args.bsz
+    num_warmup_steps = num_training_steps // 10
+    scheduler = get_linear_schedule_with_warmup(optimizer, num_warmup_steps,
+                                                num_training_steps)
 
-    best_accuracy = 0
-    for epoch in range(args.epochs):
-        logger.info('Training...')
-        model.train()
-        avg_loss = utils.ExponentialMovingAverage()
-        pbar = tqdm(train_loader)
-        for model_inputs, labels in pbar:
-            model_inputs = {k: v.to(device) for k, v in model_inputs.items()}
-            labels = labels.to(device)
-            optimizer.zero_grad()
-            logits, *_ = model(**model_inputs)
-            loss = F.cross_entropy(logits, labels.squeeze(-1))
-            loss.backward()
-            optimizer.step()
-            avg_loss.update(loss.item())
-            pbar.set_description(f'loss: {avg_loss.get_metric(): 0.4f}')
+    if not args.ckpt_dir.exists():
+        logger.info(f'Making checkpoint directory: {args.ckpt_dir}')
+        args.ckpt_dir.mkdir(parents=True)
+    elif not args.force_overwrite:
+        raise RuntimeError('Checkpoint directory already exists.')
 
-        logger.info('Evaluating...')
-        model.eval()
-        correct = 0
-        total = 0
-        for model_inputs, labels in dev_loader:
-            model_inputs = {k: v.to(device) for k, v in model_inputs.items()}
-            labels = labels.to(device)
-            logits, *_ = model(**model_inputs)
-            _, preds = logits.max(dim=-1)
-            correct += (preds == labels.squeeze(-1)).sum().item()
-            total += labels.size(0)
-        accuracy = correct / (total + 1e-13)
-        logger.info(f'Accuracy: {accuracy : 0.4f}')
+    try:
+        best_accuracy = 0
+        for epoch in range(args.epochs):
+            logger.info('Training...')
+            model.train()
+            avg_loss = utils.ExponentialMovingAverage()
+            pbar = tqdm(train_loader)
+            for model_inputs, labels in pbar:
+                model_inputs = {k: v.to(device) for k, v in model_inputs.items()}
+                labels = labels.to(device)
+                optimizer.zero_grad()
+                logits, *_ = model(**model_inputs)
+                loss = F.cross_entropy(logits, labels.squeeze(-1))
+                loss.backward()
+                optimizer.step()
+                scheduler.step()
+                avg_loss.update(loss.item())
+                pbar.set_description(f'loss: {avg_loss.get_metric(): 0.4f}')
 
-        if accuracy > best_accuracy:
-            logger.info('Best performance so far.')
-            # torch.save(model.state_dict(), args.ckpt_dir / WEIGHTS_NAME)
-            # model.config.to_json_file(args.ckpt_dir / CONFIG_NAME)
-            # tokenizer.save_pretrained(args.ckpt_dir)
-            best_accuracy = accuracy
+            logger.info('Evaluating...')
+            model.eval()
+            correct = 0
+            total = 0
+            for model_inputs, labels in dev_loader:
+                model_inputs = {k: v.to(device) for k, v in model_inputs.items()}
+                labels = labels.to(device)
+                logits, *_ = model(**model_inputs)
+                _, preds = logits.max(dim=-1)
+                correct += (preds == labels.squeeze(-1)).sum().item()
+                total += labels.size(0)
+            accuracy = correct / (total + 1e-13)
+            logger.info(f'Accuracy: {accuracy : 0.4f}')
+
+            if accuracy > best_accuracy:
+                logger.info('Best performance so far.')
+                model.save_pretrained(args.ckpt_dir)
+                tokenizer.save_pretrained(args.ckpt_dir)
+                best_accuracy = accuracy
+    except KeyboardInterrupt:
+        logger.info('Interrupted...')
 
     logger.info('Testing...')
     model.eval()
