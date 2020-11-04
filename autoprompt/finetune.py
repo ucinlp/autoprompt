@@ -14,7 +14,10 @@ import torch
 import torch.nn.functional as F
 from torch.utils.data import DataLoader
 from torch.optim.lr_scheduler import LambdaLR
-from transformers import AutoConfig, AutoModelForSequenceClassification, AutoTokenizer
+import transformers
+from transformers import (
+    AdamW, AutoConfig, AutoModelForSequenceClassification, AutoTokenizer
+)
 from tqdm import tqdm
 
 import autoprompt.utils as utils
@@ -76,7 +79,7 @@ def main(args):
         args.label_field,
         label_map
     )
-    dev_loader = DataLoader(dev_dataset, batch_size=args.bsz, shuffle=True, collate_fn=collator)
+    dev_loader = DataLoader(dev_dataset, batch_size=args.bsz, shuffle=False, collate_fn=collator)
     test_dataset, _ = utils.load_classification_dataset(
         args.test,
         tokenizer,
@@ -85,8 +88,8 @@ def main(args):
         args.label_field,
         label_map
     )
-    test_loader = DataLoader(test_dataset, batch_size=args.bsz, shuffle=True, collate_fn=collator)
-    optimizer = torch.optim.AdamW(model.classifier.parameters(), lr=args.lr, weight_decay=1e-6)
+    test_loader = DataLoader(test_dataset, batch_size=args.bsz, shuffle=False, collate_fn=collator)
+    optimizer = AdamW(model.parameters(), lr=args.lr, weight_decay=1e-2)
 
     # Use suggested learning rate scheduler
     num_training_steps = len(train_dataset) * args.epochs // args.bsz
@@ -117,20 +120,22 @@ def main(args):
                 optimizer.step()
                 scheduler.step()
                 avg_loss.update(loss.item())
-                pbar.set_description(f'loss: {avg_loss.get_metric(): 0.4f}')
+                pbar.set_description(f'loss: {avg_loss.get_metric(): 0.4f}, '
+                                     f'lr: {optimizer.param_groups[0]["lr"]: .3e}')
 
             logger.info('Evaluating...')
             model.eval()
             correct = 0
             total = 0
-            for model_inputs, labels in dev_loader:
-                model_inputs = {k: v.to(device) for k, v in model_inputs.items()}
-                labels = labels.to(device)
-                logits, *_ = model(**model_inputs)
-                _, preds = logits.max(dim=-1)
-                correct += (preds == labels.squeeze(-1)).sum().item()
-                total += labels.size(0)
-            accuracy = correct / (total + 1e-13)
+            with torch.no_grad():
+                for model_inputs, labels in dev_loader:
+                    model_inputs = {k: v.to(device) for k, v in model_inputs.items()}
+                    labels = labels.to(device)
+                    logits, *_ = model(**model_inputs)
+                    _, preds = logits.max(dim=-1)
+                    correct += (preds == labels.squeeze(-1)).sum().item()
+                    total += labels.size(0)
+                accuracy = correct / (total + 1e-13)
             logger.info(f'Accuracy: {accuracy : 0.4f}')
 
             if accuracy > best_accuracy:
@@ -145,14 +150,15 @@ def main(args):
     model.eval()
     correct = 0
     total = 0
-    for model_inputs, labels in test_loader:
-        model_inputs = {k: v.to(device) for k, v in model_inputs.items()}
-        labels = labels.to(device)
-        logits, *_ = model(**model_inputs)
-        _, preds = logits.max(dim=-1)
-        correct += (preds == labels.squeeze(-1)).sum().item()
-        total += labels.size(0)
-    accuracy = correct / (total + 1e-13)
+    with torch.no_grad():
+        for model_inputs, labels in test_loader:
+            model_inputs = {k: v.to(device) for k, v in model_inputs.items()}
+            labels = labels.to(device)
+            logits, *_ = model(**model_inputs)
+            _, preds = logits.max(dim=-1)
+            correct += (preds == labels.squeeze(-1)).sum().item()
+            total += labels.size(0)
+        accuracy = correct / (total + 1e-13)
     logger.info(f'Accuracy: {accuracy : 0.4f}')
 
 
