@@ -1,5 +1,5 @@
 """
-Script for running a linear probe on glue tasks.
+Script for running finetuning on glue tasks.
 
 Largely copied from:
     https://github.com/huggingface/transformers/blob/master/examples/text-classification/run_glue.py
@@ -89,7 +89,18 @@ def main(args):
         label_map
     )
     test_loader = DataLoader(test_dataset, batch_size=args.bsz, shuffle=False, collate_fn=collator)
-    optimizer = AdamW(model.parameters(), lr=args.lr, weight_decay=1e-2)
+
+    if args.bias_correction:
+        betas = (0.9, 0.999)
+    else:
+        betas = (0.0, 0.000)
+
+    optimizer = AdamW(
+        model.parameters(),
+        lr=args.lr,
+        weight_decay=1e-2,
+        betas=betas
+    )
 
     # Use suggested learning rate scheduler
     num_training_steps = len(train_dataset) * args.epochs // args.bsz
@@ -174,10 +185,11 @@ if __name__ == '__main__':
     parser.add_argument('--ckpt-dir', type=Path, default=Path('ckpt/'))
     parser.add_argument('--num-labels', type=int, default=2)
     parser.add_argument('--bsz', type=int, default=32)
-    parser.add_argument('--epochs', type=int, default=10)
-    parser.add_argument('--lr', type=float, default=1e-3)
+    parser.add_argument('--epochs', type=int, default=3)
+    parser.add_argument('--lr', type=float, default=2e-5)
     parser.add_argument('--limit', type=int, default=None)
     parser.add_argument('--seed', type=int, default=1234)
+    parser.add_argument('--bias-correction', action='store_true')
     parser.add_argument('-f', '--force-overwrite', action='store_true')
     parser.add_argument('--debug', action='store_true')
     args = parser.parse_args()
