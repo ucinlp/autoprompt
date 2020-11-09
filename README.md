@@ -62,29 +62,37 @@ For NLI
 python -m autoprompt.label_search --train ../data/SICK-E-balanced/3-balance/SICK_TRAIN_ALL_S.tsv --template '[CLS] {sentence} [T] [T] [T] [P]. [SEP]' --label-map '{"entailment": 0, "contradiction": 1, "neutral": 2}' --iters 50 --model-name 'bert-base-cased'
 ```
 
-## Evaluation
+## Evaluation for Fact Retrieval and Relation Extraction
 
 ### 1. Setup LAMA
-Go to our fork of the LAMA repo https://github.com/taylorshin/LAMA and follow the directions to set up the LAMA repo outside of this LMAT repo.
-It is recommended to create a separate conda environment for LAMA due to different dependencies and requirements.
+Clone [our fork](https://github.com/taylorshin/LAMA) of the LAMA repo and follow the directions to set it up outside of the AutoPrompt repo.
+We recommended creating a separate conda environment for LAMA due to different dependencies and requirements.
 
-Copy the LMAT data folder into the `data` directory of LAMA or set `data_path_pre` in `scripts/run_experiments.py` to a custom data location.
+Copy the AutoPrompt data folder into the `data` directory of LAMA or set `data_path_pre` in `scripts/run_experiments.py` to a custom data location.
 
-### 2. Evaluate prompts
-First, update the `data/relations.jsonl` file with your own prompts whether they are manual prompts or automatically generated prompts.
-Then, run the evaluation code.
+### 2. Update prompts
+Update the `data/relations.jsonl` file with your own automatically generated prompts
+
+### 3. Configure settings
+To change evaluation settings, go to `scripts/run_experiments.py` and update the configurable values accordingly.
+Note: each of the configurable settings are marked with a `[CONFIGURABLE]` comment.
+
+- Uncomment the settings of the LM you want to evaluate with (and comment out the other LM settings) in the `LMs` list at the top of the file
+- Update the `common_vocab_filename` field to the appropriate file. Anything evaluating both BERT and RoBERTa requires this field to be `common_vocab_cased_rob.txt` instead of the usual `common_vocab_cased.txt`.
+- Set `use_ctx` to `True` if running evaluation for Relation Extraction
+- Set `synthetic` to `True` for perturbed sentence evaluation for Relation Extraction
+- In `get_TREx_parameters` function, set `data_path_pre` to the corresponding data path (e.g. `"../data/relation_extraction"` for Relation Extraction)
+
+### 4. Evaluate prompts
+Run the evaluation code
 ```
 python scripts/run_experiments.py
 ```
 
-### 3. Settings
-To change evaluation settings, go to `scripts/run_experiments.py` and update the PARAMETERS accordingly.
-For example, set `use_context` to True for conditional prompt evaluation.
-
 ### 4. Miscellaneous
-Set PYTHONPATH if the following error occurs: `ModuleNotFoundError: No module named 'lama', pip`
+Set `PYTHONPATH` if the following error occurs: `ModuleNotFoundError: No module named 'lama'`
 ```
-export PYTHONPATH="${PYTHONPATH}:/path/to/your/module/"
+export PYTHONPATH="${PYTHONPATH}:/path/to/the/AutoPrompt/repo"
 ```
 
 ## Citation
