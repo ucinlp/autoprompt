@@ -1,6 +1,13 @@
 # AutoPrompt
 An automated method based on gradient-guided search to create prompts for a diverse set of NLP tasks. AutoPrompt demonstrates that masked language models (MLMs) have an innate ability to perform sentiment analysis, natural language inference, fact retrieval, and relation extraction. Check out our [website](https://ucinlp.github.io/autoprompt/) for the paper and more information.
 
+## Table of Contents
+* [Setup](#setup)
+* [Generating Prompts](#generating-prompts)
+* [Label Token Selection](#label-token-selection)
+* [Evaluation for Fact Retrieval and Relation Extraction](#evaluation-for-fact-retrieval-and-relation-extraction)
+* [Citation](#citation)
+
 ## Setup
 
 ### 1. Create conda environment
@@ -18,8 +25,16 @@ Also download the spacy model
 python -m spacy download en
 ```
 
-### 3. Get the data
+### 3. Download the data
 The datasets for sentiment analysis, NLI, fact retrieval, and relation extraction are available to download [here](https://drive.google.com/drive/folders/1vVhgnSXmbuJb6GLPn_FErY1xDTh1xyv-?usp=sharing)
+
+There are a couple different datasets for fact retrieval and relation extraction so here are brief overviews of each:
+- Fact Retrieval
+  - `original`: We used the T-REx subset provided by LAMA as our test set and gathered more facts from the [original T-REx dataset](https://hadyelsahar.github.io/t-rex/) that we partitioned into train and dev sets
+  - `original_rob`: We filtered facts in `original` so that each object is a single token for both BERT and RoBERTa
+  - `trex`: We split the extra T-REx data collected (for train/val sets of `original`) into train, dev, test sets
+- Relation Extraction
+  - Trimmed the `original` dataset to compensate for both the [RE baseline](https://github.com/UKPLab/emnlp2017-relation-extraction) and RoBERTa. We also excluded relations `P527` and `P1376` because the RE baseline doesn’t consider them.
 
 ## Generating Prompts
 
@@ -32,6 +47,16 @@ The example above is a template for generating fact retrieval prompts with 3 tri
 
 Depending on the language model (i.e. BERT or RoBERTa) you choose to generate prompts, the special tokens will be different. For BERT, stick `[CLS]` and `[SEP]` to each end of the template. For RoBERTa, use `<s>` and `</s>` instead.
 
+### Sentiment Analysis
+```
+Coming soon
+```
+
+### Natural Language Inference
+```
+Also coming soon
+```
+
 ### Fact Retrieval
 ```
 python -m lmat.create_trigger \
@@ -40,14 +65,33 @@ python -m lmat.create_trigger \
     --template '<s> {sub_label} [T] [T] [T] [P] . </s>' \
     --num_cand 10 \
     --accumulation-steps 1 \
-    --model-name roberta-base \
-    --bsz 12 \
-    --eval-size 12 \
-    --iters 10 \
+    --model-name roberta-large \
+    --bsz 56 \
+    --eval-size 56 \
+    --iters 1000 \
     --label-field 'obj_label' \
     --tokenize-labels \
     --filter \
     --print-lama
+```
+
+### Relation Extraction
+```
+python -m lmat.create_trigger \
+    --train $path/train.jsonl \
+    --dev $path/dev.jsonl \
+    --template '[CLS] {context} [SEP] {sub_label} [T] [T] [T] [T] [T] [P] . [SEP]' \
+    --num_cand 10 \
+    --accumulation-steps 1 \
+    --model-name bert-base-cased \
+    --bsz 32 \
+    --eval-size 32 \
+    --iters 500 \
+    --label-field 'obj_label' \
+    --tokenize-labels \
+    --filter \
+    --print-lama \
+    --use-ctx
 ```
 
 ## Label Token Selection
@@ -69,6 +113,14 @@ Clone [our fork](https://github.com/taylorshin/LAMA) of the LAMA repo and follow
 We recommended creating a separate conda environment for LAMA due to different dependencies and requirements.
 
 Copy the AutoPrompt data folder into the `data` directory of LAMA or set `data_path_pre` in `scripts/run_experiments.py` to a custom data location.
+
+In order to get LAMA to work with RoBERTa, run the following commands:
+```
+mkdir pre-trained_language_models/roberta
+cd pre-trained_language_models/roberta
+curl -O https://dl.fbaipublicfiles.com/fairseq/models/roberta.large.tar.gz
+tar -xvzf roberta.large.tar.gz
+```
 
 ### 2. Update prompts
 Update the `data/relations.jsonl` file with your own automatically generated prompts
