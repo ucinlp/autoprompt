@@ -154,7 +154,10 @@ def replace_trigger_tokens(model_inputs, trigger_ids, trigger_mask):
     out = model_inputs.copy()
     input_ids = model_inputs['input_ids']
     trigger_ids = trigger_ids.repeat(trigger_mask.size(0), 1)
-    filled = input_ids.masked_scatter(trigger_mask, trigger_ids)
+    try:
+        filled = input_ids.masked_scatter(trigger_mask, trigger_ids)
+    except RuntimeError:
+        filled = input_ids
     out['input_ids'] = filled
     return out
 
