@@ -34,19 +34,18 @@ class OutputStorage:
 class ExponentialMovingAverage:
     def __init__(self, weight=0.3):
         self._weight = weight
-        self._x = None
+        self.reset()
 
     def update(self, x):
-        if self._x:
-            self._x = self._weight * x + (1 - self._weight) * self._x
-        else:
-            self._x = x
+        self._x += x
+        self._i += 1
 
     def reset(self):
-        self._x = None
+        self._x = 0
+        self._i = 0
 
     def get_metric(self):
-        return self._x
+        return self._x  / (self._i + 1e-13)
 
 
 class Collator:
@@ -256,7 +255,7 @@ def load_classification_dataset(
             instance[input_field_a],
             instance[input_field_b] if input_field_b else None,
             add_special_tokens=True,
-            add_prefix_space=True,
+            # add_prefix_space=True,
             return_tensors='pt'
         )
         logger.debug(model_inputs)
