@@ -270,3 +270,47 @@ def load_classification_dataset(
     if limit:
         instances = random.sample(instances, limit)
     return instances, label_map
+
+
+def load_continuous_trigger_dataset(
+    fname,
+    tokenizer,
+    input_field_a,
+    input_field_b=None,
+    label_field='label',
+    limit=None
+):
+    """
+    Loads a dataset for classification
+
+    Parameters
+    ==========
+    tokenizer : transformers.PretrainedTokenizer
+        Maps text to id tensors.
+    sentence1 :
+    """
+    instances = []
+    loader = LOADERS[fname.suffix]
+    for instance in loader(fname):
+        logger.debug(instance)
+        model_inputs = tokenizer.encode_plus(
+            instance[input_field_a],
+            instance[input_field_b] if input_field_b else None,
+            add_special_tokens=True,
+            add_prefix_space=True,
+            return_tensors='pt'
+        )
+        logger.debug(model_inputs)
+        label = instance[label_field]
+        label_id = tokenizer.encode(
+            label,
+            add_special_tokens=True,
+            add_prefix_space=True,
+            return_tensors='pt'
+        )
+        # label_id = torch.tensor([[label_id]])  # To make collator expectation
+        logger.debug(f'Label id: {label_id}')
+        instances.append((model_inputs, label_id))
+    if limit:
+        instances = random.sample(instances, limit)
+    return instances
