@@ -7,7 +7,7 @@ import numpy as np
 import torch
 import torch.nn.functional as F
 from torch.utils.data import DataLoader
-from transformers import AutoConfig, AutoModelForSequenceClassification, AutoTokenizer, AutoModelWithLMHead
+from transformers import AutoConfig, AutoTokenizer, AutoModelWithLMHead
 from tqdm import tqdm
 
 import autoprompt.utils as utils
@@ -22,12 +22,6 @@ def set_seed(seed: int):
     np.random.seed(seed)
     torch.random.manual_seed(seed)
     torch.cuda.manual_seed(seed)
-
-
-def ids_to_clean_text(generated_ids, tokenizer, skip_special_tokens=True):
-    gen_text = [tokenizer.convert_ids_to_tokens(gids, skip_special_tokens=skip_special_tokens) 
-                                                for gids in generated_ids]                
-    return gen_text
 
 
 def generate_inputs_embeds(model_inputs, model, tokenizer, eos_idx):
