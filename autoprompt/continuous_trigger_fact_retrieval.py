@@ -31,14 +31,23 @@ def generate_inputs_embeds(model_inputs, model, tokenizer, eos_idx):
 
     subject_embeds = model.embeds(source_ids)
     relation_embeds = model.relation_embeds.to(source_ids.device)
-    
-    inputs_embeds = torch.cat([torch.cat([sembedding[:eos_token_idxs[idx], :], relation_embeds,
-                        model.embeds.weight[tokenizer.mask_token_id].unsqueeze(0), sembedding[
-                        eos_token_idxs[idx]:, :]], dim=0).unsqueeze(0) for idx, sembedding in 
-                        enumerate(subject_embeds)], dim=0)
-    # TO DO: add full stop character after [MASK]?
-    input_attention_mask = torch.cat([torch.ones((len(source_ids), relation_embeds.shape[0]+1), 
-                                      dtype=torch.long).to(source_ids.device), source_mask], dim=1)
+
+    # Concatenate the continuous triggers with the token embeddings.
+    concatenated_embeds = []
+    for idx, sembedding in enumerate(subject_embeds):
+        pieces = [
+            sembedding[:eos_token_idxs[idx], :],
+            relation_embeds,
+            model.embeds.weight[tokenizer.mask_token_id].unsqueeze(0),
+            sembedding[eos_token_idxs[idx]:, :]
+        ]
+        concatenated = torch.cat(pieces, dim=0).unsqueeze(0)
+        concatenated_embeds.append(concatenated)
+    inputs_embeds = torch.cat(concatenated_embeds, dim=0)
+
+    # TODO(@ibalazevic): add full stop character after [MASK]?
+    front_mask = source_ids.new_ones(len(source_ids), relation_embeds.shape[0] + 1)
+    input_attention_mask = torch.cat([front_mask, source_mask], dim=1)
     return {"inputs_embeds": inputs_embeds, "attention_mask": input_attention_mask}
 
 
