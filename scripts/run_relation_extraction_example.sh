@@ -1,9 +1,9 @@
 #!/bin/bash
-# Experiment 11
-# Task: fact retrieval (original)
+# Experiment 9
+# Task: relation extraction
 # Model: BERT
-# Batch sizes: 28
-# Iters: 1000
+# Batch size: 32
+# Iters: 500
 # Filtering: True
 
 datadir=$1
@@ -15,18 +15,19 @@ cat /dev/null > ${logfile}.log
 
 for path in $datadir/*; do
     filename=$(basename "$path")
-    CUDA_VISIBLE_DEVICES=0 python -m lmat.create_trigger \
+    time CUDA_VISIBLE_DEVICES=4 python -m autoprompt.create_trigger \
         --train $path/train.jsonl \
         --dev $path/dev.jsonl \
-        --template '[CLS] {sub_label} [T] [T] [T] [T] [T] [T] [T] [P] . [SEP]' \
-        --num_cand 10 \
+        --template '[CLS] {context} [SEP] {sub_label} [T] [T] [T] [T] [T] [P] . [SEP]' \
+        --num-cand 10 \
         --accumulation-steps 1 \
         --model-name bert-base-cased \
-        --bsz 28 \
-        --eval-size 28 \
-        --iters 1000 \
+        --bsz 32 \
+        --eval-size 32 \
+        --iters 500 \
         --label-field 'obj_label' \
         --tokenize-labels \
         --filter \
-        --print-lama >> $logfile 2>> ${logfile}.log
+        --print-lama \
+        --use-ctx >> $logfile 2>> ${logfile}.log
 done

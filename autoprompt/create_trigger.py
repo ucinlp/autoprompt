@@ -13,7 +13,7 @@ import transformers
 from transformers import AutoConfig, AutoModelWithLMHead, AutoTokenizer
 from tqdm import tqdm
 
-import lmat.utils as utils
+import autoprompt.utils as utils
 
 
 logger = logging.getLogger(__name__)
@@ -154,7 +154,10 @@ def replace_trigger_tokens(model_inputs, trigger_ids, trigger_mask):
     out = model_inputs.copy()
     input_ids = model_inputs['input_ids']
     trigger_ids = trigger_ids.repeat(trigger_mask.size(0), 1)
-    filled = input_ids.masked_scatter(trigger_mask, trigger_ids)
+    try:
+        filled = input_ids.masked_scatter(trigger_mask, trigger_ids)
+    except RuntimeError:
+        filled = input_ids
     out['input_ids'] = filled
     return out
 
@@ -162,7 +165,7 @@ def replace_trigger_tokens(model_inputs, trigger_ids, trigger_mask):
 def get_loss(predict_logits, label_ids):
     predict_logp = F.log_softmax(predict_logits, dim=-1)
     target_logp = predict_logp.gather(-1, label_ids)
-    target_logp = target_logp - 1e32 * label_ids.eq(0).float()  # Apply mask
+    target_logp = target_logp - 1e32 * label_ids.eq(0)  # Apply mask
     target_logp = torch.logsumexp(target_logp, dim=-1)
     return -target_logp
 
@@ -237,14 +240,13 @@ def run_model(args):
     logger.info('Loading datasets')
     collator = utils.Collator(pad_token_id=tokenizer.pad_token_id)
 
-    # TODO: remove this hacky hack later
-    if args.augmented:
+    if args.perturbed:
         train_dataset = utils.load_augmented_trigger_dataset(args.train, templatizer, limit=args.limit)
     else:
         train_dataset = utils.load_trigger_dataset(args.train, templatizer, use_ctx=args.use_ctx, limit=args.limit)
     train_loader = DataLoader(train_dataset, batch_size=args.bsz, shuffle=True, collate_fn=collator)
-    # TODO: remove this hacky hack later
-    if args.augmented:
+
+    if args.perturbed:
         dev_dataset = utils.load_augmented_trigger_dataset(args.dev, templatizer)
     else:
         dev_dataset = utils.load_trigger_dataset(args.dev, templatizer, use_ctx=args.use_ctx)
@@ -452,11 +454,13 @@ def run_model(args):
             source=label_ids)
         # Print LAMA JSON template
         relation = args.train.parent.stem
-        # TODO: replace this super hacky method
+
+        # The following block of code is a bit hacky but whatever, it gets the job done
         if args.use_ctx:
             template = tokenizer.decode(lama_template.squeeze(0)[1:-1]).replace('[SEP] ', '').replace('</s> ', '').replace('[ X ]', '[X]')
         else:
             template = tokenizer.decode(lama_template.squeeze(0)[1:-1]).replace('[ X ]', '[X]')
+
         out = {
             'relation': args.train.parent.stem,
             'template': template
@@ -498,11 +502,11 @@ if __name__ == '__main__':
     parser.add_argument('--limit', type=int, default=None)
     parser.add_argument('--use-ctx', action='store_true',
                         help='Use context sentences for relation extraction only')
-    parser.add_argument('--augmented', action='store_true',
-                        help='Augment relation extraction dataset by replacing each object with a random other object')
+    parser.add_argument('--perturbed', action='store_true',
+                        help='Perturbed sentence evaluation of relation extraction: replace each object in dataset with a random other object')
     parser.add_argument('--patience', type=int, default=5)
-    parser.add_argument('--num_cand', type=int, default=10)
-    parser.add_argument('--sentence_size', type=int, default=50)
+    parser.add_argument('--num-cand', type=int, default=10)
+    parser.add_argument('--sentence-size', type=int, default=50)
 
     parser.add_argument('--debug', action='store_true')
     args = parser.parse_args()

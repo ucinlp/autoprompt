@@ -14,8 +14,8 @@ from torch.utils.data import DataLoader
 from transformers import AutoConfig, AutoTokenizer, WEIGHTS_NAME, CONFIG_NAME
 from tqdm import tqdm
 
-from lmat.popsicle import AutoPopsicle
-import lmat.utils as utils
+from autoprompt.popsicle import AutoPopsicle
+import autoprompt.utils as utils
 
 logger = logging.getLogger(__name__)
 
@@ -64,42 +64,47 @@ def main(args):
         raise RuntimeError('Checkpoint directory already exists.')
 
     best_accuracy = 0
-    for epoch in range(args.epochs):
-        logger.info('Training...')
-        model.eval()  # Just linear regression - don't want model outputs changing during training.
-        avg_loss = utils.ExponentialMovingAverage()
-        pbar = tqdm(train_loader)
-        for model_inputs, labels in pbar:
-            model_inputs = {k: v.to(device) for k, v in model_inputs.items()}
-            labels = labels.to(device)
-            optimizer.zero_grad()
-            logits, *_ = model(**model_inputs)
-            loss = F.cross_entropy(logits, labels.squeeze(-1))
-            loss.backward()
-            optimizer.step()
-            avg_loss.update(loss.item())
-            pbar.set_description(f'loss: {avg_loss.get_metric(): 0.4f}')
+    try:
+        for epoch in range(args.epochs):
+            logger.info('Training...')
+            model.eval()  # Just linear regression - don't want model outputs changing during training.
+            avg_loss = utils.ExponentialMovingAverage()
+            pbar = tqdm(train_loader)
+            for model_inputs, labels in pbar:
+                model_inputs = {k: v.to(device) for k, v in model_inputs.items()}
+                labels = labels.to(device)
+                optimizer.zero_grad()
+                logits, *_ = model(**model_inputs)
+                loss = F.cross_entropy(logits, labels.squeeze(-1))
+                loss.backward()
+                optimizer.step()
+                avg_loss.update(loss.item())
+                pbar.set_description(f'loss: {avg_loss.get_metric(): 0.4f}')
 
-        logger.info('Evaluating...')
-        model.eval()
-        correct = 0
-        total = 0
-        for model_inputs, labels in dev_loader:
-            model_inputs = {k: v.to(device) for k, v in model_inputs.items()}
-            labels = labels.to(device)
-            logits, *_ = model(**model_inputs)
-            _, preds = logits.max(dim=-1)
-            correct += (preds == labels.squeeze(-1)).sum().item()
-            total += labels.size(0)
-        accuracy = correct / (total + 1e-13)
-        logger.info(f'Accuracy: {accuracy : 0.4f}')
+            logger.info('Evaluating...')
+            model.eval()
+            correct = 0
+            total = 0
+            for model_inputs, labels in dev_loader:
+                model_inputs = {k: v.to(device) for k, v in model_inputs.items()}
+                labels = labels.to(device)
+                logits, *_ = model(**model_inputs)
+                _, preds = logits.max(dim=-1)
+                correct += (preds == labels.squeeze(-1)).sum().item()
+                total += labels.size(0)
+            accuracy = correct / (total + 1e-13)
+            logger.info(f'Accuracy: {accuracy : 0.4f}')
 
-        if accuracy > best_accuracy:
-            logger.info('Best performance so far. Saving...')
-            torch.save(model.state_dict(), args.ckpt_dir / WEIGHTS_NAME)
-            model.config.to_json_file(args.ckpt_dir / CONFIG_NAME)
-            tokenizer.save_pretrained(args.ckpt_dir)
-            best_accuracy = accuracy
+            if accuracy > best_accuracy:
+                logger.info('Best performance so far. Saving...')
+                # torch.save(model.state_dict(), args.ckpt_dir / WEIGHTS_NAME)
+                # model.config.to_json_file(args.ckpt_dir / CONFIG_NAME)
+                model.save_pretrained(args.ckpt_dir)
+                tokenizer.save_pretrained(args.ckpt_dir)
+                best_accuracy = accuracy
+
+    except KeyboardInterrupt:
+        logger.info('Training manually terminated.')
 
     logger.info('Testing...')
     checkpoint = torch.load(args.ckpt_dir / WEIGHTS_NAME)
