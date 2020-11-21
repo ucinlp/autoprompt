@@ -1,10 +1,15 @@
 import csv
+import copy
 import json
 import logging
 import random
+from collections import defaultdict
 
 import torch
 from torch.nn.utils.rnn import pad_sequence
+
+
+MAX_CONTEXT_LEN = 50
 
 
 logger = logging.getLogger(__name__)
@@ -118,11 +123,13 @@ class TriggerTemplatizer:
     """
     def __init__(self,
                  template,
+                 config,
                  tokenizer,
                  label_field='label',
                  label_map=None,
                  tokenize_labels=False,
-                 add_special_tokens=False):
+                 add_special_tokens=False,
+                 use_ctx=False):
         if not hasattr(tokenizer, 'predict_token') or \
            not hasattr(tokenizer, 'trigger_token'):
             raise ValueError(
@@ -130,11 +137,13 @@ class TriggerTemplatizer:
                 'Use `utils.add_special_tokens` to add them.'
             )
         self._template = template
+        self._config = config
         self._tokenizer = tokenizer
         self._label_field = label_field
         self._label_map = label_map
         self._tokenize_labels = tokenize_labels
         self._add_special_tokens = add_special_tokens
+        self._use_ctx = use_ctx
 
     @property
     def num_trigger_tokens(self):
@@ -165,6 +174,12 @@ class TriggerTemplatizer:
         model_inputs['trigger_mask'] = trigger_mask
         model_inputs['predict_mask'] = predict_mask
 
+        # For relation extraction with BERT, update token_type_ids to reflect the two different sequences
+        if self._use_ctx and self._config.model_type == 'bert':
+            sep_token_indices = (input_ids.squeeze(0) == self._tokenizer.convert_tokens_to_ids(self._tokenizer.sep_token)).nonzero().flatten()
+            sequence_b_indices = torch.arange(sep_token_indices[0], sep_token_indices[1] + 1).long().unsqueeze(0)
+            model_inputs['token_type_ids'].scatter_(1, sequence_b_indices, 1)
+
         # Encode the label(s)
         if self._label_map is not None:
             label = self._label_map[label]
@@ -185,6 +200,7 @@ def add_task_specific_tokens(tokenizer):
     tokenizer.trigger_token_id = tokenizer.convert_tokens_to_ids('[T]')
     tokenizer.predict_token = '[P]'
     tokenizer.predict_token_id = tokenizer.convert_tokens_to_ids('[P]')
+    # NOTE: BERT and RoBERTa tokenizers work properly if [X] is not a special token...
     # tokenizer.lama_x = '[X]'
     # tokenizer.lama_x_id = tokenizer.convert_tokens_to_ids('[X]')
     tokenizer.lama_y = '[Y]'
@@ -211,17 +227,107 @@ LOADERS = {
 }
 
 
-def load_trigger_dataset(fname, templatizer, limit=None):
+def load_trigger_dataset(fname, templatizer, use_ctx, limit=None):
     loader = LOADERS[fname.suffix]
     instances = []
+
     for x in loader(fname):
         try:
-            model_inputs, label_id = templatizer(x)
+            if use_ctx:
+                # For relation extraction, skip facts that don't have context sentence
+                if 'evidences' not in x:
+                    logger.warning('Skipping RE sample because it lacks context sentences: {}'.format(x))
+                    continue
+
+                evidences = x['evidences']
+                    
+                # Randomly pick a context sentence
+                obj_surface, masked_sent = random.choice([(evidence['obj_surface'], evidence['masked_sentence']) for evidence in evidences])
+                words = masked_sent.split()
+                if len(words) > MAX_CONTEXT_LEN:
+                    # If the masked sentence is too long, use the first X tokens. For training we want to keep as many samples as we can.
+                    masked_sent = ' '.join(words[:MAX_CONTEXT_LEN])
+                
+                # If truncated context sentence still has MASK, we need to replace it with object surface
+                # We explicitly use [MASK] because all TREx fact's context sentences use it
+                context = masked_sent.replace('[MASK]', obj_surface)
+                x['context'] = context
+                model_inputs, label_id = templatizer(x)
+            else:
+                model_inputs, label_id = templatizer(x)
         except ValueError as e:
             logger.warning('Encountered error "%s" when processing "%s".  Skipping.', e, x)
             continue
         else:
             instances.append((model_inputs, label_id))
+    if limit:
+        return random.sample(instances, limit)
+    else:
+        return instances
+
+
+def load_augmented_trigger_dataset(fname, templatizer, limit=None):
+    loader = LOADERS[fname.suffix]
+    instances = []
+
+    # For augmented relation extraction, we need to replace obj_label with another obj_label, and replace obj_surface with a surface form of the new obj_label
+    unique_objs_dict = defaultdict(list)
+    # Also for augmented relation extraction, we need to accumulate all facts and process them afterwards
+    facts = []
+
+    for x in loader(fname):
+        try:
+            sub_label = x['sub_label']
+            obj_label = x['obj_label']
+
+            # For relation extraction, skip facts that don't have context sentence
+            if 'evidences' not in x:
+                logger.warning('Skipping RE sample because it lacks context sentences: {}'.format(x))
+                continue
+
+            evidences = x['evidences']
+
+            # Gather all UNIQUE objects and their surface forms if its augmented relation extraction
+            for evidence in evidences:
+                obj_surface = evidence['obj_surface']
+                masked_sent = evidence['masked_sentence']
+                unique_objs_dict[obj_label].append(obj_surface)
+                
+            # Randomly pick a context sentence
+            obj_surface, masked_sent = random.choice([(evidence['obj_surface'], evidence['masked_sentence']) for evidence in evidences])
+            words = masked_sent.split()
+            if len(words) > MAX_CONTEXT_LEN:
+                # If the masked sentence is too long, use the first X tokens. For training we want to keep as many samples as we can.
+                masked_sent = ' '.join(words[:MAX_CONTEXT_LEN])
+            
+            x['context'] = masked_sent
+            facts.append(x)
+        except ValueError as e:
+            logger.warning('Encountered error "%s" when processing "%s".  Skipping.', e, x)
+
+    # Go through all facts and replace each object with a new one. Also insert the new object (surface form) into the masked sentence
+    synth_facts = []
+    for fact in facts:
+        sub_label = fact['sub_label']
+        obj_label = fact['obj_label']
+        masked_sent = fact['context']
+        # print('Original fact: ({}, {}, {})'.format(sub_label, obj_label, masked_sent))
+        synth_obj_label = random.choice([x for x in unique_objs_dict.keys() if x != obj_label])
+        synth_obj_surface = random.choice(unique_objs_dict[synth_obj_label])
+        synth_ctx = masked_sent.replace('[MASK]', synth_obj_surface)
+        # print('Synthetic fact: ({}, {}, {})\n'.format(sub_label, synth_obj_label, synth_ctx))
+        # Reassign the labels and context sentence
+        synth_fact = copy.deepcopy(fact)
+        synth_fact['sub_label'] = sub_label
+        synth_fact['obj_label'] = synth_obj_label
+        synth_fact['context'] = synth_ctx
+        synth_facts.append(synth_fact)
+
+    # Go through facts, templatize each one, then append them to instances
+    for fact in synth_facts:
+        model_inputs, label_id = templatizer(fact)
+        instances.append((model_inputs, label_id))
+
     if limit:
         return random.sample(instances, limit)
     else:

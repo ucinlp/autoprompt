@@ -15,11 +15,11 @@ cat /dev/null > ${logfile}.log
 
 for path in $datadir/*; do
     filename=$(basename "$path")
-    time CUDA_VISIBLE_DEVICES=4 python -m lmat.create_trigger \
+    time CUDA_VISIBLE_DEVICES=4 python -m autoprompt.create_trigger \
         --train $path/train.jsonl \
         --dev $path/dev.jsonl \
         --template '[CLS] {context} [SEP] {sub_label} [T] [T] [T] [T] [T] [P] . [SEP]' \
-        --num_cand 10 \
+        --num-cand 10 \
         --accumulation-steps 1 \
         --model-name bert-base-cased \
         --bsz 32 \

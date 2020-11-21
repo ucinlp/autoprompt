@@ -49,21 +49,31 @@ Depending on the language model (i.e. BERT or RoBERTa) you choose to generate pr
 
 ### Sentiment Analysis
 ```
-Coming soon
+python -m autoprompt.create_trigger \
+    --train glue_data/SST-2/train.tsv \
+    --dev glue_data/SST-2/dev.tsv \
+    --template '<s> {sentence} [T] [T] [T] [P] . </s>' \
+    --label-map '{"0": ["Ġworse", "Ġincompetence", "ĠWorse", "Ġblamed", "Ġsucked"], "1": ["ĠCris", "Ġmarvelous", "Ġphilanthrop", "Ġvisionary", "Ġwonderful"]}' \
+    --num-cand 100 \
+    --accumulation-steps 30 \
+    --bsz 24 \
+    --eval-size 48 \
+    --iters 180 \
+    --model-name roberta-large
 ```
 
 ### Natural Language Inference
 ```
-Also coming soon
+Coming soon
 ```
 
 ### Fact Retrieval
 ```
-python -m lmat.create_trigger \
+python -m autoprompt.create_trigger \
     --train $path/train.jsonl \
     --dev $path/dev.jsonl \
     --template '<s> {sub_label} [T] [T] [T] [P] . </s>' \
-    --num_cand 10 \
+    --num-cand 10 \
     --accumulation-steps 1 \
     --model-name roberta-large \
     --bsz 56 \
@@ -77,11 +87,11 @@ python -m lmat.create_trigger \
 
 ### Relation Extraction
 ```
-python -m lmat.create_trigger \
+python -m autoprompt.create_trigger \
     --train $path/train.jsonl \
     --dev $path/dev.jsonl \
-    --template '[CLS] {context} [SEP] {sub_label} [T] [T] [T] [T] [T] [P] . [SEP]' \
-    --num_cand 10 \
+    --template '[CLS] {context} [SEP] {sub_label} [T] [T] [T] [P] . [SEP]' \
+    --num-cand 10 \
     --accumulation-steps 1 \
     --model-name bert-base-cased \
     --bsz 32 \

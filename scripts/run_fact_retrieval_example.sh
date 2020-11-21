@@ -15,11 +15,11 @@ cat /dev/null > ${logfile}.log
 
 for path in $datadir/*; do
     filename=$(basename "$path")
-    time CUDA_VISIBLE_DEVICES=3 python -m lmat.create_trigger \
+    time CUDA_VISIBLE_DEVICES=3 python -m autoprompt.create_trigger \
         --train $path/train.jsonl \
         --dev $path/dev.jsonl \
         --template '<s> {sub_label} [T] [T] [T] [T] [T] [P] . </s>' \
-        --num_cand 10 \
+        --num-cand 10 \
         --accumulation-steps 1 \
         --model-name roberta-large \
         --bsz 56 \
