@@ -132,6 +132,12 @@ def main(args):
             decoded = tokenizer.convert_ids_to_tokens(top)
             logger.info(f"Top k for class {reverse_label_map[i]}: {', '.join(decoded)}")
 
+    out = {}
+    for i, row in enumerate(scores):
+        _, top = row.topk(args.k)
+        out[reverse_label_map[i]] = tokenizer.convert_ids_to_tokens(top)
+    print(out)
+
 
 
 if __name__ == '__main__':
@@ -143,9 +149,9 @@ if __name__ == '__main__':
     parser.add_argument('--label-field', type=str, default='label',
                         help='Name of the label field')
     parser.add_argument('--lr', type=float, default=3e-4, help='Learning rate')
-    parser.add_argument('--k', type=int, default=50, help='Number of label tokens to print')
+    parser.add_argument('--k', type=int, default=5, help='Number of label tokens to print')
     parser.add_argument('--bsz', type=int, default=32, help='Batch size')
-    parser.add_argument('--iters', type=int, default=10,
+    parser.add_argument('--iters', type=int, default=500,
                         help='Number of iterations to run label search')
     parser.add_argument('--model-name', type=str, default='bert-base-cased',
                         help='Model name passed to HuggingFace AutoX classes.')
