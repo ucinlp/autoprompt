@@ -191,6 +191,8 @@ def add_task_specific_tokens(tokenizer):
     tokenizer.lama_x_id = tokenizer.convert_tokens_to_ids('[Y]')
 
 
+# Note for loaders: we return all fields as strings so `label_map` isnt a PITA
+# to work with.
 
 def load_tsv(fname):
     with open(fname, 'r') as f:
@@ -199,10 +201,14 @@ def load_tsv(fname):
             yield row
 
 
+def _stringify(d):
+    return {k: str(v) for k, v in d.items()}
+
+
 def load_jsonl(fname):
     with open(fname, 'r') as f:
         for line in f:
-            yield json.loads(line)
+            yield _stringify(json.loads(line))
 
 
 LOADERS = {
