@@ -4,7 +4,7 @@ import torch
 from torch.utils.data import DataLoader
 from transformers import AutoTokenizer
 
-import lmat.utils as utils
+import autoprompt.utils as utils
 
 
 class TestEncodeLabel(TestCase):
@@ -28,8 +28,6 @@ class TestEncodeLabel(TestCase):
             utils.encode_label(self._tokenizer, 'Supercalifragilisticexpialidocious')
         with self.assertRaises(ValueError):
             utils.encode_label(self._tokenizer, ['Supercalifragilisticexpialidocious', 'chimneysweep'])
-
-
 
 
 class TestTriggerTemplatizer(TestCase):
