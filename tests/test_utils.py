@@ -23,11 +23,23 @@ class TestEncodeLabel(TestCase):
         ])
         assert torch.equal(output, expected_output)
 
-    def test_fails_on_multi_word_piece_labels(self):
-        with self.assertRaises(ValueError):
-            utils.encode_label(self._tokenizer, 'Supercalifragilisticexpialidocious')
-        with self.assertRaises(ValueError):
-            utils.encode_label(self._tokenizer, ['Supercalifragilisticexpialidocious', 'chimneysweep'])
+    # TODO(rloganiv): Test no longer fails as Error was downgraded to a Warning
+    # message in the log. With introduction of separate templatizer for
+    # multi-token labels perhaps we should go back to raising an error?
+
+    # def test_fails_on_multi_word_piece_labels(self):
+    #     with self.assertRaises(ValueError):
+    #         utils.encode_label(
+    #             self._tokenizer,
+    #             'Supercalifragilisticexpialidocious',
+    #             tokenize=True,
+    #         )
+    #     with self.assertRaises(ValueError):
+    #         utils.encode_label(
+    #             self._tokenizer,
+    #             ['Supercalifragilisticexpialidocious', 'chimneysweep'],
+    #             tokenize=True,
+    #         )
 
 
 class TestTriggerTemplatizer(TestCase):
@@ -45,7 +57,6 @@ class TestTriggerTemplatizer(TestCase):
         templatizer = utils.TriggerTemplatizer(
             self.default_template,
             self.default_tokenizer,
-            add_special_tokens=False
         )
         model_inputs, label = templatizer(self.default_instance)
 
@@ -60,12 +71,12 @@ class TestTriggerTemplatizer(TestCase):
 
         # Test that the custom masks match our expectations
         expected_trigger_mask = torch.tensor(
-            [[True, True, False, False, True, False, False]]
+            [[False, True, True, False, False, True, False, False, False]]
         )
         assert torch.equal(expected_trigger_mask, model_inputs['trigger_mask'])
 
         expected_predict_mask = torch.tensor(
-            [[False, False, False, False, False, False, True]]
+            [[False, False, False, False, False, False, False, True, False]]
         )
         assert torch.equal(expected_predict_mask, model_inputs['predict_mask'])
 
@@ -80,8 +91,7 @@ class TestTriggerTemplatizer(TestCase):
         utils.add_task_specific_tokens(tokenizer)
         templatizer = utils.TriggerTemplatizer(
             self.default_template,
-            tokenizer,
-            add_special_tokens=False
+            tokenizer
         )
 
         model_inputs, label = templatizer(self.default_instance)
@@ -97,12 +107,12 @@ class TestTriggerTemplatizer(TestCase):
 
         # Test that the custom masks match our expectations
         expected_trigger_mask = torch.tensor(
-            [[True, True, False, False, True, False, False]]
+            [[False, True, True, False, False, True, False, False, False]]
         )
         assert torch.equal(expected_trigger_mask, model_inputs['trigger_mask'])
 
         expected_predict_mask = torch.tensor(
-            [[False, False, False, False, False, False, True]]
+            [[False, False, False, False, False, False, False, True, False]]
         )
         assert torch.equal(expected_predict_mask, model_inputs['predict_mask'])
 
@@ -113,6 +123,42 @@ class TestTriggerTemplatizer(TestCase):
         assert predict_token_id == tokenizer.mask_token_id
 
 
+class TestMultiTokenTemplatizer(TestCase):
+    def setUp(self):
+        self.default_template = '[T] [T] {arbitrary} [T] {fields} [P]'
+        self.default_tokenizer = AutoTokenizer.from_pretrained('bert-base-cased')
+        utils.add_task_specific_tokens(self.default_tokenizer)
+
+    def test_label(self):
+        templatizer = utils.MultiTokenTemplatizer(
+            self.default_template,
+            self.default_tokenizer,
+        )
+        format_kwargs = {
+            'arbitrary': 'ehh',
+            'fields': 'whats up doc',
+            'label': 'bugs bunny'
+        }
+        model_inputs, labels = templatizer(format_kwargs) 
+        input_ids = model_inputs.pop('input_ids')
+
+        # Check that all shapes are the same
+        for tensor in model_inputs.values():
+            self.assertEqual(input_ids.shape, tensor.shape)
+        self.assertEqual(input_ids.shape, labels.shape)
+
+        # Check that detokenized inputs replaced [T] and [P] with the correct
+        # number of masks. The expected number of predict masks is 5,
+        # corresponding to:
+        #   ['bugs', 'b', '##un', '##ny', '<pad>']
+        # and the expected number of trigger masks is 3.
+        self.assertEqual(model_inputs['trigger_mask'].sum().item(), 3)
+        self.assertEqual(model_inputs['predict_mask'].sum().item(), 5)
+        mask_token_id = self.default_tokenizer.mask_token_id
+        num_masks = input_ids.eq(mask_token_id).sum().item()
+        self.assertEqual(num_masks, 8)
+
+        
 class TestCollator(TestCase):
 
     def test_collator(self):
@@ -121,8 +167,7 @@ class TestCollator(TestCase):
         utils.add_task_specific_tokens(tokenizer)
         templatizer = utils.TriggerTemplatizer(
             template,
-            tokenizer,
-            add_special_tokens=False
+            tokenizer
         )
         collator = utils.Collator(pad_token_id=tokenizer.pad_token_id)
 
@@ -147,13 +192,14 @@ class TestCollator(TestCase):
         assert torch.equal(expected_labels, labels)
 
         expected_trigger_mask = torch.tensor([
-            [True, True, False, True, False, False, False, False],
-            [True, True, False, False, True, False, False, False],
+            [False, True, True, False, True, False, False, False, False, False],
+            [False, True, True, False, False, True, False, False, False, False],
         ])
         assert torch.equal(expected_trigger_mask, model_inputs['trigger_mask'])
 
         expected_predict_mask = torch.tensor([
-            [False, False, False, False, False, True, False, False],
-            [False, False, False, False, False, False, False, True],
+            [False, False, False, False, False, False, True, False, False, False],
+            [False, False, False, False, False, False, False, False, True, False],
         ])
         assert torch.equal(expected_predict_mask, model_inputs['predict_mask'])
+

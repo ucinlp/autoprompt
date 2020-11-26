@@ -71,19 +71,20 @@ class Collator:
             sequence = [x[key] for x in model_inputs]
             padded = pad_squeeze_sequence(sequence, batch_first=True, padding_value=padding_value)
             padded_inputs[key] = padded
-        labels = pad_squeeze_sequence(labels, batch_first=True, padding_value=0)
+        labels = pad_squeeze_sequence(labels, batch_first=True, padding_value=self._pad_token_id)
         return padded_inputs, labels
 
 
 def encode_label(tokenizer, label, tokenize=False):
     """
-    Helper function for encoding labels. Deals with the subtleties of handling multiple tokens.
+    Helper function for encoding labels. Deals with the subtleties of handling
+    multiple labels/tokens.
     """
     if isinstance(label, str):
         if tokenize:
             # Ensure label is properly tokenized, and only retain first token
-            # if it gets split into multiple tokens. TODO: Make sure this is
-            # desired behavior.
+            # if it gets split into multiple tokens.
+            # TODO: Make sure this is desired behavior.
             tokens = tokenizer.tokenize(label, add_prefix_space=True)
             if len(tokens) > 1:
                 logger.warning('Label "%s" gets split into multiple tokens: %s', label, tokens)
@@ -121,8 +122,7 @@ class TriggerTemplatizer:
                  tokenizer,
                  label_field='label',
                  label_map=None,
-                 tokenize_labels=False,
-                 add_special_tokens=False):
+                 tokenize_labels=False):
         if not hasattr(tokenizer, 'predict_token') or \
            not hasattr(tokenizer, 'trigger_token'):
             raise ValueError(
@@ -134,13 +134,12 @@ class TriggerTemplatizer:
         self._label_field = label_field
         self._label_map = label_map
         self._tokenize_labels = tokenize_labels
-        self._add_special_tokens = add_special_tokens
 
     @property
     def num_trigger_tokens(self):
         return sum(token == '[T]' for token in self._template.split())
 
-    def __call__(self, format_kwargs):
+    def __call__(self, format_kwargs, **kwargs):
         # Format the template string
         format_kwargs = format_kwargs.copy()
         label = format_kwargs.pop(self._label_field)
@@ -153,7 +152,7 @@ class TriggerTemplatizer:
         # - Replace the predict token with a mask token
         model_inputs = self._tokenizer.encode_plus(
             text,
-            add_special_tokens=self._add_special_tokens,
+            add_special_tokens=True,
             add_prefix_space=True,
             return_tensors='pt'
         )
@@ -175,6 +174,130 @@ class TriggerTemplatizer:
         )
 
         return model_inputs, label_id
+
+
+class MultiTokenTemplatizer:
+    """
+    An object to facilitate creating transformers-friendly triggers inputs from
+    a template.
+
+    Parameters
+    ==========
+    template : str
+        The template string, comprised of the following tokens:
+            [T] to mark a trigger placeholder.
+            [P] to mark a prediction placeholder.
+            {fields} arbitrary fields instantiated from the dataset instances.
+        For example a NLI template might look like:
+            "[T] [T] [T] {premise} [P] {hypothesis}"
+    tokenizer : PretrainedTokenizer
+        A HuggingFace tokenizer. Must have special trigger and predict tokens.
+    label_field : str
+        The field in the input dictionary that corresponds to the label.
+    """
+    def __init__(self,
+                 template,
+                 tokenizer,
+                 label_field='label'):
+
+        if not hasattr(tokenizer, 'predict_token') or \
+           not hasattr(tokenizer, 'trigger_token'):
+            raise ValueError(
+                'Tokenizer missing special trigger and predict tokens in vocab.'
+                'Use `utils.add_special_tokens` to add them.'
+            )
+        self._template = template
+        self._tokenizer = tokenizer
+        self._label_field = label_field
+
+    # TODO(rloganiv): If there is any more shared code between tokenizers,
+    # consider creating a base class.
+    @property
+    def num_trigger_tokens(self):
+        return sum(token == '[T]' for token in self._template.split())
+
+    def __call__(self, format_kwargs, train=False, **kwargs):
+        """
+        Combines the template with instance specific inputs.
+
+        Parameters
+        ==========
+        format_kwargs : Dict[str, str]
+            A dictionary whose keys correspond to the fields in the template,
+            and whose values are the strings that should instantiate those
+            fields. The dictionary must contain the label as well (which
+            requires special processing).
+        """
+        # Tokenize label
+        label = format_kwargs.pop(self._label_field)
+        if label is None:
+            raise Exception(
+                f'No label detected for instance: {format_kwargs}.'
+                f'Double check that label field is correct: {self._label_field}.'
+            )
+        label_tokens = self._tokenizer.encode(
+            label,
+            add_prefix_space=True,
+            add_special_tokens=False,  # Don't want to add [CLS] mid-sentence
+            return_tensors='pt',
+        )
+        label_size = label_tokens.size(1)
+
+        # Add padding, by initializing a longer tensor of <pad> tokens and
+        # replacing the fron with the label tokens. Magic numbers below come
+        # from PET WSC settings.
+        if train:
+            pad_length = random.randint(0, 3)
+        else:
+            pad_length = 1
+        padded_label_size = label_size + pad_length
+        padded_label_tokens = label_tokens.new_zeros(1, padded_label_size)
+        padded_label_tokens.fill_(self._tokenizer.pad_token_id)
+        padded_label_tokens[:,:label_size] = label_tokens
+
+        # For sake of convenience we're just going to replace [P] with multiple
+        # [P]s to help with the bookkeeping.
+        # TODO(rloganiv): Consider making this a function to improve
+        # readability.
+        template = self._template.replace(
+            '[P]', 
+            ' '.join(['[P]'] * padded_label_size),
+        )
+
+        # Instantiate & tokenize the template
+        format_kwargs = format_kwargs.copy()
+        text = template.format(**format_kwargs)
+        model_inputs = self._tokenizer.encode_plus(
+            text,
+            add_prefix_space=True,
+            add_special_tokens=True,
+            return_tensors='pt',
+        )
+        input_ids = model_inputs['input_ids']
+
+        # Trigger & predict token bookkeeping.
+        # TODO(rloganiv): Unlike in other templatizer, triggers are replaced by
+        # [MASK] tokens by default. This is to avoid unnecc. post-processing
+        # for continuous triggers (using OOV tokens during the forward pass is
+        # the recipe for a serious headache). The Consider making this the
+        # default behavior across templatizers.
+        trigger_mask = input_ids.eq(self._tokenizer.trigger_token_id)
+        input_ids[trigger_mask] = self._tokenizer.mask_token_id
+        predict_mask = input_ids.eq(self._tokenizer.predict_token_id)
+        input_ids[predict_mask] = self._tokenizer.mask_token_id
+
+        # For sake of convenience, we're going to use HuggingFace's built-in
+        # loss computation for computing cross-entropy. See the description of
+        # the `labels` argument here for more details:
+        #   https://huggingface.co/transformers/glossary.html#labels
+        labels = torch.zeros_like(model_inputs['input_ids'])
+        labels.fill_(-100)  # -100 is the default "ignore" value
+        labels[predict_mask] = padded_label_tokens
+
+        model_inputs['trigger_mask'] = trigger_mask
+        model_inputs['predict_mask'] = predict_mask
+
+        return model_inputs, labels
 
 
 def add_task_specific_tokens(tokenizer):
@@ -211,18 +334,19 @@ def load_jsonl(fname):
             yield _stringify(json.loads(line))
 
 
+# TODO(rloganiv): Support more flexible data loaders.
 LOADERS = {
     '.tsv': load_tsv,
     '.jsonl': load_jsonl
 }
 
 
-def load_trigger_dataset(fname, templatizer, limit=None):
+def load_trigger_dataset(fname, templatizer, limit=None, train=False):
     loader = LOADERS[fname.suffix]
     instances = []
     for x in loader(fname):
         try:
-            model_inputs, label_id = templatizer(x)
+            model_inputs, label_id = templatizer(x, train=train)
         except ValueError as e:
             logger.warning('Encountered error "%s" when processing "%s".  Skipping.', e, x)
             continue

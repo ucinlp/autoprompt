@@ -24,31 +24,29 @@ def set_seed(seed: int):
     torch.cuda.manual_seed(seed)
 
 
-def generate_inputs_embeds(model_inputs, model, tokenizer, eos_idx):
-    source_ids = model_inputs["input_ids"]
-    source_mask = model_inputs["attention_mask"]
-    eos_token_idxs = (source_ids == eos_idx).nonzero()[:,1]
+def forward_w_triggers(model, model_inputs, labels):
+    # Ensure destructive pop operations are only limited to this function.
+    model_inputs = model_inputs.copy()
+    trigger_mask = model_inputs.pop('trigger_mask')
+    predict_mask = model_inputs.pop('predict_mask')
+    input_ids = model_inputs.pop('input_ids')
 
-    subject_embeds = model.embeds(source_ids)
-    relation_embeds = model.relation_embeds.to(source_ids.device)
+    # Get embeddings of input sequence
+    inputs_embeds = model.embeds(input_ids)
+    inputs_embeds[trigger_mask] = model.relation_embeds.unsqueeze(0)
+    model_inputs['inputs_embeds'] = inputs_embeds
 
-    # Concatenate the continuous triggers with the token embeddings.
-    concatenated_embeds = []
-    for idx, sembedding in enumerate(subject_embeds):
-        pieces = [
-            sembedding[:eos_token_idxs[idx], :],
-            relation_embeds,
-            model.embeds.weight[tokenizer.mask_token_id].unsqueeze(0),
-            sembedding[eos_token_idxs[idx]:, :]
-        ]
-        concatenated = torch.cat(pieces, dim=0).unsqueeze(0)
-        concatenated_embeds.append(concatenated)
-    inputs_embeds = torch.cat(concatenated_embeds, dim=0)
+    loss, logits, *_ = model(**model_inputs, labels=labels)
 
-    # TODO(@ibalazevic): add full stop character after [MASK]?
-    front_mask = source_ids.new_ones(len(source_ids), relation_embeds.shape[0] + 1)
-    input_attention_mask = torch.cat([front_mask, source_mask], dim=1)
-    return {"inputs_embeds": inputs_embeds, "attention_mask": input_attention_mask}
+    # Get predictions
+    # TODO(rloganiv): Add support for other decoding options. Currently only
+    # parallel decoding is supported.
+    preds = logits.argmax(dim=-1)
+
+    # Compute correctness. Not sure if this should be moved out of forward or
+    # not.
+
+    return loss, preds
 
 
 def main(args):
@@ -59,54 +57,34 @@ def main(args):
     config = AutoConfig.from_pretrained(args.model_name)
     tokenizer = AutoTokenizer.from_pretrained(args.model_name)
     model = AutoModelWithLMHead.from_pretrained(args.model_name, config=config)
+    # TODO(rloganiv): See if transformers has a general API call for getting
+    # the word embeddings. If so, then most of the below code can be 
     if args.model_name == "bert-base-cased":
         model.embeds = model.bert.embeddings.word_embeddings
-        eos_idx = 102
-        if not args.finetune:
-            for param in model.bert.parameters():
-                param.requires_grad = False
     elif args.model_name == "roberta-base":
         model.embeds = model.roberta.embeddings.word_embeddings
-        eos_idx = tokenizer.eos_token_id
-        if not args.finetune:
-            for param in model.roberta.parameters():
-                param.requires_grad = False
     if not args.finetune:
         for param in model.parameters():
             param.requires_grad = False
+    # TODO: Double check parameters get registered. Maybe it's better to make a
+    # new Module so the tensor isn't unexpected upon reloading?
     model.relation_embeds = torch.nn.Parameter(torch.rand(args.trigger_length, 
                             model.embeds.weight.shape[1], requires_grad=True))
     model.to(device)
 
+    templatizer = utils.MultiTokenTemplatizer(
+        template=args.template,
+        tokenizer=tokenizer,
+        label_field=args.label_field,
+    )
     collator = utils.Collator(pad_token_id=tokenizer.pad_token_id)
-    train_dataset = utils.load_continuous_trigger_dataset(
-        args.train,
-        tokenizer,
-        args.field_a,
-        args.field_b,
-        args.label_field,
-        limit=args.limit
-    )
-    
+    train_dataset = utils.load_trigger_dataset(args.train, templatizer, train=True)
     train_loader = DataLoader(train_dataset, batch_size=args.bsz, shuffle=True, collate_fn=collator)
-    dev_dataset = utils.load_continuous_trigger_dataset(
-        args.dev,
-        tokenizer,
-        args.field_a,
-        args.field_b,
-        args.label_field
-    )
+    dev_dataset = utils.load_trigger_dataset(args.dev, templatizer)
     dev_loader = DataLoader(dev_dataset, batch_size=args.bsz, shuffle=True, collate_fn=collator)
-    test_dataset = utils.load_continuous_trigger_dataset(
-        args.test,
-        tokenizer,
-        args.field_a,
-        args.field_b,
-        args.label_field
-    )
+    test_dataset = utils.load_trigger_dataset(args.test, templatizer)
     test_loader = DataLoader(test_dataset, batch_size=args.bsz, shuffle=True, collate_fn=collator)
     optimizer = torch.optim.Adam(model.parameters(), lr=args.lr, weight_decay=1e-6)
-
 
     best_accuracy = 0
     for epoch in range(args.epochs):
@@ -116,13 +94,7 @@ def main(args):
         pbar = tqdm(train_loader)
         for model_inputs, labels in pbar:
             model_inputs = {k: v.to(device) for k, v in model_inputs.items()}
-            mask_token_idxs = (model_inputs["input_ids"] == eos_idx).nonzero()[:,1] + args.trigger_length
-            model_inputs = generate_inputs_embeds(model_inputs, model, tokenizer, eos_idx)
-            labels = labels.to(device)[:, 1]
-            optimizer.zero_grad()
-            logits, *_ = model(**model_inputs)    
-            mask_logits = logits[torch.arange(0, logits.shape[0], dtype=torch.long), mask_token_idxs]
-            loss = F.cross_entropy(mask_logits, labels)
+            loss, logits = forward_w_triggers(model, model_inputs, labels)
             loss.backward()
             optimizer.step()
             avg_loss.update(loss.item())
@@ -134,14 +106,8 @@ def main(args):
         total = 0
         for model_inputs, labels in dev_loader:
             model_inputs = {k: v.to(device) for k, v in model_inputs.items()}
-            mask_token_idxs = (model_inputs["input_ids"] == eos_idx).nonzero()[:,1] + args.trigger_length
-            model_inputs = generate_inputs_embeds(model_inputs, model, tokenizer, eos_idx)
-            labels = labels.to(device)[:, 1]
-            logits, *_ = model(**model_inputs)
-            mask_logits = logits[torch.arange(0, logits.shape[0], dtype=torch.long), mask_token_idxs]
-            preds = torch.topk(mask_logits, 1, dim=1).indices[:, 0]
-            correct += (preds == labels).sum().item()
-            total += labels.size(0)
+            loss, preds = forward_w_triggers(model, model_inputs, labels)
+            correct  
         accuracy = correct / (total + 1e-13)
         logger.info(f'Accuracy: {accuracy : 0.4f}')
 
@@ -177,10 +143,8 @@ if __name__ == '__main__':
     parser.add_argument('--train', type=Path)
     parser.add_argument('--dev', type=Path)
     parser.add_argument('--test', type=Path)
-    parser.add_argument('--field-a', type=str)
-    parser.add_argument('--field-b', type=str, default=None)
+    parser.add_argument('--template', type=int, default=5)
     parser.add_argument('--label-field', type=str, default='label')
-    parser.add_argument('--trigger-length', type=int, default=5)
     parser.add_argument('--finetune', action='store_true')
     parser.add_argument('--ckpt-dir', type=Path, default=Path('ckpt/'))
     parser.add_argument('--num-labels', type=int, default=2)
@@ -200,3 +164,4 @@ if __name__ == '__main__':
     logging.basicConfig(level=level)
 
     main(args)
+
