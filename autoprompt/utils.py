@@ -244,10 +244,11 @@ class MultiTokenTemplatizer:
         # Add padding, by initializing a longer tensor of <pad> tokens and
         # replacing the fron with the label tokens. Magic numbers below come
         # from PET WSC settings.
-        if train:
-            pad_length = random.randint(0, 3)
-        else:
-            pad_length = 1
+        # if train:
+        #     pad_length = random.randint(0, 3)
+        # else:
+        #     pad_length = 1
+        pad_length = 0
         padded_label_size = label_size + pad_length
         padded_label_tokens = label_tokens.new_zeros(1, padded_label_size)
         padded_label_tokens.fill_(self._tokenizer.pad_token_id)
