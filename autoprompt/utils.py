@@ -150,10 +150,9 @@ class TriggerTemplatizer:
         # Have the tokenizer encode the text and process the output to:
         # - Create a trigger and predict mask
         # - Replace the predict token with a mask token
-        model_inputs = self._tokenizer.encode_plus(
+        model_inputs = self._tokenizer(
             text,
             add_special_tokens=True,
-            add_prefix_space=True,
             return_tensors='pt'
         )
         input_ids = model_inputs['input_ids']
@@ -237,7 +236,6 @@ class MultiTokenTemplatizer:
             )
         label_tokens = self._tokenizer.encode(
             label,
-            add_prefix_space=True,
             add_special_tokens=False,  # Don't want to add [CLS] mid-sentence
             return_tensors='pt',
         )
@@ -267,9 +265,8 @@ class MultiTokenTemplatizer:
         # Instantiate & tokenize the template
         format_kwargs = format_kwargs.copy()
         text = template.format(**format_kwargs)
-        model_inputs = self._tokenizer.encode_plus(
+        model_inputs = self._tokenizer(
             text,
-            add_prefix_space=True,
             add_special_tokens=True,
             return_tensors='pt',
         )
@@ -381,7 +378,7 @@ def load_classification_dataset(
     loader = LOADERS[fname.suffix]
     for instance in loader(fname):
         logger.debug(instance)
-        model_inputs = tokenizer.encode_plus(
+        model_inputs = tokenizer(
             instance[input_field_a],
             instance[input_field_b] if input_field_b else None,
             add_special_tokens=True,
@@ -422,11 +419,11 @@ def load_continuous_trigger_dataset(
     loader = LOADERS[fname.suffix]
     for instance in loader(fname):
         logger.debug(instance)
-        model_inputs = tokenizer.encode_plus(
+        model_inputs = tokenizer(
             instance[input_field_a],
             instance[input_field_b] if input_field_b else None,
             add_special_tokens=True,
-            add_prefix_space=True,
+            # add_prefix_space=True,
             return_tensors='pt'
         )
         logger.debug(model_inputs)
