@@ -5,31 +5,35 @@ import csv
 import json
 
 
-PREPROCESSORS = {
-    'csv': process_csv,
-    'tsv': process_tsv,
-    'jsonl': process_jsonl,
-}
 
 def _stringify(d):
     return {k: str(v) for k, v in d.items()}
 
 
-def process_csv(fname):
+def preprocess_csv(fname):
     with open(fname, 'r') as f:
         reader = csv.DictReader(f, delimiter=',')
         for row in reader:
             yield row
 
 
-def process_tsv(fname):
+def preprocess_tsv(fname):
     with open(fname, 'r') as f:
         reader = csv.DictReader(f, delimiter='\t')
         for row in reader:
             yield row
 
 
-def process_jsonl(fname):
+def preprocess_jsonl(fname):
     with open(fname, 'r') as f:
         for line in f:
             yield _stringify(json.loads(line))
+
+
+# REMINDER: You need to add whatever preprocessing functions you've written to
+# this dict to make them available to the training scripts.
+PREPROCESSORS = {
+    'csv': preprocess_csv,
+    'tsv': preprocess_tsv,
+    'jsonl': preprocess_jsonl,
+}
