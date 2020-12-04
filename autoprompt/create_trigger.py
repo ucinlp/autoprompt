@@ -14,6 +14,7 @@ from transformers import AutoConfig, AutoModelWithLMHead, AutoTokenizer
 from tqdm import tqdm
 
 import autoprompt.utils as utils
+from autoprompt.preprocessors import PREPROCESSORS
 
 
 logger = logging.getLogger(__name__)
@@ -237,9 +238,18 @@ def run_model(args):
 
     logger.info('Loading datasets')
     collator = utils.Collator(pad_token_id=tokenizer.pad_token_id)
-    train_dataset = utils.load_trigger_dataset(args.train, templatizer, limit=args.limit)
+    train_dataset = utils.load_trigger_dataset(
+        args.train,
+        templatizer=templatizer,
+        limit=args.limit,
+        preprocessor_key=args.preprocessor,
+    )
     train_loader = DataLoader(train_dataset, batch_size=args.bsz, shuffle=True, collate_fn=collator)
-    dev_dataset = utils.load_trigger_dataset(args.dev, templatizer)
+    dev_dataset = utils.load_trigger_dataset(
+        args.dev,
+        templatizer=templatizer,
+        preprocessor_key=args.preprocessor,
+    )
     dev_loader = DataLoader(dev_dataset, batch_size=args.eval_size, shuffle=False, collate_fn=collator)
 
     # To "filter" unwanted trigger tokens, we subtract a huge number from their logits.
@@ -466,6 +476,8 @@ if __name__ == '__main__':
     parser.add_argument('--initial-trigger', nargs='+', type=str, default=None, help='Manual prompt')
     parser.add_argument('--label-field', type=str, default='label',
                         help='Name of the label field')
+    parser.add_argument('--preprocessor', type=str, default=None,
+                        choices=PREPROCESSORS.keys())
 
     parser.add_argument('--bsz', type=int, default=32, help='Batch size')
     parser.add_argument('--eval-size', type=int, default=256, help='Eval size')

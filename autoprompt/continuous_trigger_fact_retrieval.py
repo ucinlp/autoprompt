@@ -11,6 +11,7 @@ from transformers import AutoConfig, AutoTokenizer, AutoModelForMaskedLM
 from tqdm import tqdm
 
 import autoprompt.utils as utils
+from autoprompt.preprocessors import PREPROCESSORS
 
 
 logger = logging.getLogger(__name__)
@@ -147,11 +148,24 @@ def main(args):
         label_field=args.label_field,
     )
     collator = utils.Collator(pad_token_id=tokenizer.pad_token_id)
-    train_dataset = utils.load_trigger_dataset(args.train, templatizer, train=True)
+    train_dataset = utils.load_trigger_dataset(
+        args.train,
+        templatizer=templatizer,
+        train=True,
+        preprocessor_key=args.preprocessor,
+    )
     train_loader = DataLoader(train_dataset, batch_size=args.bsz, shuffle=True, collate_fn=collator)
-    dev_dataset = utils.load_trigger_dataset(args.dev, templatizer)
+    dev_dataset = utils.load_trigger_dataset(
+        args.dev,
+        templatizer=templatizer,
+        preprocessor_key=args.preprocessor,
+    )
     dev_loader = DataLoader(dev_dataset, batch_size=1, collate_fn=collator)
-    test_dataset = utils.load_trigger_dataset(args.test, templatizer)
+    test_dataset = utils.load_trigger_dataset(
+        args.test,
+        templatizer=templatizer,
+        preprocessor_key=args.preprocessor,
+    )
     test_loader = DataLoader(test_dataset, batch_size=1, collate_fn=collator)
 
     # TODO: Double check parameters get registered. Maybe it's better to make a
@@ -189,7 +203,10 @@ def main(args):
         for model_inputs, labels in tqdm(dev_loader):
             model_inputs = {k: v.to(device) for k, v in model_inputs.items()}
             labels = labels.to(device)
+            pmask = model_inputs['predict_mask'].clone()
             preds = decode(model, model_inputs, strategy=args.strategy)
+            print('Label: ' + tokenizer.decode(labels[pmask].tolist()))
+            print('Predicted: ' + tokenizer.decode(preds[pmask].tolist()))
             correct += (preds == labels).all().item()
             total += 1
 
@@ -229,9 +246,11 @@ if __name__ == '__main__':
     parser.add_argument('--dev', type=Path, required=True)
     parser.add_argument('--test', type=Path, required=True)
     parser.add_argument('--template', type=str, required=True)
+    parser.add_argument('--label-field', type=str, default='label')
+    parser.add_argument('--preprocessor', type=str, default=None,
+                        choices=PREPROCESSORS.keys())
     parser.add_argument('--strategy', type=str, default='iterative',
                         choices=['parallel', 'monotonic', 'iterative'])
-    parser.add_argument('--label-field', type=str, default='label')
     parser.add_argument('--finetune', action='store_true')
     parser.add_argument('--ckpt-dir', type=Path, default=Path('ckpt/'))
     parser.add_argument('--num-labels', type=int, default=2)

@@ -21,6 +21,7 @@ from transformers import (
 from tqdm import tqdm
 
 import autoprompt.utils as utils
+from autoprompt.preprocessors import PREPROCESSORS
 
 
 logger = logging.getLogger(__name__)
@@ -68,7 +69,8 @@ def main(args):
         args.field_a,
         args.field_b,
         args.label_field,
-        limit=args.limit
+        limit=args.limit,
+        preprocessor_key=args.preprocessor,
     )
     train_loader = DataLoader(train_dataset, batch_size=args.bsz, shuffle=True, collate_fn=collator)
     dev_dataset, _ = utils.load_classification_dataset(
@@ -77,7 +79,8 @@ def main(args):
         args.field_a,
         args.field_b,
         args.label_field,
-        label_map
+        label_map,
+        preprocessor_key=args.preprocessor,
     )
     dev_loader = DataLoader(dev_dataset, batch_size=args.bsz, shuffle=False, collate_fn=collator)
     test_dataset, _ = utils.load_classification_dataset(
@@ -86,7 +89,8 @@ def main(args):
         args.field_a,
         args.field_b,
         args.label_field,
-        label_map
+        label_map,
+        preprocessor_key=args.preprocessor,
     )
     test_loader = DataLoader(test_dataset, batch_size=args.bsz, shuffle=False, collate_fn=collator)
 
@@ -182,6 +186,8 @@ if __name__ == '__main__':
     parser.add_argument('--field-a', type=str)
     parser.add_argument('--field-b', type=str, default=None)
     parser.add_argument('--label-field', type=str, default='label')
+    parser.add_argument('--preprocessor', type=str, default=None,
+                        choices=PREPROCESSORS.keys())
     parser.add_argument('--ckpt-dir', type=Path, default=Path('ckpt/'))
     parser.add_argument('--num-labels', type=int, default=2)
     parser.add_argument('--bsz', type=int, default=32)
