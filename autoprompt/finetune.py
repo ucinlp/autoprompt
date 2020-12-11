@@ -151,10 +151,7 @@ def main(args):
                 model_inputs = {k: v.to(device) for k, v in model_inputs.items()}
                 labels = labels.to(device)
                 optimizer.zero_grad()
-                if args.adapter:
-                    logits, *_ = model(**model_inputs)
-                else:
-                    logits, *_ = model(**model_inputs).values()
+                logits, *_ = model(**model_inputs)
                 loss = F.cross_entropy(logits, labels.squeeze(-1))
                 loss.backward()
                 optimizer.step()
@@ -171,10 +168,7 @@ def main(args):
                 for model_inputs, labels in dev_loader:
                     model_inputs = {k: v.to(device) for k, v in model_inputs.items()}
                     labels = labels.to(device)
-                    if args.adapter:
-                        logits, *_ = model(**model_inputs)
-                    else:
-                        logits, *_ = model(**model_inputs).values()
+                    logits, *_ = model(**model_inputs)
                     _, preds = logits.max(dim=-1)
                     correct += (preds == labels.squeeze(-1)).sum().item()
                     total += labels.size(0)
@@ -197,10 +191,7 @@ def main(args):
         for model_inputs, labels in test_loader:
             model_inputs = {k: v.to(device) for k, v in model_inputs.items()}
             labels = labels.to(device)
-            if args.adapter:
-                logits, *_ = model(**model_inputs)
-            else:
-                logits, *_ = model(**model_inputs).values()
+            logits, *_ = model(**model_inputs)
             _, preds = logits.max(dim=-1)
             correct += (preds == labels.squeeze(-1)).sum().item()
             total += labels.size(0)
