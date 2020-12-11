@@ -9,7 +9,7 @@
 out: <model>bert-large-cased_<task>{{task_name}}_<seed>{{seed}}_<limit>{{limit}}
 script: autoprompt/finetune.py
 args:
-    - '--model-name=bert-base-cased'
+    - '--model-name=bert-large-cased'
     - '--train=data/SuperGLUE/{{task_name}}/train.jsonl'
     - '--dev=data/SuperGLUE/{{task_name}}/val.jsonl'
     - '--test=data/SuperGLUE/{{task_name}}/val.jsonl'

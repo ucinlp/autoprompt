@@ -2,7 +2,7 @@
 out: <model>bert-large-cased_<task>BoolQ_<seed>1_<limit>10
 script: autoprompt/finetune.py
 args:
-    - '--model-name=bert-base-cased'
+    - '--model-name=bert-large-cased'
     - '--train=data/SuperGLUE/BoolQ/train.jsonl'
     - '--dev=data/SuperGLUE/BoolQ/val.jsonl'
     - '--test=data/SuperGLUE/BoolQ/val.jsonl'
@@ -21,7 +21,7 @@ args:
 out: <model>bert-large-cased_<task>BoolQ_<seed>1_<limit>50
 script: autoprompt/finetune.py
 args:
-    - '--model-name=bert-base-cased'
+    - '--model-name=bert-large-cased'
     - '--train=data/SuperGLUE/BoolQ/train.jsonl'
     - '--dev=data/SuperGLUE/BoolQ/val.jsonl'
     - '--test=data/SuperGLUE/BoolQ/val.jsonl'
@@ -40,7 +40,7 @@ args:
 out: <model>bert-large-cased_<task>BoolQ_<seed>1_<limit>100
 script: autoprompt/finetune.py
 args:
-    - '--model-name=bert-base-cased'
+    - '--model-name=bert-large-cased'
     - '--train=data/SuperGLUE/BoolQ/train.jsonl'
     - '--dev=data/SuperGLUE/BoolQ/val.jsonl'
     - '--test=data/SuperGLUE/BoolQ/val.jsonl'
@@ -59,7 +59,7 @@ args:
 out: <model>bert-large-cased_<task>BoolQ_<seed>1_<limit>1000
 script: autoprompt/finetune.py
 args:
-    - '--model-name=bert-base-cased'
+    - '--model-name=bert-large-cased'
     - '--train=data/SuperGLUE/BoolQ/train.jsonl'
     - '--dev=data/SuperGLUE/BoolQ/val.jsonl'
     - '--test=data/SuperGLUE/BoolQ/val.jsonl'
@@ -78,7 +78,7 @@ args:
 out: <model>bert-large-cased_<task>BoolQ_<seed>420_<limit>10
 script: autoprompt/finetune.py
 args:
-    - '--model-name=bert-base-cased'
+    - '--model-name=bert-large-cased'
     - '--train=data/SuperGLUE/BoolQ/train.jsonl'
     - '--dev=data/SuperGLUE/BoolQ/val.jsonl'
     - '--test=data/SuperGLUE/BoolQ/val.jsonl'
@@ -97,7 +97,7 @@ args:
 out: <model>bert-large-cased_<task>BoolQ_<seed>420_<limit>50
 script: autoprompt/finetune.py
 args:
-    - '--model-name=bert-base-cased'
+    - '--model-name=bert-large-cased'
     - '--train=data/SuperGLUE/BoolQ/train.jsonl'
     - '--dev=data/SuperGLUE/BoolQ/val.jsonl'
     - '--test=data/SuperGLUE/BoolQ/val.jsonl'
@@ -116,7 +116,7 @@ args:
 out: <model>bert-large-cased_<task>BoolQ_<seed>420_<limit>100
 script: autoprompt/finetune.py
 args:
-    - '--model-name=bert-base-cased'
+    - '--model-name=bert-large-cased'
     - '--train=data/SuperGLUE/BoolQ/train.jsonl'
     - '--dev=data/SuperGLUE/BoolQ/val.jsonl'
     - '--test=data/SuperGLUE/BoolQ/val.jsonl'
@@ -135,7 +135,7 @@ args:
 out: <model>bert-large-cased_<task>BoolQ_<seed>420_<limit>1000
 script: autoprompt/finetune.py
 args:
-    - '--model-name=bert-base-cased'
+    - '--model-name=bert-large-cased'
     - '--train=data/SuperGLUE/BoolQ/train.jsonl'
     - '--dev=data/SuperGLUE/BoolQ/val.jsonl'
     - '--test=data/SuperGLUE/BoolQ/val.jsonl'
@@ -154,7 +154,7 @@ args:
 out: <model>bert-large-cased_<task>BoolQ_<seed>808_<limit>10
 script: autoprompt/finetune.py
 args:
-    - '--model-name=bert-base-cased'
+    - '--model-name=bert-large-cased'
     - '--train=data/SuperGLUE/BoolQ/train.jsonl'
     - '--dev=data/SuperGLUE/BoolQ/val.jsonl'
     - '--test=data/SuperGLUE/BoolQ/val.jsonl'
@@ -173,7 +173,7 @@ args:
 out: <model>bert-large-cased_<task>BoolQ_<seed>808_<limit>50
 script: autoprompt/finetune.py
 args:
-    - '--model-name=bert-base-cased'
+    - '--model-name=bert-large-cased'
     - '--train=data/SuperGLUE/BoolQ/train.jsonl'
     - '--dev=data/SuperGLUE/BoolQ/val.jsonl'
     - '--test=data/SuperGLUE/BoolQ/val.jsonl'
@@ -192,7 +192,7 @@ args:
 out: <model>bert-large-cased_<task>BoolQ_<seed>808_<limit>100
 script: autoprompt/finetune.py
 args:
-    - '--model-name=bert-base-cased'
+    - '--model-name=bert-large-cased'
     - '--train=data/SuperGLUE/BoolQ/train.jsonl'
     - '--dev=data/SuperGLUE/BoolQ/val.jsonl'
     - '--test=data/SuperGLUE/BoolQ/val.jsonl'
@@ -211,7 +211,7 @@ args:
 out: <model>bert-large-cased_<task>BoolQ_<seed>808_<limit>1000
 script: autoprompt/finetune.py
 args:
-    - '--model-name=bert-base-cased'
+    - '--model-name=bert-large-cased'
     - '--train=data/SuperGLUE/BoolQ/train.jsonl'
     - '--dev=data/SuperGLUE/BoolQ/val.jsonl'
     - '--test=data/SuperGLUE/BoolQ/val.jsonl'
@@ -230,7 +230,7 @@ args:
 out: <model>bert-large-cased_<task>BoolQ_<seed>1234_<limit>10
 script: autoprompt/finetune.py
 args:
-    - '--model-name=bert-base-cased'
+    - '--model-name=bert-large-cased'
     - '--train=data/SuperGLUE/BoolQ/train.jsonl'
     - '--dev=data/SuperGLUE/BoolQ/val.jsonl'
     - '--test=data/SuperGLUE/BoolQ/val.jsonl'
@@ -249,7 +249,7 @@ args:
 out: <model>bert-large-cased_<task>BoolQ_<seed>1234_<limit>50
 script: autoprompt/finetune.py
 args:
-    - '--model-name=bert-base-cased'
+    - '--model-name=bert-large-cased'
     - '--train=data/SuperGLUE/BoolQ/train.jsonl'
     - '--dev=data/SuperGLUE/BoolQ/val.jsonl'
     - '--test=data/SuperGLUE/BoolQ/val.jsonl'
@@ -268,7 +268,7 @@ args:
 out: <model>bert-large-cased_<task>BoolQ_<seed>1234_<limit>100
 script: autoprompt/finetune.py
 args:
-    - '--model-name=bert-base-cased'
+    - '--model-name=bert-large-cased'
     - '--train=data/SuperGLUE/BoolQ/train.jsonl'
     - '--dev=data/SuperGLUE/BoolQ/val.jsonl'
     - '--test=data/SuperGLUE/BoolQ/val.jsonl'
@@ -287,7 +287,7 @@ args:
 out: <model>bert-large-cased_<task>BoolQ_<seed>1234_<limit>1000
 script: autoprompt/finetune.py
 args:
-    - '--model-name=bert-base-cased'
+    - '--model-name=bert-large-cased'
     - '--train=data/SuperGLUE/BoolQ/train.jsonl'
     - '--dev=data/SuperGLUE/BoolQ/val.jsonl'
     - '--test=data/SuperGLUE/BoolQ/val.jsonl'
@@ -306,7 +306,7 @@ args:
 out: <model>bert-large-cased_<task>BoolQ_<seed>1337_<limit>10
 script: autoprompt/finetune.py
 args:
-    - '--model-name=bert-base-cased'
+    - '--model-name=bert-large-cased'
     - '--train=data/SuperGLUE/BoolQ/train.jsonl'
     - '--dev=data/SuperGLUE/BoolQ/val.jsonl'
     - '--test=data/SuperGLUE/BoolQ/val.jsonl'
@@ -325,7 +325,7 @@ args:
 out: <model>bert-large-cased_<task>BoolQ_<seed>1337_<limit>50
 script: autoprompt/finetune.py
 args:
-    - '--model-name=bert-base-cased'
+    - '--model-name=bert-large-cased'
     - '--train=data/SuperGLUE/BoolQ/train.jsonl'
     - '--dev=data/SuperGLUE/BoolQ/val.jsonl'
     - '--test=data/SuperGLUE/BoolQ/val.jsonl'
@@ -344,7 +344,7 @@ args:
 out: <model>bert-large-cased_<task>BoolQ_<seed>1337_<limit>100
 script: autoprompt/finetune.py
 args:
-    - '--model-name=bert-base-cased'
+    - '--model-name=bert-large-cased'
     - '--train=data/SuperGLUE/BoolQ/train.jsonl'
     - '--dev=data/SuperGLUE/BoolQ/val.jsonl'
     - '--test=data/SuperGLUE/BoolQ/val.jsonl'
@@ -363,7 +363,7 @@ args:
 out: <model>bert-large-cased_<task>BoolQ_<seed>1337_<limit>1000
 script: autoprompt/finetune.py
 args:
-    - '--model-name=bert-base-cased'
+    - '--model-name=bert-large-cased'
     - '--train=data/SuperGLUE/BoolQ/train.jsonl'
     - '--dev=data/SuperGLUE/BoolQ/val.jsonl'
     - '--test=data/SuperGLUE/BoolQ/val.jsonl'
@@ -382,7 +382,7 @@ args:
 out: <model>bert-large-cased_<task>CB_<seed>1_<limit>10
 script: autoprompt/finetune.py
 args:
-    - '--model-name=bert-base-cased'
+    - '--model-name=bert-large-cased'
     - '--train=data/SuperGLUE/CB/train.jsonl'
     - '--dev=data/SuperGLUE/CB/val.jsonl'
     - '--test=data/SuperGLUE/CB/val.jsonl'
@@ -401,7 +401,7 @@ args:
 out: <model>bert-large-cased_<task>CB_<seed>1_<limit>50
 script: autoprompt/finetune.py
 args:
-    - '--model-name=bert-base-cased'
+    - '--model-name=bert-large-cased'
     - '--train=data/SuperGLUE/CB/train.jsonl'
     - '--dev=data/SuperGLUE/CB/val.jsonl'
     - '--test=data/SuperGLUE/CB/val.jsonl'
@@ -420,7 +420,7 @@ args:
 out: <model>bert-large-cased_<task>CB_<seed>1_<limit>100
 script: autoprompt/finetune.py
 args:
-    - '--model-name=bert-base-cased'
+    - '--model-name=bert-large-cased'
     - '--train=data/SuperGLUE/CB/train.jsonl'
     - '--dev=data/SuperGLUE/CB/val.jsonl'
     - '--test=data/SuperGLUE/CB/val.jsonl'
@@ -439,7 +439,7 @@ args:
 out: <model>bert-large-cased_<task>CB_<seed>1_<limit>1000
 script: autoprompt/finetune.py
 args:
-    - '--model-name=bert-base-cased'
+    - '--model-name=bert-large-cased'
     - '--train=data/SuperGLUE/CB/train.jsonl'
     - '--dev=data/SuperGLUE/CB/val.jsonl'
     - '--test=data/SuperGLUE/CB/val.jsonl'
@@ -458,7 +458,7 @@ args:
 out: <model>bert-large-cased_<task>CB_<seed>420_<limit>10
 script: autoprompt/finetune.py
 args:
-    - '--model-name=bert-base-cased'
+    - '--model-name=bert-large-cased'
     - '--train=data/SuperGLUE/CB/train.jsonl'
     - '--dev=data/SuperGLUE/CB/val.jsonl'
     - '--test=data/SuperGLUE/CB/val.jsonl'
@@ -477,7 +477,7 @@ args:
 out: <model>bert-large-cased_<task>CB_<seed>420_<limit>50
 script: autoprompt/finetune.py
 args:
-    - '--model-name=bert-base-cased'
+    - '--model-name=bert-large-cased'
     - '--train=data/SuperGLUE/CB/train.jsonl'
     - '--dev=data/SuperGLUE/CB/val.jsonl'
     - '--test=data/SuperGLUE/CB/val.jsonl'
@@ -496,7 +496,7 @@ args:
 out: <model>bert-large-cased_<task>CB_<seed>420_<limit>100
 script: autoprompt/finetune.py
 args:
-    - '--model-name=bert-base-cased'
+    - '--model-name=bert-large-cased'
     - '--train=data/SuperGLUE/CB/train.jsonl'
     - '--dev=data/SuperGLUE/CB/val.jsonl'
     - '--test=data/SuperGLUE/CB/val.jsonl'
@@ -515,7 +515,7 @@ args:
 out: <model>bert-large-cased_<task>CB_<seed>420_<limit>1000
 script: autoprompt/finetune.py
 args:
-    - '--model-name=bert-base-cased'
+    - '--model-name=bert-large-cased'
     - '--train=data/SuperGLUE/CB/train.jsonl'
     - '--dev=data/SuperGLUE/CB/val.jsonl'
     - '--test=data/SuperGLUE/CB/val.jsonl'
@@ -534,7 +534,7 @@ args:
 out: <model>bert-large-cased_<task>CB_<seed>808_<limit>10
 script: autoprompt/finetune.py
 args:
-    - '--model-name=bert-base-cased'
+    - '--model-name=bert-large-cased'
     - '--train=data/SuperGLUE/CB/train.jsonl'
     - '--dev=data/SuperGLUE/CB/val.jsonl'
     - '--test=data/SuperGLUE/CB/val.jsonl'
@@ -553,7 +553,7 @@ args:
 out: <model>bert-large-cased_<task>CB_<seed>808_<limit>50
 script: autoprompt/finetune.py
 args:
-    - '--model-name=bert-base-cased'
+    - '--model-name=bert-large-cased'
     - '--train=data/SuperGLUE/CB/train.jsonl'
     - '--dev=data/SuperGLUE/CB/val.jsonl'
     - '--test=data/SuperGLUE/CB/val.jsonl'
@@ -572,7 +572,7 @@ args:
 out: <model>bert-large-cased_<task>CB_<seed>808_<limit>100
 script: autoprompt/finetune.py
 args:
-    - '--model-name=bert-base-cased'
+    - '--model-name=bert-large-cased'
     - '--train=data/SuperGLUE/CB/train.jsonl'
     - '--dev=data/SuperGLUE/CB/val.jsonl'
     - '--test=data/SuperGLUE/CB/val.jsonl'
@@ -591,7 +591,7 @@ args:
 out: <model>bert-large-cased_<task>CB_<seed>808_<limit>1000
 script: autoprompt/finetune.py
 args:
-    - '--model-name=bert-base-cased'
+    - '--model-name=bert-large-cased'
     - '--train=data/SuperGLUE/CB/train.jsonl'
     - '--dev=data/SuperGLUE/CB/val.jsonl'
     - '--test=data/SuperGLUE/CB/val.jsonl'
@@ -610,7 +610,7 @@ args:
 out: <model>bert-large-cased_<task>CB_<seed>1234_<limit>10
 script: autoprompt/finetune.py
 args:
-    - '--model-name=bert-base-cased'
+    - '--model-name=bert-large-cased'
     - '--train=data/SuperGLUE/CB/train.jsonl'
     - '--dev=data/SuperGLUE/CB/val.jsonl'
     - '--test=data/SuperGLUE/CB/val.jsonl'
@@ -629,7 +629,7 @@ args:
 out: <model>bert-large-cased_<task>CB_<seed>1234_<limit>50
 script: autoprompt/finetune.py
 args:
-    - '--model-name=bert-base-cased'
+    - '--model-name=bert-large-cased'
     - '--train=data/SuperGLUE/CB/train.jsonl'
     - '--dev=data/SuperGLUE/CB/val.jsonl'
     - '--test=data/SuperGLUE/CB/val.jsonl'
@@ -648,7 +648,7 @@ args:
 out: <model>bert-large-cased_<task>CB_<seed>1234_<limit>100
 script: autoprompt/finetune.py
 args:
-    - '--model-name=bert-base-cased'
+    - '--model-name=bert-large-cased'
     - '--train=data/SuperGLUE/CB/train.jsonl'
     - '--dev=data/SuperGLUE/CB/val.jsonl'
     - '--test=data/SuperGLUE/CB/val.jsonl'
@@ -667,7 +667,7 @@ args:
 out: <model>bert-large-cased_<task>CB_<seed>1234_<limit>1000
 script: autoprompt/finetune.py
 args:
-    - '--model-name=bert-base-cased'
+    - '--model-name=bert-large-cased'
     - '--train=data/SuperGLUE/CB/train.jsonl'
     - '--dev=data/SuperGLUE/CB/val.jsonl'
     - '--test=data/SuperGLUE/CB/val.jsonl'
@@ -686,7 +686,7 @@ args:
 out: <model>bert-large-cased_<task>CB_<seed>1337_<limit>10
 script: autoprompt/finetune.py
 args:
-    - '--model-name=bert-base-cased'
+    - '--model-name=bert-large-cased'
     - '--train=data/SuperGLUE/CB/train.jsonl'
     - '--dev=data/SuperGLUE/CB/val.jsonl'
     - '--test=data/SuperGLUE/CB/val.jsonl'
@@ -705,7 +705,7 @@ args:
 out: <model>bert-large-cased_<task>CB_<seed>1337_<limit>50
 script: autoprompt/finetune.py
 args:
-    - '--model-name=bert-base-cased'
+    - '--model-name=bert-large-cased'
     - '--train=data/SuperGLUE/CB/train.jsonl'
     - '--dev=data/SuperGLUE/CB/val.jsonl'
     - '--test=data/SuperGLUE/CB/val.jsonl'
@@ -724,7 +724,7 @@ args:
 out: <model>bert-large-cased_<task>CB_<seed>1337_<limit>100
 script: autoprompt/finetune.py
 args:
-    - '--model-name=bert-base-cased'
+    - '--model-name=bert-large-cased'
     - '--train=data/SuperGLUE/CB/train.jsonl'
     - '--dev=data/SuperGLUE/CB/val.jsonl'
     - '--test=data/SuperGLUE/CB/val.jsonl'
@@ -743,7 +743,7 @@ args:
 out: <model>bert-large-cased_<task>CB_<seed>1337_<limit>1000
 script: autoprompt/finetune.py
 args:
-    - '--model-name=bert-base-cased'
+    - '--model-name=bert-large-cased'
     - '--train=data/SuperGLUE/CB/train.jsonl'
     - '--dev=data/SuperGLUE/CB/val.jsonl'
     - '--test=data/SuperGLUE/CB/val.jsonl'
@@ -762,7 +762,7 @@ args:
 out: <model>bert-large-cased_<task>RTE_<seed>1_<limit>10
 script: autoprompt/finetune.py
 args:
-    - '--model-name=bert-base-cased'
+    - '--model-name=bert-large-cased'
     - '--train=data/SuperGLUE/RTE/train.jsonl'
     - '--dev=data/SuperGLUE/RTE/val.jsonl'
     - '--test=data/SuperGLUE/RTE/val.jsonl'
@@ -781,7 +781,7 @@ args:
 out: <model>bert-large-cased_<task>RTE_<seed>1_<limit>50
 script: autoprompt/finetune.py
 args:
-    - '--model-name=bert-base-cased'
+    - '--model-name=bert-large-cased'
     - '--train=data/SuperGLUE/RTE/train.jsonl'
     - '--dev=data/SuperGLUE/RTE/val.jsonl'
     - '--test=data/SuperGLUE/RTE/val.jsonl'
@@ -800,7 +800,7 @@ args:
 out: <model>bert-large-cased_<task>RTE_<seed>1_<limit>100
 script: autoprompt/finetune.py
 args:
-    - '--model-name=bert-base-cased'
+    - '--model-name=bert-large-cased'
     - '--train=data/SuperGLUE/RTE/train.jsonl'
     - '--dev=data/SuperGLUE/RTE/val.jsonl'
     - '--test=data/SuperGLUE/RTE/val.jsonl'
@@ -819,7 +819,7 @@ args:
 out: <model>bert-large-cased_<task>RTE_<seed>1_<limit>1000
 script: autoprompt/finetune.py
 args:
-    - '--model-name=bert-base-cased'
+    - '--model-name=bert-large-cased'
     - '--train=data/SuperGLUE/RTE/train.jsonl'
     - '--dev=data/SuperGLUE/RTE/val.jsonl'
     - '--test=data/SuperGLUE/RTE/val.jsonl'
@@ -838,7 +838,7 @@ args:
 out: <model>bert-large-cased_<task>RTE_<seed>420_<limit>10
 script: autoprompt/finetune.py
 args:
-    - '--model-name=bert-base-cased'
+    - '--model-name=bert-large-cased'
     - '--train=data/SuperGLUE/RTE/train.jsonl'
     - '--dev=data/SuperGLUE/RTE/val.jsonl'
     - '--test=data/SuperGLUE/RTE/val.jsonl'
@@ -857,7 +857,7 @@ args:
 out: <model>bert-large-cased_<task>RTE_<seed>420_<limit>50
 script: autoprompt/finetune.py
 args:
-    - '--model-name=bert-base-cased'
+    - '--model-name=bert-large-cased'
     - '--train=data/SuperGLUE/RTE/train.jsonl'
     - '--dev=data/SuperGLUE/RTE/val.jsonl'
     - '--test=data/SuperGLUE/RTE/val.jsonl'
@@ -876,7 +876,7 @@ args:
 out: <model>bert-large-cased_<task>RTE_<seed>420_<limit>100
 script: autoprompt/finetune.py
 args:
-    - '--model-name=bert-base-cased'
+    - '--model-name=bert-large-cased'
     - '--train=data/SuperGLUE/RTE/train.jsonl'
     - '--dev=data/SuperGLUE/RTE/val.jsonl'
     - '--test=data/SuperGLUE/RTE/val.jsonl'
@@ -895,7 +895,7 @@ args:
 out: <model>bert-large-cased_<task>RTE_<seed>420_<limit>1000
 script: autoprompt/finetune.py
 args:
-    - '--model-name=bert-base-cased'
+    - '--model-name=bert-large-cased'
     - '--train=data/SuperGLUE/RTE/train.jsonl'
     - '--dev=data/SuperGLUE/RTE/val.jsonl'
     - '--test=data/SuperGLUE/RTE/val.jsonl'
@@ -914,7 +914,7 @@ args:
 out: <model>bert-large-cased_<task>RTE_<seed>808_<limit>10
 script: autoprompt/finetune.py
 args:
-    - '--model-name=bert-base-cased'
+    - '--model-name=bert-large-cased'
     - '--train=data/SuperGLUE/RTE/train.jsonl'
     - '--dev=data/SuperGLUE/RTE/val.jsonl'
     - '--test=data/SuperGLUE/RTE/val.jsonl'
@@ -933,7 +933,7 @@ args:
 out: <model>bert-large-cased_<task>RTE_<seed>808_<limit>50
 script: autoprompt/finetune.py
 args:
-    - '--model-name=bert-base-cased'
+    - '--model-name=bert-large-cased'
     - '--train=data/SuperGLUE/RTE/train.jsonl'
     - '--dev=data/SuperGLUE/RTE/val.jsonl'
     - '--test=data/SuperGLUE/RTE/val.jsonl'
@@ -952,7 +952,7 @@ args:
 out: <model>bert-large-cased_<task>RTE_<seed>808_<limit>100
 script: autoprompt/finetune.py
 args:
-    - '--model-name=bert-base-cased'
+    - '--model-name=bert-large-cased'
     - '--train=data/SuperGLUE/RTE/train.jsonl'
     - '--dev=data/SuperGLUE/RTE/val.jsonl'
     - '--test=data/SuperGLUE/RTE/val.jsonl'
@@ -971,7 +971,7 @@ args:
 out: <model>bert-large-cased_<task>RTE_<seed>808_<limit>1000
 script: autoprompt/finetune.py
 args:
-    - '--model-name=bert-base-cased'
+    - '--model-name=bert-large-cased'
     - '--train=data/SuperGLUE/RTE/train.jsonl'
     - '--dev=data/SuperGLUE/RTE/val.jsonl'
     - '--test=data/SuperGLUE/RTE/val.jsonl'
@@ -990,7 +990,7 @@ args:
 out: <model>bert-large-cased_<task>RTE_<seed>1234_<limit>10
 script: autoprompt/finetune.py
 args:
-    - '--model-name=bert-base-cased'
+    - '--model-name=bert-large-cased'
     - '--train=data/SuperGLUE/RTE/train.jsonl'
     - '--dev=data/SuperGLUE/RTE/val.jsonl'
     - '--test=data/SuperGLUE/RTE/val.jsonl'
@@ -1009,7 +1009,7 @@ args:
 out: <model>bert-large-cased_<task>RTE_<seed>1234_<limit>50
 script: autoprompt/finetune.py
 args:
-    - '--model-name=bert-base-cased'
+    - '--model-name=bert-large-cased'
     - '--train=data/SuperGLUE/RTE/train.jsonl'
     - '--dev=data/SuperGLUE/RTE/val.jsonl'
     - '--test=data/SuperGLUE/RTE/val.jsonl'
@@ -1028,7 +1028,7 @@ args:
 out: <model>bert-large-cased_<task>RTE_<seed>1234_<limit>100
 script: autoprompt/finetune.py
 args:
-    - '--model-name=bert-base-cased'
+    - '--model-name=bert-large-cased'
     - '--train=data/SuperGLUE/RTE/train.jsonl'
     - '--dev=data/SuperGLUE/RTE/val.jsonl'
     - '--test=data/SuperGLUE/RTE/val.jsonl'
@@ -1047,7 +1047,7 @@ args:
 out: <model>bert-large-cased_<task>RTE_<seed>1234_<limit>1000
 script: autoprompt/finetune.py
 args:
-    - '--model-name=bert-base-cased'
+    - '--model-name=bert-large-cased'
     - '--train=data/SuperGLUE/RTE/train.jsonl'
     - '--dev=data/SuperGLUE/RTE/val.jsonl'
     - '--test=data/SuperGLUE/RTE/val.jsonl'
@@ -1066,7 +1066,7 @@ args:
 out: <model>bert-large-cased_<task>RTE_<seed>1337_<limit>10
 script: autoprompt/finetune.py
 args:
-    - '--model-name=bert-base-cased'
+    - '--model-name=bert-large-cased'
     - '--train=data/SuperGLUE/RTE/train.jsonl'
     - '--dev=data/SuperGLUE/RTE/val.jsonl'
     - '--test=data/SuperGLUE/RTE/val.jsonl'
@@ -1085,7 +1085,7 @@ args:
 out: <model>bert-large-cased_<task>RTE_<seed>1337_<limit>50
 script: autoprompt/finetune.py
 args:
-    - '--model-name=bert-base-cased'
+    - '--model-name=bert-large-cased'
     - '--train=data/SuperGLUE/RTE/train.jsonl'
     - '--dev=data/SuperGLUE/RTE/val.jsonl'
     - '--test=data/SuperGLUE/RTE/val.jsonl'
@@ -1104,7 +1104,7 @@ args:
 out: <model>bert-large-cased_<task>RTE_<seed>1337_<limit>100
 script: autoprompt/finetune.py
 args:
-    - '--model-name=bert-base-cased'
+    - '--model-name=bert-large-cased'
     - '--train=data/SuperGLUE/RTE/train.jsonl'
     - '--dev=data/SuperGLUE/RTE/val.jsonl'
     - '--test=data/SuperGLUE/RTE/val.jsonl'
@@ -1123,7 +1123,7 @@ args:
 out: <model>bert-large-cased_<task>RTE_<seed>1337_<limit>1000
 script: autoprompt/finetune.py
 args:
-    - '--model-name=bert-base-cased'
+    - '--model-name=bert-large-cased'
     - '--train=data/SuperGLUE/RTE/train.jsonl'
     - '--dev=data/SuperGLUE/RTE/val.jsonl'
     - '--test=data/SuperGLUE/RTE/val.jsonl'

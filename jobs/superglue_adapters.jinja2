@@ -6,10 +6,10 @@
 {% for seed in [1, 420, 808, 1234, 1337] -%}
 {% for limit in [10, 50, 100, 1000] -%}
 ---
-out: <model>bert-large-cased_<task>{{task_name}}_<seed>{{seed}}_<limit>{{limit}}
+out: <model>bert-large-cased-adapter_<task>{{task_name}}_<seed>{{seed}}_<limit>{{limit}}
 script: autoprompt/finetune.py
 args:
-    - '--model-name=bert-base-cased'
+    - '--model-name=bert-large-cased'
     - '--train=data/SuperGLUE/{{task_name}}/train.jsonl'
     - '--dev=data/SuperGLUE/{{task_name}}/val.jsonl'
     - '--test=data/SuperGLUE/{{task_name}}/val.jsonl'
