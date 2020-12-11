@@ -63,7 +63,24 @@ def main(args):
 
     config = AutoConfig.from_pretrained(args.model_name, num_labels=args.num_labels)
     tokenizer = AutoTokenizer.from_pretrained(args.model_name)
-    model = AutoModelForSequenceClassification.from_pretrained(args.model_name, config=config)
+    if args.adapter:
+        model = transformers.AutoModelWithHeads.from_pretrained(
+            args.model_name,
+            config=config,
+        )
+        model.add_adapter(
+            'adapter', 
+            transformers.AdapterType.text_task,
+            config='pfeiffer',
+        )
+        model.train_adapter(['adapter'])
+        model.add_classification_head('adapter', num_labels=args.num_labels)
+        model.set_active_adapters('adapter')
+    else:
+        model = AutoModelForSequenceClassification.from_pretrained(
+            args.model_name,
+            config=config,
+        )
     model.to(device)
 
     collator = utils.Collator(pad_token_id=tokenizer.pad_token_id)
@@ -134,7 +151,10 @@ def main(args):
                 model_inputs = {k: v.to(device) for k, v in model_inputs.items()}
                 labels = labels.to(device)
                 optimizer.zero_grad()
-                logits, *_ = model(**model_inputs).values()
+                if args.adapter:
+                    logits, *_ = model(**model_inputs)
+                else:
+                    logits, *_ = model(**model_inputs).values()
                 loss = F.cross_entropy(logits, labels.squeeze(-1))
                 loss.backward()
                 optimizer.step()
@@ -151,7 +171,10 @@ def main(args):
                 for model_inputs, labels in dev_loader:
                     model_inputs = {k: v.to(device) for k, v in model_inputs.items()}
                     labels = labels.to(device)
-                    logits, *_ = model(**model_inputs).values()
+                    if args.adapter:
+                        logits, *_ = model(**model_inputs)
+                    else:
+                        logits, *_ = model(**model_inputs).values()
                     _, preds = logits.max(dim=-1)
                     correct += (preds == labels.squeeze(-1)).sum().item()
                     total += labels.size(0)
@@ -174,7 +197,10 @@ def main(args):
         for model_inputs, labels in test_loader:
             model_inputs = {k: v.to(device) for k, v in model_inputs.items()}
             labels = labels.to(device)
-            logits, *_ = model(**model_inputs).values()
+            if args.adapter:
+                logits, *_ = model(**model_inputs)
+            else:
+                logits, *_ = model(**model_inputs).values()
             _, preds = logits.max(dim=-1)
             correct += (preds == labels.squeeze(-1)).sum().item()
             total += labels.size(0)
@@ -202,6 +228,7 @@ if __name__ == '__main__':
     parser.add_argument('--seed', type=int, default=1234)
     parser.add_argument('--bias-correction', action='store_true')
     parser.add_argument('-f', '--force-overwrite', action='store_true')
+    parser.add_argument('--adapter', action='store_true')
     parser.add_argument('--debug', action='store_true')
     parser.add_argument('--rank', type=int, default=-1)
     args = parser.parse_args()
