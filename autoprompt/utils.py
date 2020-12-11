@@ -364,12 +364,13 @@ def load_classification_dataset(
         preprocessor = PREPROCESSORS[fname.suffix]
     else:
         preprocessor = PREPROCESSORS[preprocessor_key]
-    for instance in loader(fname):
+    for instance in preprocessor(fname):
         logger.debug(instance)
         model_inputs = tokenizer(
             instance[input_field_a],
             instance[input_field_b] if input_field_b else None,
             add_special_tokens=True,
+            truncation=True,
             # add_prefix_space=True,
             return_tensors='pt'
         )

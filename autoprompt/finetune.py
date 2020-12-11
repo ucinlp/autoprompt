@@ -55,7 +55,11 @@ def get_linear_schedule_with_warmup(optimizer, num_warmup_steps, num_training_st
 
 def main(args):
     set_seed(args.seed)
-    device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+
+    if args.rank == -1:
+        device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+    else:
+        device = torch.device('cuda', args.rank)
 
     config = AutoConfig.from_pretrained(args.model_name, num_labels=args.num_labels)
     tokenizer = AutoTokenizer.from_pretrained(args.model_name)
@@ -80,6 +84,7 @@ def main(args):
         args.field_b,
         args.label_field,
         label_map,
+        limit=args.limit,
         preprocessor_key=args.preprocessor,
     )
     dev_loader = DataLoader(dev_dataset, batch_size=args.bsz, shuffle=False, collate_fn=collator)
@@ -198,6 +203,7 @@ if __name__ == '__main__':
     parser.add_argument('--bias-correction', action='store_true')
     parser.add_argument('-f', '--force-overwrite', action='store_true')
     parser.add_argument('--debug', action='store_true')
+    parser.add_argument('--rank', type=int, default=-1)
     args = parser.parse_args()
 
     if args.debug:

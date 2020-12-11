@@ -33,7 +33,7 @@ def preprocess_jsonl(fname):
 # REMINDER: You need to add whatever preprocessing functions you've written to
 # this dict to make them available to the training scripts.
 PREPROCESSORS = {
-    'csv': preprocess_csv,
-    'tsv': preprocess_tsv,
-    'jsonl': preprocess_jsonl,
+    '.csv': preprocess_csv,
+    '.tsv': preprocess_tsv,
+    '.jsonl': preprocess_jsonl,
 }
