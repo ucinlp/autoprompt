@@ -371,6 +371,7 @@ def load_classification_dataset(
             instance[input_field_b] if input_field_b else None,
             add_special_tokens=True,
             truncation=True,
+            padding='max_length',
             # add_prefix_space=True,
             return_tensors='pt'
         )
