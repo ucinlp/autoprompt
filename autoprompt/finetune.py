@@ -83,6 +83,7 @@ def main(args):
         )
     model.to(device)
 
+
     collator = utils.Collator(pad_token_id=tokenizer.pad_token_id)
     train_dataset, label_map = utils.load_classification_dataset(
         args.train,
@@ -127,6 +128,7 @@ def main(args):
         weight_decay=1e-2,
         betas=betas
     )
+    scaler = torch.cuda.amp.GradScaler(enabled=args.fp16)
 
     # Use suggested learning rate scheduler
     num_training_steps = len(train_dataset) * args.epochs // args.bsz
@@ -150,14 +152,13 @@ def main(args):
             for model_inputs, labels in pbar:
                 model_inputs = {k: v.to(device) for k, v in model_inputs.items()}
                 labels = labels.to(device)
-                optimizer.zero_grad()
-                if args.adapter:
+                with torch.cuda.amp.autocast():
                     logits, *_ = model(**model_inputs)
-                else:
-                    logits, *_ = model(**model_inputs).values()
-                loss = F.cross_entropy(logits, labels.squeeze(-1))
-                loss.backward()
-                optimizer.step()
+                    loss = F.cross_entropy(logits, labels.squeeze(-1))
+                scaler.scale(loss).backward()
+                scaler.step(optimizer)
+                scaler.update()
+                optimizer.zero_grad()
                 scheduler.step()
                 avg_loss.update(loss.item())
                 pbar.set_description(f'loss: {avg_loss.get_metric(): 0.4f}, '
@@ -171,10 +172,7 @@ def main(args):
                 for model_inputs, labels in dev_loader:
                     model_inputs = {k: v.to(device) for k, v in model_inputs.items()}
                     labels = labels.to(device)
-                    if args.adapter:
-                        logits, *_ = model(**model_inputs)
-                    else:
-                        logits, *_ = model(**model_inputs).values()
+                    logits, *_ = model(**model_inputs)
                     _, preds = logits.max(dim=-1)
                     correct += (preds == labels.squeeze(-1)).sum().item()
                     total += labels.size(0)
@@ -197,10 +195,7 @@ def main(args):
         for model_inputs, labels in test_loader:
             model_inputs = {k: v.to(device) for k, v in model_inputs.items()}
             labels = labels.to(device)
-            if args.adapter:
-                logits, *_ = model(**model_inputs)
-            else:
-                logits, *_ = model(**model_inputs).values()
+            logits, *_ = model(**model_inputs)
             _, preds = logits.max(dim=-1)
             correct += (preds == labels.squeeze(-1)).sum().item()
             total += labels.size(0)
@@ -227,6 +222,7 @@ if __name__ == '__main__':
     parser.add_argument('--limit', type=int, default=None)
     parser.add_argument('--seed', type=int, default=1234)
     parser.add_argument('--bias-correction', action='store_true')
+    parser.add_argument('--fp16', action='store_true')
     parser.add_argument('-f', '--force-overwrite', action='store_true')
     parser.add_argument('--adapter', action='store_true')
     parser.add_argument('--debug', action='store_true')
