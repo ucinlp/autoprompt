@@ -21,6 +21,7 @@ from transformers import (
 from tqdm import tqdm
 
 import autoprompt.utils as utils
+from autoprompt.preprocessors import PREPROCESSORS
 
 
 logger = logging.getLogger(__name__)
@@ -54,12 +55,34 @@ def get_linear_schedule_with_warmup(optimizer, num_warmup_steps, num_training_st
 
 def main(args):
     set_seed(args.seed)
-    device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+
+    if args.rank == -1:
+        device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+    else:
+        device = torch.device('cuda', args.rank)
 
     config = AutoConfig.from_pretrained(args.model_name, num_labels=args.num_labels)
     tokenizer = AutoTokenizer.from_pretrained(args.model_name)
-    model = AutoModelForSequenceClassification.from_pretrained(args.model_name, config=config)
+    if args.adapter:
+        model = transformers.AutoModelWithHeads.from_pretrained(
+            args.model_name,
+            config=config,
+        )
+        model.add_adapter(
+            'adapter', 
+            transformers.AdapterType.text_task,
+            config='pfeiffer',
+        )
+        model.train_adapter(['adapter'])
+        model.add_classification_head('adapter', num_labels=args.num_labels)
+        model.set_active_adapters('adapter')
+    else:
+        model = AutoModelForSequenceClassification.from_pretrained(
+            args.model_name,
+            config=config,
+        )
     model.to(device)
+
 
     collator = utils.Collator(pad_token_id=tokenizer.pad_token_id)
     train_dataset, label_map = utils.load_classification_dataset(
@@ -68,7 +91,8 @@ def main(args):
         args.field_a,
         args.field_b,
         args.label_field,
-        limit=args.limit
+        limit=args.limit,
+        preprocessor_key=args.preprocessor,
     )
     train_loader = DataLoader(train_dataset, batch_size=args.bsz, shuffle=True, collate_fn=collator)
     dev_dataset, _ = utils.load_classification_dataset(
@@ -77,7 +101,9 @@ def main(args):
         args.field_a,
         args.field_b,
         args.label_field,
-        label_map
+        label_map,
+        limit=args.limit,
+        preprocessor_key=args.preprocessor,
     )
     dev_loader = DataLoader(dev_dataset, batch_size=args.bsz, shuffle=False, collate_fn=collator)
     test_dataset, _ = utils.load_classification_dataset(
@@ -86,7 +112,8 @@ def main(args):
         args.field_a,
         args.field_b,
         args.label_field,
-        label_map
+        label_map,
+        preprocessor_key=args.preprocessor,
     )
     test_loader = DataLoader(test_dataset, batch_size=args.bsz, shuffle=False, collate_fn=collator)
 
@@ -101,6 +128,7 @@ def main(args):
         weight_decay=1e-2,
         betas=betas
     )
+    scaler = torch.cuda.amp.GradScaler(enabled=args.fp16)
 
     # Use suggested learning rate scheduler
     num_training_steps = len(train_dataset) * args.epochs // args.bsz
@@ -124,11 +152,13 @@ def main(args):
             for model_inputs, labels in pbar:
                 model_inputs = {k: v.to(device) for k, v in model_inputs.items()}
                 labels = labels.to(device)
+                with torch.cuda.amp.autocast():
+                    logits, *_ = model(**model_inputs)
+                    loss = F.cross_entropy(logits, labels.squeeze(-1))
+                scaler.scale(loss).backward()
+                scaler.step(optimizer)
+                scaler.update()
                 optimizer.zero_grad()
-                logits, *_ = model(**model_inputs)
-                loss = F.cross_entropy(logits, labels.squeeze(-1))
-                loss.backward()
-                optimizer.step()
                 scheduler.step()
                 avg_loss.update(loss.item())
                 pbar.set_description(f'loss: {avg_loss.get_metric(): 0.4f}, '
@@ -182,6 +212,8 @@ if __name__ == '__main__':
     parser.add_argument('--field-a', type=str)
     parser.add_argument('--field-b', type=str, default=None)
     parser.add_argument('--label-field', type=str, default='label')
+    parser.add_argument('--preprocessor', type=str, default=None,
+                        choices=PREPROCESSORS.keys())
     parser.add_argument('--ckpt-dir', type=Path, default=Path('ckpt/'))
     parser.add_argument('--num-labels', type=int, default=2)
     parser.add_argument('--bsz', type=int, default=32)
@@ -190,8 +222,11 @@ if __name__ == '__main__':
     parser.add_argument('--limit', type=int, default=None)
     parser.add_argument('--seed', type=int, default=1234)
     parser.add_argument('--bias-correction', action='store_true')
+    parser.add_argument('--fp16', action='store_true')
     parser.add_argument('-f', '--force-overwrite', action='store_true')
+    parser.add_argument('--adapter', action='store_true')
     parser.add_argument('--debug', action='store_true')
+    parser.add_argument('--rank', type=int, default=-1)
     args = parser.parse_args()
 
     if args.debug:

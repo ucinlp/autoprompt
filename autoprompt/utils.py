@@ -6,6 +6,8 @@ import random
 import torch
 from torch.nn.utils.rnn import pad_sequence
 
+from autoprompt.preprocessors import PREPROCESSORS
+
 
 logger = logging.getLogger(__name__)
 
@@ -150,10 +152,9 @@ class TriggerTemplatizer:
         # Have the tokenizer encode the text and process the output to:
         # - Create a trigger and predict mask
         # - Replace the predict token with a mask token
-        model_inputs = self._tokenizer.encode_plus(
+        model_inputs = self._tokenizer(
             text,
             add_special_tokens=True,
-            add_prefix_space=True,
             return_tensors='pt'
         )
         input_ids = model_inputs['input_ids']
@@ -237,7 +238,6 @@ class MultiTokenTemplatizer:
             )
         label_tokens = self._tokenizer.encode(
             label,
-            add_prefix_space=True,
             add_special_tokens=False,  # Don't want to add [CLS] mid-sentence
             return_tensors='pt',
         )
@@ -267,9 +267,8 @@ class MultiTokenTemplatizer:
         # Instantiate & tokenize the template
         format_kwargs = format_kwargs.copy()
         text = template.format(**format_kwargs)
-        model_inputs = self._tokenizer.encode_plus(
+        model_inputs = self._tokenizer(
             text,
-            add_prefix_space=True,
             add_special_tokens=True,
             return_tensors='pt',
         )
@@ -314,37 +313,19 @@ def add_task_specific_tokens(tokenizer):
     tokenizer.lama_x_id = tokenizer.convert_tokens_to_ids('[Y]')
 
 
-# Note for loaders: we return all fields as strings so `label_map` isnt a PITA
-# to work with.
-
-def load_tsv(fname):
-    with open(fname, 'r') as f:
-        reader = csv.DictReader(f, delimiter='\t')
-        for row in reader:
-            yield row
-
-
-def _stringify(d):
-    return {k: str(v) for k, v in d.items()}
-
-
-def load_jsonl(fname):
-    with open(fname, 'r') as f:
-        for line in f:
-            yield _stringify(json.loads(line))
-
-
-# TODO(rloganiv): Support more flexible data loaders.
-LOADERS = {
-    '.tsv': load_tsv,
-    '.jsonl': load_jsonl
-}
-
-
-def load_trigger_dataset(fname, templatizer, limit=None, train=False):
-    loader = LOADERS[fname.suffix]
+def load_trigger_dataset(
+    fname,
+    templatizer,
+    limit=None,
+    train=False,
+    preprocessor_key=None
+):
+    if preprocessor_key is None:
+        preprocessor = PREPROCESSORS[fname.suffix]
+    else:
+        preprocessor = PREPROCESSORS[preprocessor_key]
     instances = []
-    for x in loader(fname):
+    for x in preprocessor(fname):
         try:
             model_inputs, label_id = templatizer(x, train=train)
         except ValueError as e:
@@ -365,7 +346,8 @@ def load_classification_dataset(
     input_field_b=None,
     label_field='label',
     label_map=None,
-    limit=None
+    limit=None,
+    preprocessor_key=None,
 ):
     """
     Loads a dataset for classification
@@ -378,13 +360,18 @@ def load_classification_dataset(
     """
     instances = []
     label_map = label_map or {}
-    loader = LOADERS[fname.suffix]
-    for instance in loader(fname):
+    if preprocessor_key is None:
+        preprocessor = PREPROCESSORS[fname.suffix]
+    else:
+        preprocessor = PREPROCESSORS[preprocessor_key]
+    for instance in preprocessor(fname):
         logger.debug(instance)
-        model_inputs = tokenizer.encode_plus(
+        model_inputs = tokenizer(
             instance[input_field_a],
             instance[input_field_b] if input_field_b else None,
             add_special_tokens=True,
+            truncation=True,
+            padding='max_length',
             # add_prefix_space=True,
             return_tensors='pt'
         )
@@ -401,45 +388,50 @@ def load_classification_dataset(
     return instances, label_map
 
 
-def load_continuous_trigger_dataset(
-    fname,
-    tokenizer,
-    input_field_a,
-    input_field_b=None,
-    label_field='label',
-    limit=None
-):
-    """
-    Loads a dataset for classification
+# def load_continuous_trigger_dataset(
+    # fname,
+    # tokenizer,
+    # input_field_a,
+    # input_field_b=None,
+    # label_field='label',
+    # limit=None,
+    # preprocessor_key=None,
+# ):
+    # """
+    # Loads a dataset for classification
 
-    Parameters
-    ==========
-    tokenizer : transformers.PretrainedTokenizer
-        Maps text to id tensors.
-    sentence1 :
-    """
-    instances = []
-    loader = LOADERS[fname.suffix]
-    for instance in loader(fname):
-        logger.debug(instance)
-        model_inputs = tokenizer.encode_plus(
-            instance[input_field_a],
-            instance[input_field_b] if input_field_b else None,
-            add_special_tokens=True,
-            add_prefix_space=True,
-            return_tensors='pt'
-        )
-        logger.debug(model_inputs)
-        label = instance[label_field]
-        label_id = tokenizer.encode(
-            label,
-            add_special_tokens=True,
-            add_prefix_space=True,
-            return_tensors='pt'
-        )
-        # label_id = torch.tensor([[label_id]])  # To make collator expectation
-        logger.debug(f'Label id: {label_id}')
-        instances.append((model_inputs, label_id))
-    if limit:
-        instances = random.sample(instances, limit)
-    return instances
+    # Parameters
+    # ==========
+    # tokenizer : transformers.PretrainedTokenizer
+        # Maps text to id tensors.
+    # sentence1 :
+    # """
+    # instances = []
+    # if preprocessor_key is None:
+        # preprocessor = PREPROCESSORS[fname.suffix]
+    # else:
+        # preprocessor = PREPROCESSORS[preprocessor_key]
+    # for instance in preprocessor(fname):
+        # logger.debug(instance)
+        # model_inputs = tokenizer(
+            # instance[input_field_a],
+            # instance[input_field_b] if input_field_b else None,
+            # add_special_tokens=True,
+            # # add_prefix_space=True,
+            # return_tensors='pt'
+        # )
+        # logger.debug(model_inputs)
+        # label = instance[label_field]
+        # label_id = tokenizer.encode(
+            # label,
+            # add_special_tokens=True,
+            # add_prefix_space=True,
+            # return_tensors='pt'
+        # )
+        # # label_id = torch.tensor([[label_id]])  # To make collator expectation
+        # logger.debug(f'Label id: {label_id}')
+        # instances.append((model_inputs, label_id))
+    # if limit:
+        # instances = random.sample(instances, limit)
+    # return instances
+

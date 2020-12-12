@@ -87,11 +87,14 @@ class TestTriggerTemplatizer(TestCase):
         assert predict_token_id == self.default_tokenizer.mask_token_id
 
     def test_roberta(self):
-        tokenizer = AutoTokenizer.from_pretrained('roberta-base')
+        tokenizer = AutoTokenizer.from_pretrained(
+            'roberta-base',
+            add_prefix_space=True,
+        )
         utils.add_task_specific_tokens(tokenizer)
         templatizer = utils.TriggerTemplatizer(
             self.default_template,
-            tokenizer
+            tokenizer,
         )
 
         model_inputs, label = templatizer(self.default_instance)
@@ -101,18 +104,17 @@ class TestTriggerTemplatizer(TestCase):
         assert torch.equal(expected_label, label)
 
         # For BERT ouput is expected to have the following keys
-        print(model_inputs)
         assert 'input_ids' in model_inputs
         assert 'attention_mask' in model_inputs
 
         # Test that the custom masks match our expectations
         expected_trigger_mask = torch.tensor(
-            [[False, True, True, False, False, True, False, False, False]]
+            [[False, True, False, True, False, False, False, True, False, False, False, False]]
         )
         assert torch.equal(expected_trigger_mask, model_inputs['trigger_mask'])
 
         expected_predict_mask = torch.tensor(
-            [[False, False, False, False, False, False, False, True, False]]
+            [[False, False, False, False, False, False, False, False, False, False, True, False]]
         )
         assert torch.equal(expected_predict_mask, model_inputs['predict_mask'])
 
@@ -163,7 +165,10 @@ class TestCollator(TestCase):
 
     def test_collator(self):
         template = '[T] [T] {arbitrary} [T] {fields} [P]'
-        tokenizer = AutoTokenizer.from_pretrained('bert-base-cased')
+        tokenizer = AutoTokenizer.from_pretrained(
+            'bert-base-cased',
+            add_prefix_space=True,
+        )
         utils.add_task_specific_tokens(tokenizer)
         templatizer = utils.TriggerTemplatizer(
             template,
@@ -186,8 +191,8 @@ class TestCollator(TestCase):
 
         # Check results match our expectations
         expected_labels = torch.tensor([
-            tokenizer.encode('hot', add_special_tokens=False, add_prefix_space=True),
-            tokenizer.encode('cold', add_special_tokens=False, add_prefix_space=True),
+            tokenizer.encode('hot', add_special_tokens=False),
+            tokenizer.encode('cold', add_special_tokens=False),
         ])
         assert torch.equal(expected_labels, labels)
 

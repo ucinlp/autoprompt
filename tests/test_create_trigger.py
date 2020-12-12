@@ -3,7 +3,7 @@ from unittest import TestCase
 import torch
 from transformers import AutoConfig, AutoModelWithLMHead, AutoTokenizer
 
-import lmat.create_trigger as ct
+import autoprompt.create_trigger as ct
 
 
 def _load(model_name):

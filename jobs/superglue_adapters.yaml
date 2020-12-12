@@ -1,0 +1,1201 @@
+---
+out: <model>bert-large-cased-adapter_<task>BoolQ_<seed>1_<limit>10
+script: autoprompt/finetune.py
+args:
+    - '--model-name=bert-large-cased'
+    - '--train=data/SuperGLUE/BoolQ/train.jsonl'
+    - '--dev=data/SuperGLUE/BoolQ/val.jsonl'
+    - '--test=data/SuperGLUE/BoolQ/val.jsonl'
+    - '--field-a=passage'
+    - '--field-b=question'
+    - '--num-labels=2'
+    - '--bsz=16'
+    - '--epochs=20'
+    - '--lr=2e-5'
+    - '--limit=10'
+    - '--seed=1'
+    - '--bias-correction'
+    - '--ckpt=ckpt/<model>bert-large-cased-adapter_<task>BoolQ_<seed>1_<limit>10'
+    - '--adapter'
+...
+---
+out: <model>bert-large-cased-adapter_<task>BoolQ_<seed>1_<limit>50
+script: autoprompt/finetune.py
+args:
+    - '--model-name=bert-large-cased'
+    - '--train=data/SuperGLUE/BoolQ/train.jsonl'
+    - '--dev=data/SuperGLUE/BoolQ/val.jsonl'
+    - '--test=data/SuperGLUE/BoolQ/val.jsonl'
+    - '--field-a=passage'
+    - '--field-b=question'
+    - '--num-labels=2'
+    - '--bsz=16'
+    - '--epochs=20'
+    - '--lr=2e-5'
+    - '--limit=50'
+    - '--seed=1'
+    - '--bias-correction'
+    - '--ckpt=ckpt/<model>bert-large-cased-adapter_<task>BoolQ_<seed>1_<limit>50'
+    - '--adapter'
+...
+---
+out: <model>bert-large-cased-adapter_<task>BoolQ_<seed>1_<limit>100
+script: autoprompt/finetune.py
+args:
+    - '--model-name=bert-large-cased'
+    - '--train=data/SuperGLUE/BoolQ/train.jsonl'
+    - '--dev=data/SuperGLUE/BoolQ/val.jsonl'
+    - '--test=data/SuperGLUE/BoolQ/val.jsonl'
+    - '--field-a=passage'
+    - '--field-b=question'
+    - '--num-labels=2'
+    - '--bsz=16'
+    - '--epochs=20'
+    - '--lr=2e-5'
+    - '--limit=100'
+    - '--seed=1'
+    - '--bias-correction'
+    - '--ckpt=ckpt/<model>bert-large-cased-adapter_<task>BoolQ_<seed>1_<limit>100'
+    - '--adapter'
+...
+---
+out: <model>bert-large-cased-adapter_<task>BoolQ_<seed>1_<limit>1000
+script: autoprompt/finetune.py
+args:
+    - '--model-name=bert-large-cased'
+    - '--train=data/SuperGLUE/BoolQ/train.jsonl'
+    - '--dev=data/SuperGLUE/BoolQ/val.jsonl'
+    - '--test=data/SuperGLUE/BoolQ/val.jsonl'
+    - '--field-a=passage'
+    - '--field-b=question'
+    - '--num-labels=2'
+    - '--bsz=16'
+    - '--epochs=20'
+    - '--lr=2e-5'
+    - '--limit=1000'
+    - '--seed=1'
+    - '--bias-correction'
+    - '--ckpt=ckpt/<model>bert-large-cased-adapter_<task>BoolQ_<seed>1_<limit>1000'
+    - '--adapter'
+...
+---
+out: <model>bert-large-cased-adapter_<task>BoolQ_<seed>420_<limit>10
+script: autoprompt/finetune.py
+args:
+    - '--model-name=bert-large-cased'
+    - '--train=data/SuperGLUE/BoolQ/train.jsonl'
+    - '--dev=data/SuperGLUE/BoolQ/val.jsonl'
+    - '--test=data/SuperGLUE/BoolQ/val.jsonl'
+    - '--field-a=passage'
+    - '--field-b=question'
+    - '--num-labels=2'
+    - '--bsz=16'
+    - '--epochs=20'
+    - '--lr=2e-5'
+    - '--limit=10'
+    - '--seed=420'
+    - '--bias-correction'
+    - '--ckpt=ckpt/<model>bert-large-cased-adapter_<task>BoolQ_<seed>420_<limit>10'
+    - '--adapter'
+...
+---
+out: <model>bert-large-cased-adapter_<task>BoolQ_<seed>420_<limit>50
+script: autoprompt/finetune.py
+args:
+    - '--model-name=bert-large-cased'
+    - '--train=data/SuperGLUE/BoolQ/train.jsonl'
+    - '--dev=data/SuperGLUE/BoolQ/val.jsonl'
+    - '--test=data/SuperGLUE/BoolQ/val.jsonl'
+    - '--field-a=passage'
+    - '--field-b=question'
+    - '--num-labels=2'
+    - '--bsz=16'
+    - '--epochs=20'
+    - '--lr=2e-5'
+    - '--limit=50'
+    - '--seed=420'
+    - '--bias-correction'
+    - '--ckpt=ckpt/<model>bert-large-cased-adapter_<task>BoolQ_<seed>420_<limit>50'
+    - '--adapter'
+...
+---
+out: <model>bert-large-cased-adapter_<task>BoolQ_<seed>420_<limit>100
+script: autoprompt/finetune.py
+args:
+    - '--model-name=bert-large-cased'
+    - '--train=data/SuperGLUE/BoolQ/train.jsonl'
+    - '--dev=data/SuperGLUE/BoolQ/val.jsonl'
+    - '--test=data/SuperGLUE/BoolQ/val.jsonl'
+    - '--field-a=passage'
+    - '--field-b=question'
+    - '--num-labels=2'
+    - '--bsz=16'
+    - '--epochs=20'
+    - '--lr=2e-5'
+    - '--limit=100'
+    - '--seed=420'
+    - '--bias-correction'
+    - '--ckpt=ckpt/<model>bert-large-cased-adapter_<task>BoolQ_<seed>420_<limit>100'
+    - '--adapter'
+...
+---
+out: <model>bert-large-cased-adapter_<task>BoolQ_<seed>420_<limit>1000
+script: autoprompt/finetune.py
+args:
+    - '--model-name=bert-large-cased'
+    - '--train=data/SuperGLUE/BoolQ/train.jsonl'
+    - '--dev=data/SuperGLUE/BoolQ/val.jsonl'
+    - '--test=data/SuperGLUE/BoolQ/val.jsonl'
+    - '--field-a=passage'
+    - '--field-b=question'
+    - '--num-labels=2'
+    - '--bsz=16'
+    - '--epochs=20'
+    - '--lr=2e-5'
+    - '--limit=1000'
+    - '--seed=420'
+    - '--bias-correction'
+    - '--ckpt=ckpt/<model>bert-large-cased-adapter_<task>BoolQ_<seed>420_<limit>1000'
+    - '--adapter'
+...
+---
+out: <model>bert-large-cased-adapter_<task>BoolQ_<seed>808_<limit>10
+script: autoprompt/finetune.py
+args:
+    - '--model-name=bert-large-cased'
+    - '--train=data/SuperGLUE/BoolQ/train.jsonl'
+    - '--dev=data/SuperGLUE/BoolQ/val.jsonl'
+    - '--test=data/SuperGLUE/BoolQ/val.jsonl'
+    - '--field-a=passage'
+    - '--field-b=question'
+    - '--num-labels=2'
+    - '--bsz=16'
+    - '--epochs=20'
+    - '--lr=2e-5'
+    - '--limit=10'
+    - '--seed=808'
+    - '--bias-correction'
+    - '--ckpt=ckpt/<model>bert-large-cased-adapter_<task>BoolQ_<seed>808_<limit>10'
+    - '--adapter'
+...
+---
+out: <model>bert-large-cased-adapter_<task>BoolQ_<seed>808_<limit>50
+script: autoprompt/finetune.py
+args:
+    - '--model-name=bert-large-cased'
+    - '--train=data/SuperGLUE/BoolQ/train.jsonl'
+    - '--dev=data/SuperGLUE/BoolQ/val.jsonl'
+    - '--test=data/SuperGLUE/BoolQ/val.jsonl'
+    - '--field-a=passage'
+    - '--field-b=question'
+    - '--num-labels=2'
+    - '--bsz=16'
+    - '--epochs=20'
+    - '--lr=2e-5'
+    - '--limit=50'
+    - '--seed=808'
+    - '--bias-correction'
+    - '--ckpt=ckpt/<model>bert-large-cased-adapter_<task>BoolQ_<seed>808_<limit>50'
+    - '--adapter'
+...
+---
+out: <model>bert-large-cased-adapter_<task>BoolQ_<seed>808_<limit>100
+script: autoprompt/finetune.py
+args:
+    - '--model-name=bert-large-cased'
+    - '--train=data/SuperGLUE/BoolQ/train.jsonl'
+    - '--dev=data/SuperGLUE/BoolQ/val.jsonl'
+    - '--test=data/SuperGLUE/BoolQ/val.jsonl'
+    - '--field-a=passage'
+    - '--field-b=question'
+    - '--num-labels=2'
+    - '--bsz=16'
+    - '--epochs=20'
+    - '--lr=2e-5'
+    - '--limit=100'
+    - '--seed=808'
+    - '--bias-correction'
+    - '--ckpt=ckpt/<model>bert-large-cased-adapter_<task>BoolQ_<seed>808_<limit>100'
+    - '--adapter'
+...
+---
+out: <model>bert-large-cased-adapter_<task>BoolQ_<seed>808_<limit>1000
+script: autoprompt/finetune.py
+args:
+    - '--model-name=bert-large-cased'
+    - '--train=data/SuperGLUE/BoolQ/train.jsonl'
+    - '--dev=data/SuperGLUE/BoolQ/val.jsonl'
+    - '--test=data/SuperGLUE/BoolQ/val.jsonl'
+    - '--field-a=passage'
+    - '--field-b=question'
+    - '--num-labels=2'
+    - '--bsz=16'
+    - '--epochs=20'
+    - '--lr=2e-5'
+    - '--limit=1000'
+    - '--seed=808'
+    - '--bias-correction'
+    - '--ckpt=ckpt/<model>bert-large-cased-adapter_<task>BoolQ_<seed>808_<limit>1000'
+    - '--adapter'
+...
+---
+out: <model>bert-large-cased-adapter_<task>BoolQ_<seed>1234_<limit>10
+script: autoprompt/finetune.py
+args:
+    - '--model-name=bert-large-cased'
+    - '--train=data/SuperGLUE/BoolQ/train.jsonl'
+    - '--dev=data/SuperGLUE/BoolQ/val.jsonl'
+    - '--test=data/SuperGLUE/BoolQ/val.jsonl'
+    - '--field-a=passage'
+    - '--field-b=question'
+    - '--num-labels=2'
+    - '--bsz=16'
+    - '--epochs=20'
+    - '--lr=2e-5'
+    - '--limit=10'
+    - '--seed=1234'
+    - '--bias-correction'
+    - '--ckpt=ckpt/<model>bert-large-cased-adapter_<task>BoolQ_<seed>1234_<limit>10'
+    - '--adapter'
+...
+---
+out: <model>bert-large-cased-adapter_<task>BoolQ_<seed>1234_<limit>50
+script: autoprompt/finetune.py
+args:
+    - '--model-name=bert-large-cased'
+    - '--train=data/SuperGLUE/BoolQ/train.jsonl'
+    - '--dev=data/SuperGLUE/BoolQ/val.jsonl'
+    - '--test=data/SuperGLUE/BoolQ/val.jsonl'
+    - '--field-a=passage'
+    - '--field-b=question'
+    - '--num-labels=2'
+    - '--bsz=16'
+    - '--epochs=20'
+    - '--lr=2e-5'
+    - '--limit=50'
+    - '--seed=1234'
+    - '--bias-correction'
+    - '--ckpt=ckpt/<model>bert-large-cased-adapter_<task>BoolQ_<seed>1234_<limit>50'
+    - '--adapter'
+...
+---
+out: <model>bert-large-cased-adapter_<task>BoolQ_<seed>1234_<limit>100
+script: autoprompt/finetune.py
+args:
+    - '--model-name=bert-large-cased'
+    - '--train=data/SuperGLUE/BoolQ/train.jsonl'
+    - '--dev=data/SuperGLUE/BoolQ/val.jsonl'
+    - '--test=data/SuperGLUE/BoolQ/val.jsonl'
+    - '--field-a=passage'
+    - '--field-b=question'
+    - '--num-labels=2'
+    - '--bsz=16'
+    - '--epochs=20'
+    - '--lr=2e-5'
+    - '--limit=100'
+    - '--seed=1234'
+    - '--bias-correction'
+    - '--ckpt=ckpt/<model>bert-large-cased-adapter_<task>BoolQ_<seed>1234_<limit>100'
+    - '--adapter'
+...
+---
+out: <model>bert-large-cased-adapter_<task>BoolQ_<seed>1234_<limit>1000
+script: autoprompt/finetune.py
+args:
+    - '--model-name=bert-large-cased'
+    - '--train=data/SuperGLUE/BoolQ/train.jsonl'
+    - '--dev=data/SuperGLUE/BoolQ/val.jsonl'
+    - '--test=data/SuperGLUE/BoolQ/val.jsonl'
+    - '--field-a=passage'
+    - '--field-b=question'
+    - '--num-labels=2'
+    - '--bsz=16'
+    - '--epochs=20'
+    - '--lr=2e-5'
+    - '--limit=1000'
+    - '--seed=1234'
+    - '--bias-correction'
+    - '--ckpt=ckpt/<model>bert-large-cased-adapter_<task>BoolQ_<seed>1234_<limit>1000'
+    - '--adapter'
+...
+---
+out: <model>bert-large-cased-adapter_<task>BoolQ_<seed>1337_<limit>10
+script: autoprompt/finetune.py
+args:
+    - '--model-name=bert-large-cased'
+    - '--train=data/SuperGLUE/BoolQ/train.jsonl'
+    - '--dev=data/SuperGLUE/BoolQ/val.jsonl'
+    - '--test=data/SuperGLUE/BoolQ/val.jsonl'
+    - '--field-a=passage'
+    - '--field-b=question'
+    - '--num-labels=2'
+    - '--bsz=16'
+    - '--epochs=20'
+    - '--lr=2e-5'
+    - '--limit=10'
+    - '--seed=1337'
+    - '--bias-correction'
+    - '--ckpt=ckpt/<model>bert-large-cased-adapter_<task>BoolQ_<seed>1337_<limit>10'
+    - '--adapter'
+...
+---
+out: <model>bert-large-cased-adapter_<task>BoolQ_<seed>1337_<limit>50
+script: autoprompt/finetune.py
+args:
+    - '--model-name=bert-large-cased'
+    - '--train=data/SuperGLUE/BoolQ/train.jsonl'
+    - '--dev=data/SuperGLUE/BoolQ/val.jsonl'
+    - '--test=data/SuperGLUE/BoolQ/val.jsonl'
+    - '--field-a=passage'
+    - '--field-b=question'
+    - '--num-labels=2'
+    - '--bsz=16'
+    - '--epochs=20'
+    - '--lr=2e-5'
+    - '--limit=50'
+    - '--seed=1337'
+    - '--bias-correction'
+    - '--ckpt=ckpt/<model>bert-large-cased-adapter_<task>BoolQ_<seed>1337_<limit>50'
+    - '--adapter'
+...
+---
+out: <model>bert-large-cased-adapter_<task>BoolQ_<seed>1337_<limit>100
+script: autoprompt/finetune.py
+args:
+    - '--model-name=bert-large-cased'
+    - '--train=data/SuperGLUE/BoolQ/train.jsonl'
+    - '--dev=data/SuperGLUE/BoolQ/val.jsonl'
+    - '--test=data/SuperGLUE/BoolQ/val.jsonl'
+    - '--field-a=passage'
+    - '--field-b=question'
+    - '--num-labels=2'
+    - '--bsz=16'
+    - '--epochs=20'
+    - '--lr=2e-5'
+    - '--limit=100'
+    - '--seed=1337'
+    - '--bias-correction'
+    - '--ckpt=ckpt/<model>bert-large-cased-adapter_<task>BoolQ_<seed>1337_<limit>100'
+    - '--adapter'
+...
+---
+out: <model>bert-large-cased-adapter_<task>BoolQ_<seed>1337_<limit>1000
+script: autoprompt/finetune.py
+args:
+    - '--model-name=bert-large-cased'
+    - '--train=data/SuperGLUE/BoolQ/train.jsonl'
+    - '--dev=data/SuperGLUE/BoolQ/val.jsonl'
+    - '--test=data/SuperGLUE/BoolQ/val.jsonl'
+    - '--field-a=passage'
+    - '--field-b=question'
+    - '--num-labels=2'
+    - '--bsz=16'
+    - '--epochs=20'
+    - '--lr=2e-5'
+    - '--limit=1000'
+    - '--seed=1337'
+    - '--bias-correction'
+    - '--ckpt=ckpt/<model>bert-large-cased-adapter_<task>BoolQ_<seed>1337_<limit>1000'
+    - '--adapter'
+...
+---
+out: <model>bert-large-cased-adapter_<task>CB_<seed>1_<limit>10
+script: autoprompt/finetune.py
+args:
+    - '--model-name=bert-large-cased'
+    - '--train=data/SuperGLUE/CB/train.jsonl'
+    - '--dev=data/SuperGLUE/CB/val.jsonl'
+    - '--test=data/SuperGLUE/CB/val.jsonl'
+    - '--field-a=premise'
+    - '--field-b=hypothesis'
+    - '--num-labels=3'
+    - '--bsz=16'
+    - '--epochs=20'
+    - '--lr=2e-5'
+    - '--limit=10'
+    - '--seed=1'
+    - '--bias-correction'
+    - '--ckpt=ckpt/<model>bert-large-cased-adapter_<task>CB_<seed>1_<limit>10'
+    - '--adapter'
+...
+---
+out: <model>bert-large-cased-adapter_<task>CB_<seed>1_<limit>50
+script: autoprompt/finetune.py
+args:
+    - '--model-name=bert-large-cased'
+    - '--train=data/SuperGLUE/CB/train.jsonl'
+    - '--dev=data/SuperGLUE/CB/val.jsonl'
+    - '--test=data/SuperGLUE/CB/val.jsonl'
+    - '--field-a=premise'
+    - '--field-b=hypothesis'
+    - '--num-labels=3'
+    - '--bsz=16'
+    - '--epochs=20'
+    - '--lr=2e-5'
+    - '--limit=50'
+    - '--seed=1'
+    - '--bias-correction'
+    - '--ckpt=ckpt/<model>bert-large-cased-adapter_<task>CB_<seed>1_<limit>50'
+    - '--adapter'
+...
+---
+out: <model>bert-large-cased-adapter_<task>CB_<seed>1_<limit>100
+script: autoprompt/finetune.py
+args:
+    - '--model-name=bert-large-cased'
+    - '--train=data/SuperGLUE/CB/train.jsonl'
+    - '--dev=data/SuperGLUE/CB/val.jsonl'
+    - '--test=data/SuperGLUE/CB/val.jsonl'
+    - '--field-a=premise'
+    - '--field-b=hypothesis'
+    - '--num-labels=3'
+    - '--bsz=16'
+    - '--epochs=20'
+    - '--lr=2e-5'
+    - '--limit=100'
+    - '--seed=1'
+    - '--bias-correction'
+    - '--ckpt=ckpt/<model>bert-large-cased-adapter_<task>CB_<seed>1_<limit>100'
+    - '--adapter'
+...
+---
+out: <model>bert-large-cased-adapter_<task>CB_<seed>1_<limit>1000
+script: autoprompt/finetune.py
+args:
+    - '--model-name=bert-large-cased'
+    - '--train=data/SuperGLUE/CB/train.jsonl'
+    - '--dev=data/SuperGLUE/CB/val.jsonl'
+    - '--test=data/SuperGLUE/CB/val.jsonl'
+    - '--field-a=premise'
+    - '--field-b=hypothesis'
+    - '--num-labels=3'
+    - '--bsz=16'
+    - '--epochs=20'
+    - '--lr=2e-5'
+    - '--limit=1000'
+    - '--seed=1'
+    - '--bias-correction'
+    - '--ckpt=ckpt/<model>bert-large-cased-adapter_<task>CB_<seed>1_<limit>1000'
+    - '--adapter'
+...
+---
+out: <model>bert-large-cased-adapter_<task>CB_<seed>420_<limit>10
+script: autoprompt/finetune.py
+args:
+    - '--model-name=bert-large-cased'
+    - '--train=data/SuperGLUE/CB/train.jsonl'
+    - '--dev=data/SuperGLUE/CB/val.jsonl'
+    - '--test=data/SuperGLUE/CB/val.jsonl'
+    - '--field-a=premise'
+    - '--field-b=hypothesis'
+    - '--num-labels=3'
+    - '--bsz=16'
+    - '--epochs=20'
+    - '--lr=2e-5'
+    - '--limit=10'
+    - '--seed=420'
+    - '--bias-correction'
+    - '--ckpt=ckpt/<model>bert-large-cased-adapter_<task>CB_<seed>420_<limit>10'
+    - '--adapter'
+...
+---
+out: <model>bert-large-cased-adapter_<task>CB_<seed>420_<limit>50
+script: autoprompt/finetune.py
+args:
+    - '--model-name=bert-large-cased'
+    - '--train=data/SuperGLUE/CB/train.jsonl'
+    - '--dev=data/SuperGLUE/CB/val.jsonl'
+    - '--test=data/SuperGLUE/CB/val.jsonl'
+    - '--field-a=premise'
+    - '--field-b=hypothesis'
+    - '--num-labels=3'
+    - '--bsz=16'
+    - '--epochs=20'
+    - '--lr=2e-5'
+    - '--limit=50'
+    - '--seed=420'
+    - '--bias-correction'
+    - '--ckpt=ckpt/<model>bert-large-cased-adapter_<task>CB_<seed>420_<limit>50'
+    - '--adapter'
+...
+---
+out: <model>bert-large-cased-adapter_<task>CB_<seed>420_<limit>100
+script: autoprompt/finetune.py
+args:
+    - '--model-name=bert-large-cased'
+    - '--train=data/SuperGLUE/CB/train.jsonl'
+    - '--dev=data/SuperGLUE/CB/val.jsonl'
+    - '--test=data/SuperGLUE/CB/val.jsonl'
+    - '--field-a=premise'
+    - '--field-b=hypothesis'
+    - '--num-labels=3'
+    - '--bsz=16'
+    - '--epochs=20'
+    - '--lr=2e-5'
+    - '--limit=100'
+    - '--seed=420'
+    - '--bias-correction'
+    - '--ckpt=ckpt/<model>bert-large-cased-adapter_<task>CB_<seed>420_<limit>100'
+    - '--adapter'
+...
+---
+out: <model>bert-large-cased-adapter_<task>CB_<seed>420_<limit>1000
+script: autoprompt/finetune.py
+args:
+    - '--model-name=bert-large-cased'
+    - '--train=data/SuperGLUE/CB/train.jsonl'
+    - '--dev=data/SuperGLUE/CB/val.jsonl'
+    - '--test=data/SuperGLUE/CB/val.jsonl'
+    - '--field-a=premise'
+    - '--field-b=hypothesis'
+    - '--num-labels=3'
+    - '--bsz=16'
+    - '--epochs=20'
+    - '--lr=2e-5'
+    - '--limit=1000'
+    - '--seed=420'
+    - '--bias-correction'
+    - '--ckpt=ckpt/<model>bert-large-cased-adapter_<task>CB_<seed>420_<limit>1000'
+    - '--adapter'
+...
+---
+out: <model>bert-large-cased-adapter_<task>CB_<seed>808_<limit>10
+script: autoprompt/finetune.py
+args:
+    - '--model-name=bert-large-cased'
+    - '--train=data/SuperGLUE/CB/train.jsonl'
+    - '--dev=data/SuperGLUE/CB/val.jsonl'
+    - '--test=data/SuperGLUE/CB/val.jsonl'
+    - '--field-a=premise'
+    - '--field-b=hypothesis'
+    - '--num-labels=3'
+    - '--bsz=16'
+    - '--epochs=20'
+    - '--lr=2e-5'
+    - '--limit=10'
+    - '--seed=808'
+    - '--bias-correction'
+    - '--ckpt=ckpt/<model>bert-large-cased-adapter_<task>CB_<seed>808_<limit>10'
+    - '--adapter'
+...
+---
+out: <model>bert-large-cased-adapter_<task>CB_<seed>808_<limit>50
+script: autoprompt/finetune.py
+args:
+    - '--model-name=bert-large-cased'
+    - '--train=data/SuperGLUE/CB/train.jsonl'
+    - '--dev=data/SuperGLUE/CB/val.jsonl'
+    - '--test=data/SuperGLUE/CB/val.jsonl'
+    - '--field-a=premise'
+    - '--field-b=hypothesis'
+    - '--num-labels=3'
+    - '--bsz=16'
+    - '--epochs=20'
+    - '--lr=2e-5'
+    - '--limit=50'
+    - '--seed=808'
+    - '--bias-correction'
+    - '--ckpt=ckpt/<model>bert-large-cased-adapter_<task>CB_<seed>808_<limit>50'
+    - '--adapter'
+...
+---
+out: <model>bert-large-cased-adapter_<task>CB_<seed>808_<limit>100
+script: autoprompt/finetune.py
+args:
+    - '--model-name=bert-large-cased'
+    - '--train=data/SuperGLUE/CB/train.jsonl'
+    - '--dev=data/SuperGLUE/CB/val.jsonl'
+    - '--test=data/SuperGLUE/CB/val.jsonl'
+    - '--field-a=premise'
+    - '--field-b=hypothesis'
+    - '--num-labels=3'
+    - '--bsz=16'
+    - '--epochs=20'
+    - '--lr=2e-5'
+    - '--limit=100'
+    - '--seed=808'
+    - '--bias-correction'
+    - '--ckpt=ckpt/<model>bert-large-cased-adapter_<task>CB_<seed>808_<limit>100'
+    - '--adapter'
+...
+---
+out: <model>bert-large-cased-adapter_<task>CB_<seed>808_<limit>1000
+script: autoprompt/finetune.py
+args:
+    - '--model-name=bert-large-cased'
+    - '--train=data/SuperGLUE/CB/train.jsonl'
+    - '--dev=data/SuperGLUE/CB/val.jsonl'
+    - '--test=data/SuperGLUE/CB/val.jsonl'
+    - '--field-a=premise'
+    - '--field-b=hypothesis'
+    - '--num-labels=3'
+    - '--bsz=16'
+    - '--epochs=20'
+    - '--lr=2e-5'
+    - '--limit=1000'
+    - '--seed=808'
+    - '--bias-correction'
+    - '--ckpt=ckpt/<model>bert-large-cased-adapter_<task>CB_<seed>808_<limit>1000'
+    - '--adapter'
+...
+---
+out: <model>bert-large-cased-adapter_<task>CB_<seed>1234_<limit>10
+script: autoprompt/finetune.py
+args:
+    - '--model-name=bert-large-cased'
+    - '--train=data/SuperGLUE/CB/train.jsonl'
+    - '--dev=data/SuperGLUE/CB/val.jsonl'
+    - '--test=data/SuperGLUE/CB/val.jsonl'
+    - '--field-a=premise'
+    - '--field-b=hypothesis'
+    - '--num-labels=3'
+    - '--bsz=16'
+    - '--epochs=20'
+    - '--lr=2e-5'
+    - '--limit=10'
+    - '--seed=1234'
+    - '--bias-correction'
+    - '--ckpt=ckpt/<model>bert-large-cased-adapter_<task>CB_<seed>1234_<limit>10'
+    - '--adapter'
+...
+---
+out: <model>bert-large-cased-adapter_<task>CB_<seed>1234_<limit>50
+script: autoprompt/finetune.py
+args:
+    - '--model-name=bert-large-cased'
+    - '--train=data/SuperGLUE/CB/train.jsonl'
+    - '--dev=data/SuperGLUE/CB/val.jsonl'
+    - '--test=data/SuperGLUE/CB/val.jsonl'
+    - '--field-a=premise'
+    - '--field-b=hypothesis'
+    - '--num-labels=3'
+    - '--bsz=16'
+    - '--epochs=20'
+    - '--lr=2e-5'
+    - '--limit=50'
+    - '--seed=1234'
+    - '--bias-correction'
+    - '--ckpt=ckpt/<model>bert-large-cased-adapter_<task>CB_<seed>1234_<limit>50'
+    - '--adapter'
+...
+---
+out: <model>bert-large-cased-adapter_<task>CB_<seed>1234_<limit>100
+script: autoprompt/finetune.py
+args:
+    - '--model-name=bert-large-cased'
+    - '--train=data/SuperGLUE/CB/train.jsonl'
+    - '--dev=data/SuperGLUE/CB/val.jsonl'
+    - '--test=data/SuperGLUE/CB/val.jsonl'
+    - '--field-a=premise'
+    - '--field-b=hypothesis'
+    - '--num-labels=3'
+    - '--bsz=16'
+    - '--epochs=20'
+    - '--lr=2e-5'
+    - '--limit=100'
+    - '--seed=1234'
+    - '--bias-correction'
+    - '--ckpt=ckpt/<model>bert-large-cased-adapter_<task>CB_<seed>1234_<limit>100'
+    - '--adapter'
+...
+---
+out: <model>bert-large-cased-adapter_<task>CB_<seed>1234_<limit>1000
+script: autoprompt/finetune.py
+args:
+    - '--model-name=bert-large-cased'
+    - '--train=data/SuperGLUE/CB/train.jsonl'
+    - '--dev=data/SuperGLUE/CB/val.jsonl'
+    - '--test=data/SuperGLUE/CB/val.jsonl'
+    - '--field-a=premise'
+    - '--field-b=hypothesis'
+    - '--num-labels=3'
+    - '--bsz=16'
+    - '--epochs=20'
+    - '--lr=2e-5'
+    - '--limit=1000'
+    - '--seed=1234'
+    - '--bias-correction'
+    - '--ckpt=ckpt/<model>bert-large-cased-adapter_<task>CB_<seed>1234_<limit>1000'
+    - '--adapter'
+...
+---
+out: <model>bert-large-cased-adapter_<task>CB_<seed>1337_<limit>10
+script: autoprompt/finetune.py
+args:
+    - '--model-name=bert-large-cased'
+    - '--train=data/SuperGLUE/CB/train.jsonl'
+    - '--dev=data/SuperGLUE/CB/val.jsonl'
+    - '--test=data/SuperGLUE/CB/val.jsonl'
+    - '--field-a=premise'
+    - '--field-b=hypothesis'
+    - '--num-labels=3'
+    - '--bsz=16'
+    - '--epochs=20'
+    - '--lr=2e-5'
+    - '--limit=10'
+    - '--seed=1337'
+    - '--bias-correction'
+    - '--ckpt=ckpt/<model>bert-large-cased-adapter_<task>CB_<seed>1337_<limit>10'
+    - '--adapter'
+...
+---
+out: <model>bert-large-cased-adapter_<task>CB_<seed>1337_<limit>50
+script: autoprompt/finetune.py
+args:
+    - '--model-name=bert-large-cased'
+    - '--train=data/SuperGLUE/CB/train.jsonl'
+    - '--dev=data/SuperGLUE/CB/val.jsonl'
+    - '--test=data/SuperGLUE/CB/val.jsonl'
+    - '--field-a=premise'
+    - '--field-b=hypothesis'
+    - '--num-labels=3'
+    - '--bsz=16'
+    - '--epochs=20'
+    - '--lr=2e-5'
+    - '--limit=50'
+    - '--seed=1337'
+    - '--bias-correction'
+    - '--ckpt=ckpt/<model>bert-large-cased-adapter_<task>CB_<seed>1337_<limit>50'
+    - '--adapter'
+...
+---
+out: <model>bert-large-cased-adapter_<task>CB_<seed>1337_<limit>100
+script: autoprompt/finetune.py
+args:
+    - '--model-name=bert-large-cased'
+    - '--train=data/SuperGLUE/CB/train.jsonl'
+    - '--dev=data/SuperGLUE/CB/val.jsonl'
+    - '--test=data/SuperGLUE/CB/val.jsonl'
+    - '--field-a=premise'
+    - '--field-b=hypothesis'
+    - '--num-labels=3'
+    - '--bsz=16'
+    - '--epochs=20'
+    - '--lr=2e-5'
+    - '--limit=100'
+    - '--seed=1337'
+    - '--bias-correction'
+    - '--ckpt=ckpt/<model>bert-large-cased-adapter_<task>CB_<seed>1337_<limit>100'
+    - '--adapter'
+...
+---
+out: <model>bert-large-cased-adapter_<task>CB_<seed>1337_<limit>1000
+script: autoprompt/finetune.py
+args:
+    - '--model-name=bert-large-cased'
+    - '--train=data/SuperGLUE/CB/train.jsonl'
+    - '--dev=data/SuperGLUE/CB/val.jsonl'
+    - '--test=data/SuperGLUE/CB/val.jsonl'
+    - '--field-a=premise'
+    - '--field-b=hypothesis'
+    - '--num-labels=3'
+    - '--bsz=16'
+    - '--epochs=20'
+    - '--lr=2e-5'
+    - '--limit=1000'
+    - '--seed=1337'
+    - '--bias-correction'
+    - '--ckpt=ckpt/<model>bert-large-cased-adapter_<task>CB_<seed>1337_<limit>1000'
+    - '--adapter'
+...
+---
+out: <model>bert-large-cased-adapter_<task>RTE_<seed>1_<limit>10
+script: autoprompt/finetune.py
+args:
+    - '--model-name=bert-large-cased'
+    - '--train=data/SuperGLUE/RTE/train.jsonl'
+    - '--dev=data/SuperGLUE/RTE/val.jsonl'
+    - '--test=data/SuperGLUE/RTE/val.jsonl'
+    - '--field-a=premise'
+    - '--field-b=hypothesis'
+    - '--num-labels=2'
+    - '--bsz=16'
+    - '--epochs=20'
+    - '--lr=2e-5'
+    - '--limit=10'
+    - '--seed=1'
+    - '--bias-correction'
+    - '--ckpt=ckpt/<model>bert-large-cased-adapter_<task>RTE_<seed>1_<limit>10'
+    - '--adapter'
+...
+---
+out: <model>bert-large-cased-adapter_<task>RTE_<seed>1_<limit>50
+script: autoprompt/finetune.py
+args:
+    - '--model-name=bert-large-cased'
+    - '--train=data/SuperGLUE/RTE/train.jsonl'
+    - '--dev=data/SuperGLUE/RTE/val.jsonl'
+    - '--test=data/SuperGLUE/RTE/val.jsonl'
+    - '--field-a=premise'
+    - '--field-b=hypothesis'
+    - '--num-labels=2'
+    - '--bsz=16'
+    - '--epochs=20'
+    - '--lr=2e-5'
+    - '--limit=50'
+    - '--seed=1'
+    - '--bias-correction'
+    - '--ckpt=ckpt/<model>bert-large-cased-adapter_<task>RTE_<seed>1_<limit>50'
+    - '--adapter'
+...
+---
+out: <model>bert-large-cased-adapter_<task>RTE_<seed>1_<limit>100
+script: autoprompt/finetune.py
+args:
+    - '--model-name=bert-large-cased'
+    - '--train=data/SuperGLUE/RTE/train.jsonl'
+    - '--dev=data/SuperGLUE/RTE/val.jsonl'
+    - '--test=data/SuperGLUE/RTE/val.jsonl'
+    - '--field-a=premise'
+    - '--field-b=hypothesis'
+    - '--num-labels=2'
+    - '--bsz=16'
+    - '--epochs=20'
+    - '--lr=2e-5'
+    - '--limit=100'
+    - '--seed=1'
+    - '--bias-correction'
+    - '--ckpt=ckpt/<model>bert-large-cased-adapter_<task>RTE_<seed>1_<limit>100'
+    - '--adapter'
+...
+---
+out: <model>bert-large-cased-adapter_<task>RTE_<seed>1_<limit>1000
+script: autoprompt/finetune.py
+args:
+    - '--model-name=bert-large-cased'
+    - '--train=data/SuperGLUE/RTE/train.jsonl'
+    - '--dev=data/SuperGLUE/RTE/val.jsonl'
+    - '--test=data/SuperGLUE/RTE/val.jsonl'
+    - '--field-a=premise'
+    - '--field-b=hypothesis'
+    - '--num-labels=2'
+    - '--bsz=16'
+    - '--epochs=20'
+    - '--lr=2e-5'
+    - '--limit=1000'
+    - '--seed=1'
+    - '--bias-correction'
+    - '--ckpt=ckpt/<model>bert-large-cased-adapter_<task>RTE_<seed>1_<limit>1000'
+    - '--adapter'
+...
+---
+out: <model>bert-large-cased-adapter_<task>RTE_<seed>420_<limit>10
+script: autoprompt/finetune.py
+args:
+    - '--model-name=bert-large-cased'
+    - '--train=data/SuperGLUE/RTE/train.jsonl'
+    - '--dev=data/SuperGLUE/RTE/val.jsonl'
+    - '--test=data/SuperGLUE/RTE/val.jsonl'
+    - '--field-a=premise'
+    - '--field-b=hypothesis'
+    - '--num-labels=2'
+    - '--bsz=16'
+    - '--epochs=20'
+    - '--lr=2e-5'
+    - '--limit=10'
+    - '--seed=420'
+    - '--bias-correction'
+    - '--ckpt=ckpt/<model>bert-large-cased-adapter_<task>RTE_<seed>420_<limit>10'
+    - '--adapter'
+...
+---
+out: <model>bert-large-cased-adapter_<task>RTE_<seed>420_<limit>50
+script: autoprompt/finetune.py
+args:
+    - '--model-name=bert-large-cased'
+    - '--train=data/SuperGLUE/RTE/train.jsonl'
+    - '--dev=data/SuperGLUE/RTE/val.jsonl'
+    - '--test=data/SuperGLUE/RTE/val.jsonl'
+    - '--field-a=premise'
+    - '--field-b=hypothesis'
+    - '--num-labels=2'
+    - '--bsz=16'
+    - '--epochs=20'
+    - '--lr=2e-5'
+    - '--limit=50'
+    - '--seed=420'
+    - '--bias-correction'
+    - '--ckpt=ckpt/<model>bert-large-cased-adapter_<task>RTE_<seed>420_<limit>50'
+    - '--adapter'
+...
+---
+out: <model>bert-large-cased-adapter_<task>RTE_<seed>420_<limit>100
+script: autoprompt/finetune.py
+args:
+    - '--model-name=bert-large-cased'
+    - '--train=data/SuperGLUE/RTE/train.jsonl'
+    - '--dev=data/SuperGLUE/RTE/val.jsonl'
+    - '--test=data/SuperGLUE/RTE/val.jsonl'
+    - '--field-a=premise'
+    - '--field-b=hypothesis'
+    - '--num-labels=2'
+    - '--bsz=16'
+    - '--epochs=20'
+    - '--lr=2e-5'
+    - '--limit=100'
+    - '--seed=420'
+    - '--bias-correction'
+    - '--ckpt=ckpt/<model>bert-large-cased-adapter_<task>RTE_<seed>420_<limit>100'
+    - '--adapter'
+...
+---
+out: <model>bert-large-cased-adapter_<task>RTE_<seed>420_<limit>1000
+script: autoprompt/finetune.py
+args:
+    - '--model-name=bert-large-cased'
+    - '--train=data/SuperGLUE/RTE/train.jsonl'
+    - '--dev=data/SuperGLUE/RTE/val.jsonl'
+    - '--test=data/SuperGLUE/RTE/val.jsonl'
+    - '--field-a=premise'
+    - '--field-b=hypothesis'
+    - '--num-labels=2'
+    - '--bsz=16'
+    - '--epochs=20'
+    - '--lr=2e-5'
+    - '--limit=1000'
+    - '--seed=420'
+    - '--bias-correction'
+    - '--ckpt=ckpt/<model>bert-large-cased-adapter_<task>RTE_<seed>420_<limit>1000'
+    - '--adapter'
+...
+---
+out: <model>bert-large-cased-adapter_<task>RTE_<seed>808_<limit>10
+script: autoprompt/finetune.py
+args:
+    - '--model-name=bert-large-cased'
+    - '--train=data/SuperGLUE/RTE/train.jsonl'
+    - '--dev=data/SuperGLUE/RTE/val.jsonl'
+    - '--test=data/SuperGLUE/RTE/val.jsonl'
+    - '--field-a=premise'
+    - '--field-b=hypothesis'
+    - '--num-labels=2'
+    - '--bsz=16'
+    - '--epochs=20'
+    - '--lr=2e-5'
+    - '--limit=10'
+    - '--seed=808'
+    - '--bias-correction'
+    - '--ckpt=ckpt/<model>bert-large-cased-adapter_<task>RTE_<seed>808_<limit>10'
+    - '--adapter'
+...
+---
+out: <model>bert-large-cased-adapter_<task>RTE_<seed>808_<limit>50
+script: autoprompt/finetune.py
+args:
+    - '--model-name=bert-large-cased'
+    - '--train=data/SuperGLUE/RTE/train.jsonl'
+    - '--dev=data/SuperGLUE/RTE/val.jsonl'
+    - '--test=data/SuperGLUE/RTE/val.jsonl'
+    - '--field-a=premise'
+    - '--field-b=hypothesis'
+    - '--num-labels=2'
+    - '--bsz=16'
+    - '--epochs=20'
+    - '--lr=2e-5'
+    - '--limit=50'
+    - '--seed=808'
+    - '--bias-correction'
+    - '--ckpt=ckpt/<model>bert-large-cased-adapter_<task>RTE_<seed>808_<limit>50'
+    - '--adapter'
+...
+---
+out: <model>bert-large-cased-adapter_<task>RTE_<seed>808_<limit>100
+script: autoprompt/finetune.py
+args:
+    - '--model-name=bert-large-cased'
+    - '--train=data/SuperGLUE/RTE/train.jsonl'
+    - '--dev=data/SuperGLUE/RTE/val.jsonl'
+    - '--test=data/SuperGLUE/RTE/val.jsonl'
+    - '--field-a=premise'
+    - '--field-b=hypothesis'
+    - '--num-labels=2'
+    - '--bsz=16'
+    - '--epochs=20'
+    - '--lr=2e-5'
+    - '--limit=100'
+    - '--seed=808'
+    - '--bias-correction'
+    - '--ckpt=ckpt/<model>bert-large-cased-adapter_<task>RTE_<seed>808_<limit>100'
+    - '--adapter'
+...
+---
+out: <model>bert-large-cased-adapter_<task>RTE_<seed>808_<limit>1000
+script: autoprompt/finetune.py
+args:
+    - '--model-name=bert-large-cased'
+    - '--train=data/SuperGLUE/RTE/train.jsonl'
+    - '--dev=data/SuperGLUE/RTE/val.jsonl'
+    - '--test=data/SuperGLUE/RTE/val.jsonl'
+    - '--field-a=premise'
+    - '--field-b=hypothesis'
+    - '--num-labels=2'
+    - '--bsz=16'
+    - '--epochs=20'
+    - '--lr=2e-5'
+    - '--limit=1000'
+    - '--seed=808'
+    - '--bias-correction'
+    - '--ckpt=ckpt/<model>bert-large-cased-adapter_<task>RTE_<seed>808_<limit>1000'
+    - '--adapter'
+...
+---
+out: <model>bert-large-cased-adapter_<task>RTE_<seed>1234_<limit>10
+script: autoprompt/finetune.py
+args:
+    - '--model-name=bert-large-cased'
+    - '--train=data/SuperGLUE/RTE/train.jsonl'
+    - '--dev=data/SuperGLUE/RTE/val.jsonl'
+    - '--test=data/SuperGLUE/RTE/val.jsonl'
+    - '--field-a=premise'
+    - '--field-b=hypothesis'
+    - '--num-labels=2'
+    - '--bsz=16'
+    - '--epochs=20'
+    - '--lr=2e-5'
+    - '--limit=10'
+    - '--seed=1234'
+    - '--bias-correction'
+    - '--ckpt=ckpt/<model>bert-large-cased-adapter_<task>RTE_<seed>1234_<limit>10'
+    - '--adapter'
+...
+---
+out: <model>bert-large-cased-adapter_<task>RTE_<seed>1234_<limit>50
+script: autoprompt/finetune.py
+args:
+    - '--model-name=bert-large-cased'
+    - '--train=data/SuperGLUE/RTE/train.jsonl'
+    - '--dev=data/SuperGLUE/RTE/val.jsonl'
+    - '--test=data/SuperGLUE/RTE/val.jsonl'
+    - '--field-a=premise'
+    - '--field-b=hypothesis'
+    - '--num-labels=2'
+    - '--bsz=16'
+    - '--epochs=20'
+    - '--lr=2e-5'
+    - '--limit=50'
+    - '--seed=1234'
+    - '--bias-correction'
+    - '--ckpt=ckpt/<model>bert-large-cased-adapter_<task>RTE_<seed>1234_<limit>50'
+    - '--adapter'
+...
+---
+out: <model>bert-large-cased-adapter_<task>RTE_<seed>1234_<limit>100
+script: autoprompt/finetune.py
+args:
+    - '--model-name=bert-large-cased'
+    - '--train=data/SuperGLUE/RTE/train.jsonl'
+    - '--dev=data/SuperGLUE/RTE/val.jsonl'
+    - '--test=data/SuperGLUE/RTE/val.jsonl'
+    - '--field-a=premise'
+    - '--field-b=hypothesis'
+    - '--num-labels=2'
+    - '--bsz=16'
+    - '--epochs=20'
+    - '--lr=2e-5'
+    - '--limit=100'
+    - '--seed=1234'
+    - '--bias-correction'
+    - '--ckpt=ckpt/<model>bert-large-cased-adapter_<task>RTE_<seed>1234_<limit>100'
+    - '--adapter'
+...
+---
+out: <model>bert-large-cased-adapter_<task>RTE_<seed>1234_<limit>1000
+script: autoprompt/finetune.py
+args:
+    - '--model-name=bert-large-cased'
+    - '--train=data/SuperGLUE/RTE/train.jsonl'
+    - '--dev=data/SuperGLUE/RTE/val.jsonl'
+    - '--test=data/SuperGLUE/RTE/val.jsonl'
+    - '--field-a=premise'
+    - '--field-b=hypothesis'
+    - '--num-labels=2'
+    - '--bsz=16'
+    - '--epochs=20'
+    - '--lr=2e-5'
+    - '--limit=1000'
+    - '--seed=1234'
+    - '--bias-correction'
+    - '--ckpt=ckpt/<model>bert-large-cased-adapter_<task>RTE_<seed>1234_<limit>1000'
+    - '--adapter'
+...
+---
+out: <model>bert-large-cased-adapter_<task>RTE_<seed>1337_<limit>10
+script: autoprompt/finetune.py
+args:
+    - '--model-name=bert-large-cased'
+    - '--train=data/SuperGLUE/RTE/train.jsonl'
+    - '--dev=data/SuperGLUE/RTE/val.jsonl'
+    - '--test=data/SuperGLUE/RTE/val.jsonl'
+    - '--field-a=premise'
+    - '--field-b=hypothesis'
+    - '--num-labels=2'
+    - '--bsz=16'
+    - '--epochs=20'
+    - '--lr=2e-5'
+    - '--limit=10'
+    - '--seed=1337'
+    - '--bias-correction'
+    - '--ckpt=ckpt/<model>bert-large-cased-adapter_<task>RTE_<seed>1337_<limit>10'
+    - '--adapter'
+...
+---
+out: <model>bert-large-cased-adapter_<task>RTE_<seed>1337_<limit>50
+script: autoprompt/finetune.py
+args:
+    - '--model-name=bert-large-cased'
+    - '--train=data/SuperGLUE/RTE/train.jsonl'
+    - '--dev=data/SuperGLUE/RTE/val.jsonl'
+    - '--test=data/SuperGLUE/RTE/val.jsonl'
+    - '--field-a=premise'
+    - '--field-b=hypothesis'
+    - '--num-labels=2'
+    - '--bsz=16'
+    - '--epochs=20'
+    - '--lr=2e-5'
+    - '--limit=50'
+    - '--seed=1337'
+    - '--bias-correction'
+    - '--ckpt=ckpt/<model>bert-large-cased-adapter_<task>RTE_<seed>1337_<limit>50'
+    - '--adapter'
+...
+---
+out: <model>bert-large-cased-adapter_<task>RTE_<seed>1337_<limit>100
+script: autoprompt/finetune.py
+args:
+    - '--model-name=bert-large-cased'
+    - '--train=data/SuperGLUE/RTE/train.jsonl'
+    - '--dev=data/SuperGLUE/RTE/val.jsonl'
+    - '--test=data/SuperGLUE/RTE/val.jsonl'
+    - '--field-a=premise'
+    - '--field-b=hypothesis'
+    - '--num-labels=2'
+    - '--bsz=16'
+    - '--epochs=20'
+    - '--lr=2e-5'
+    - '--limit=100'
+    - '--seed=1337'
+    - '--bias-correction'
+    - '--ckpt=ckpt/<model>bert-large-cased-adapter_<task>RTE_<seed>1337_<limit>100'
+    - '--adapter'
+...
+---
+out: <model>bert-large-cased-adapter_<task>RTE_<seed>1337_<limit>1000
+script: autoprompt/finetune.py
+args:
+    - '--model-name=bert-large-cased'
+    - '--train=data/SuperGLUE/RTE/train.jsonl'
+    - '--dev=data/SuperGLUE/RTE/val.jsonl'
+    - '--test=data/SuperGLUE/RTE/val.jsonl'
+    - '--field-a=premise'
+    - '--field-b=hypothesis'
+    - '--num-labels=2'
+    - '--bsz=16'
+    - '--epochs=20'
+    - '--lr=2e-5'
+    - '--limit=1000'
+    - '--seed=1337'
+    - '--bias-correction'
+    - '--ckpt=ckpt/<model>bert-large-cased-adapter_<task>RTE_<seed>1337_<limit>1000'
+    - '--adapter'
+...
+

@@ -1,0 +1,38 @@
+---
+out: <model>bert-large-cased_<task>BoolQ_<seed>1_<limit>10
+script: autoprompt/finetune.py
+args:
+    - '--model-name=bert-base-cased'
+    - '--train=data/SuperGLUE/BoolQ/train.jsonl'
+    - '--dev=data/SuperGLUE/BoolQ/val.jsonl'
+    - '--test=data/SuperGLUE/BoolQ/val.jsonl'
+    - '--field-a=passage'
+    - '--field-b=question'
+    - '--num-labels=2'
+    - '--bsz=16'
+    - '--epochs=20'
+    - '--lr=2e-5'
+    - '--limit=10'
+    - '--seed=1'
+    - '--bias-correction'
+    - '--ckpt=<model>bert-large-cased_<task>BoolQ_<seed>1_<limit>10'
+...
+---
+out: <model>bert-large-cased_<task>BoolQ_<seed>1_<limit>50
+script: autoprompt/finetune.py
+args:
+    - '--model-name=bert-base-cased'
+    - '--train=data/SuperGLUE/BoolQ/train.jsonl'
+    - '--dev=data/SuperGLUE/BoolQ/val.jsonl'
+    - '--test=data/SuperGLUE/BoolQ/val.jsonl'
+    - '--field-a=passage'
+    - '--field-b=question'
+    - '--num-labels=2'
+    - '--bsz=16'
+    - '--epochs=20'
+    - '--lr=2e-5'
+    - '--limit=50'
+    - '--seed=1'
+    - '--bias-correction'
+    - '--ckpt=<model>bert-large-cased_<task>BoolQ_<seed>1_<limit>50'
+...

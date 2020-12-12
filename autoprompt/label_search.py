@@ -18,6 +18,7 @@ from tqdm import tqdm
 
 import autoprompt.utils as utils
 import autoprompt.create_trigger as ct
+from autoprompt.preprocessors import PREPROCESSORS
 
 
 logger = logging.getLogger(__name__)
@@ -93,7 +94,11 @@ def main(args):
 
     logger.info('Loading datasets')
     collator = utils.Collator(pad_token_id=tokenizer.pad_token_id)
-    train_dataset = utils.load_trigger_dataset(args.train, templatizer)
+    train_dataset = utils.load_trigger_dataset(
+        args.train,
+        templatizer,
+        preprocessor_key=args.preprocessor,
+    )
     train_loader = DataLoader(train_dataset, batch_size=args.bsz, shuffle=True, collate_fn=collator)
 
     optimizer = torch.optim.Adam(projection.parameters(), lr=args.lr)
@@ -148,6 +153,8 @@ if __name__ == '__main__':
     parser.add_argument('--initial-trigger', type=str, default=None, help='Manual prompt')
     parser.add_argument('--label-field', type=str, default='label',
                         help='Name of the label field')
+    parser.add_argument('--preprocessor', type=str, default=None,
+                        choices=PREPROCESSORS.keys())
     parser.add_argument('--lr', type=float, default=3e-4, help='Learning rate')
     parser.add_argument('--k', type=int, default=5, help='Number of label tokens to print')
     parser.add_argument('--bsz', type=int, default=32, help='Batch size')
