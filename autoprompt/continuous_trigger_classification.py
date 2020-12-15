@@ -93,7 +93,27 @@ class ContTriggerTransformer(PreTrainedModel):
 
 def main(args):
     set_seed(args.seed)
-    device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+
+    # Handle multi-GPU setup
+    world_size = None
+    if args.local_rank == -1:
+        device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+    else:
+        device = torch.device('cuda', args.local_rank)
+        torch.distributed.init_process_group(
+            backend='nccl',
+            init_method='env://',
+        )
+        world_size = torch.distributed.get_world_size()
+    is_main_process = args.local_rank in [-1, 0]
+
+    # Only have main process log (unless debug is enabled)
+    if args.debug:
+        logging.basicConfig(level=logging.DEBUG)
+    else:
+        logging.basicConfig(level=logging.INFO if is_main_process else logging.WARN)
+    logger.warning('Rank: %s - World Size: %s', args.local_rank, world_size)
+
     if args.limit is None:
         ckpt_dir = Path("%s_triggerlength%d_finetune%s_lr%s_limit%s_epochs%d_bsz%d_wdecay%f_%dlabels/" % (
                             args.ckpt_dir, args.trigger_length, str(args.finetune), str(args.lr), 
@@ -106,6 +126,11 @@ def main(args):
     config = AutoConfig.from_pretrained(args.model_name, num_labels=args.num_labels)
     tokenizer = AutoTokenizer.from_pretrained(args.model_name)
     model = ContTriggerTransformer(config, args.model_name, args.trigger_length, finetune=args.finetune)
+    if args.local_rank != -1:
+        model = torch.nn.parallel.DistributedDataParallel(
+            model,
+            device_ids=[args.local_rank],
+        )
     
     if args.model_name == "bert-base-cased":
         eos_idx = 102
@@ -115,6 +140,7 @@ def main(args):
     model.to(device)
 
     collator = utils.Collator(pad_token_id=tokenizer.pad_token_id)
+
     train_dataset, label_map = utils.load_classification_dataset(
         args.train,
         tokenizer,
@@ -123,8 +149,12 @@ def main(args):
         args.label_field,
         limit=args.limit
     )
-    
-    train_loader = DataLoader(train_dataset, batch_size=args.bsz, shuffle=True, collate_fn=collator)
+    if args.local_rank == -1:
+        train_sampler = torch.utils.data.RandomSampler(train_dataset)
+    else:
+        train_sampler = torch.utils.data.DistributedSampler(train_dataset, shuffle=True)
+    train_loader = DataLoader(train_dataset, batch_size=args.bsz, collate_fn=collator, sampler=train_sampler)
+
     dev_dataset, _ = utils.load_classification_dataset(
         args.dev,
         tokenizer,
@@ -133,7 +163,12 @@ def main(args):
         args.label_field,
         label_map
     )
-    dev_loader = DataLoader(dev_dataset, batch_size=args.bsz, shuffle=True, collate_fn=collator)
+    if args.local_rank == -1:
+        dev_sampler = torch.utils.data.SequentialSampler(dev_dataset)
+    else:
+        dev_sampler = torch.utils.data.DistributedSampler(dev_dataset)
+    dev_loader = DataLoader(dev_dataset, batch_size=args.bsz, collate_fn=collator, sampler=dev_sampler)
+
     test_dataset, _ = utils.load_classification_dataset(
         args.test,
         tokenizer,
@@ -142,6 +177,10 @@ def main(args):
         args.label_field,
         label_map
     )
+    if args.local_rank == -1:
+        test_sampler = torch.utils.data.SequentialSampler(test_dataset)
+    else:
+        test_sampler = torch.utils.data.DistributedSampler(test_dataset)
     test_loader = DataLoader(test_dataset, batch_size=args.bsz, shuffle=True, collate_fn=collator)
     optimizer = torch.optim.Adam(list(model.model.classifier.parameters()) + [model.relation_embeds],
                                                         lr=args.lr, weight_decay=args.weight_decay)
@@ -151,8 +190,11 @@ def main(args):
         logger.info('Training...')
         model.train()
         avg_loss = utils.ExponentialMovingAverage()
-        pbar = tqdm(train_loader)
-        for model_inputs, labels in pbar:
+        if is_main_process:
+            iter_ = tqdm(train_loader)
+        else:
+            iter_ = train_loader
+        for model_inputs, labels in iter_:
             model_inputs = {k: v.to(device) for k, v in model_inputs.items()}
             model_inputs = generate_inputs_embeds(model_inputs, model, tokenizer, eos_idx)
             labels = labels.to(device)
@@ -161,13 +203,16 @@ def main(args):
             loss = F.cross_entropy(logits, labels.squeeze(-1))
             loss.backward()
             optimizer.step()
+            # NOTE: This loss will only be on the subset of training data in
+            # the main process.
             avg_loss.update(loss.item())
-            pbar.set_description(f'loss: {avg_loss.get_metric(): 0.4f}')
+            if is_main_process:
+                iter_.set_description(f'loss: {avg_loss.get_metric(): 0.4f}')
 
         logger.info('Evaluating...')
         model.eval()
-        correct = 0
-        total = 0
+        correct = torch.tensor(0.0, device=device)
+        total = torch.tensor(0.0, device=device)
         for model_inputs, labels in dev_loader:
             model_inputs = {k: v.to(device) for k, v in model_inputs.items()}
             model_inputs = generate_inputs_embeds(model_inputs, model, tokenizer, eos_idx)
@@ -176,16 +221,22 @@ def main(args):
             _, preds = logits.max(dim=-1)
             correct += (preds == labels.squeeze(-1)).sum().item()
             total += labels.size(0)
+
+        # Gather accuracy across processes
+        if args.local_rank != -1:
+            torch.distributed.reduce(correct, 0)
+            torch.distributed.reduce(total, 0)
         accuracy = correct / (total + 1e-13)
         logger.info(f'Accuracy: {accuracy : 0.4f}')
 
-        if accuracy > best_accuracy:
-            logger.info('Best performance so far.')
-            best_accuracy = accuracy
-            if not os.path.exists(ckpt_dir):
-                os.makedirs(ckpt_dir)
-            model.save_pretrained(ckpt_dir)
-            tokenizer.save_pretrained(ckpt_dir)
+        if is_main_process:
+            if accuracy > best_accuracy:
+                logger.info('Best performance so far.')
+                best_accuracy = accuracy
+                if not os.path.exists(ckpt_dir):
+                    os.makedirs(ckpt_dir)
+                model.save_pretrained(ckpt_dir)
+                tokenizer.save_pretrained(ckpt_dir)
 
             
 
@@ -193,8 +244,8 @@ def main(args):
     checkpoint = torch.load(ckpt_dir / "pytorch_model.bin")
     model.load_state_dict(checkpoint)
     model.eval()
-    correct = 0
-    total = 0
+    correct = torch.tensor(0.0, device=device)
+    total = torch.tensor(0.0, device=device)
     for model_inputs, labels in test_loader:
         model_inputs = {k: v.to(device) for k, v in model_inputs.items()}
         model_inputs = generate_inputs_embeds(model_inputs, model, tokenizer, eos_idx)
@@ -203,6 +254,10 @@ def main(args):
         _, preds = logits.max(dim=-1)
         correct += (preds == labels.squeeze(-1)).sum().item()
         total += labels.size(0)
+
+    if args.local_rank != -1:
+        torch.distributed.reduce(correct, 0)
+        torch.distributed.reduce(total, 0)
     accuracy = correct / (total + 1e-13)
     logger.info(f'Accuracy: {accuracy : 0.4f}')
 
@@ -228,12 +283,7 @@ if __name__ == '__main__':
     parser.add_argument('--seed', type=int, default=1234)
     parser.add_argument('-f', '--force-overwrite', action='store_true')
     parser.add_argument('--debug', action='store_true')
+    parser.add_argument('--local_rank', type=int, default=-1)
     args = parser.parse_args()
-
-    if args.debug:
-        level = logging.DEBUG
-    else:
-        level = logging.INFO
-    logging.basicConfig(level=level)
 
     main(args)
