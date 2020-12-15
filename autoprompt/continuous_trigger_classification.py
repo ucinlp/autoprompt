@@ -10,22 +10,11 @@ from torch.utils.data import DataLoader
 from transformers import AutoConfig, AutoTokenizer, AutoModelForSequenceClassification, PreTrainedModel
 from transformers import get_linear_schedule_with_warmup, AdamW
 from tqdm import tqdm
-import os
-from torch.nn import MultiheadAttention
 
 import autoprompt.utils as utils
-from copy import deepcopy
 
 
 logger = logging.getLogger(__name__)
-
-
-def set_seed(seed: int):
-    """Sets the relevant random seeds."""
-    random.seed(seed)
-    np.random.seed(seed)
-    torch.random.manual_seed(seed)
-    torch.cuda.manual_seed(seed)
 
 
 def generate_inputs_embeds(model_inputs, model, tokenizer, eos_idx):
@@ -92,7 +81,7 @@ class ContTriggerTransformer(PreTrainedModel):
 
 
 def main(args):
-    set_seed(args.seed)
+    utils.set_seed(args.seed)
 
     # Handle multi-GPU setup
     world_size = None
@@ -233,8 +222,8 @@ def main(args):
             if accuracy > best_accuracy:
                 logger.info('Best performance so far.')
                 best_accuracy = accuracy
-                if not os.path.exists(ckpt_dir):
-                    os.makedirs(ckpt_dir)
+                if not ckpt_dir.exits():
+                    ckpt_dir.mkdir(parents=True)
                 model.save_pretrained(ckpt_dir)
                 tokenizer.save_pretrained(ckpt_dir)
 

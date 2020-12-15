@@ -3,6 +3,7 @@ import json
 import logging
 import random
 
+import numpy as np
 import torch
 from torch.nn.utils.rnn import pad_sequence
 
@@ -10,6 +11,14 @@ from autoprompt.preprocessors import PREPROCESSORS
 
 
 logger = logging.getLogger(__name__)
+
+
+def set_seed(seed: int):
+    """Sets the relevant random seeds."""
+    random.seed(seed)
+    np.random.seed(seed)
+    torch.random.manual_seed(seed)
+    torch.cuda.manual_seed(seed)
 
 
 def pad_squeeze_sequence(sequence, *args, **kwargs):
