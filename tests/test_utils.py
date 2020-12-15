@@ -109,12 +109,12 @@ class TestTriggerTemplatizer(TestCase):
 
         # Test that the custom masks match our expectations
         expected_trigger_mask = torch.tensor(
-            [[False, True, False, True, False, False, False, True, False, False, False, False]]
+            [[False, True, True, False, False, True, False, False, False]]
         )
         assert torch.equal(expected_trigger_mask, model_inputs['trigger_mask'])
 
         expected_predict_mask = torch.tensor(
-            [[False, False, False, False, False, False, False, False, False, False, True, False]]
+            [[False, False, False, False, False, False, False, True, False]]
         )
         assert torch.equal(expected_predict_mask, model_inputs['predict_mask'])
 
