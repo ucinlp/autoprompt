@@ -103,15 +103,6 @@ def main(args):
         logging.basicConfig(level=logging.INFO if is_main_process else logging.WARN)
     logger.warning('Rank: %s - World Size: %s', args.local_rank, world_size)
 
-    if args.limit is None:
-        ckpt_dir = Path("%s_triggerlength%d_finetune%s_lr%s_limit%s_epochs%d_bsz%d_wdecay%f_%dlabels/" % (
-                            args.ckpt_dir, args.trigger_length, str(args.finetune), str(args.lr), 
-                            str(args.limit), args.epochs, args.bsz, args.weight_decay, args.num_labels))
-    else:
-        ckpt_dir = Path("%s_triggerlength%d_finetune%s_lr%s_limit%d_epochs%d_bsz%d_wdecay%f_%dlabels/" % (
-                            args.ckpt_dir, args.trigger_length, str(args.finetune), str(args.lr), 
-                            args.limit, args.epochs, args.bsz, args.weight_decay, args.num_labels))
-
     config = AutoConfig.from_pretrained(args.model_name, num_labels=args.num_labels)
     tokenizer = AutoTokenizer.from_pretrained(args.model_name)
     model = ContTriggerTransformer(config, args.model_name, args.trigger_length, finetune=args.finetune)
@@ -136,7 +127,7 @@ def main(args):
         args.field_a,
         args.field_b,
         args.label_field,
-        limit=args.limit
+        limit=args.limit,
     )
     if args.local_rank == -1:
         train_sampler = torch.utils.data.RandomSampler(train_dataset)
@@ -150,7 +141,8 @@ def main(args):
         args.field_a,
         args.field_b,
         args.label_field,
-        label_map
+        label_map,
+        limit=args.limit,
     )
     if args.local_rank == -1:
         dev_sampler = torch.utils.data.SequentialSampler(dev_dataset)
@@ -164,7 +156,7 @@ def main(args):
         args.field_a,
         args.field_b,
         args.label_field,
-        label_map
+        label_map,
     )
     if args.local_rank == -1:
         test_sampler = torch.utils.data.SequentialSampler(test_dataset)
@@ -202,14 +194,15 @@ def main(args):
         model.eval()
         correct = torch.tensor(0.0, device=device)
         total = torch.tensor(0.0, device=device)
-        for model_inputs, labels in dev_loader:
-            model_inputs = {k: v.to(device) for k, v in model_inputs.items()}
-            model_inputs = generate_inputs_embeds(model_inputs, model, tokenizer, eos_idx)
-            labels = labels.to(device)
-            logits, *_ = model(**model_inputs)
-            _, preds = logits.max(dim=-1)
-            correct += (preds == labels.squeeze(-1)).sum().item()
-            total += labels.size(0)
+        with torch.no_grad():
+            for model_inputs, labels in dev_loader:
+                model_inputs = {k: v.to(device) for k, v in model_inputs.items()}
+                model_inputs = generate_inputs_embeds(model_inputs, model, tokenizer, eos_idx)
+                labels = labels.to(device)
+                logits, *_ = model(**model_inputs)
+                _, preds = logits.max(dim=-1)
+                correct += (preds == labels.squeeze(-1)).sum().item()
+                total += labels.size(0)
 
         # Gather accuracy across processes
         if args.local_rank != -1:
@@ -222,27 +215,28 @@ def main(args):
             if accuracy > best_accuracy:
                 logger.info('Best performance so far.')
                 best_accuracy = accuracy
-                if not ckpt_dir.exits():
-                    ckpt_dir.mkdir(parents=True)
-                model.save_pretrained(ckpt_dir)
-                tokenizer.save_pretrained(ckpt_dir)
+                if not args.ckpt_dir.exists():
+                    args.ckpt_dir.mkdir(parents=True)
+                model.save_pretrained(args.ckpt_dir)
+                tokenizer.save_pretrained(args.ckpt_dir)
 
             
 
     logger.info('Testing...')
-    checkpoint = torch.load(ckpt_dir / "pytorch_model.bin")
+    checkpoint = torch.load(args.ckpt_dir / "pytorch_model.bin")
     model.load_state_dict(checkpoint)
     model.eval()
     correct = torch.tensor(0.0, device=device)
     total = torch.tensor(0.0, device=device)
-    for model_inputs, labels in test_loader:
-        model_inputs = {k: v.to(device) for k, v in model_inputs.items()}
-        model_inputs = generate_inputs_embeds(model_inputs, model, tokenizer, eos_idx)
-        labels = labels.to(device)
-        logits, *_ = model(**model_inputs)
-        _, preds = logits.max(dim=-1)
-        correct += (preds == labels.squeeze(-1)).sum().item()
-        total += labels.size(0)
+    with torch.no_grad():
+        for model_inputs, labels in test_loader:
+            model_inputs = {k: v.to(device) for k, v in model_inputs.items()}
+            model_inputs = generate_inputs_embeds(model_inputs, model, tokenizer, eos_idx)
+            labels = labels.to(device)
+            logits, *_ = model(**model_inputs)
+            _, preds = logits.max(dim=-1)
+            correct += (preds == labels.squeeze(-1)).sum().item()
+            total += labels.size(0)
 
     if args.local_rank != -1:
         torch.distributed.reduce(correct, 0)
@@ -262,7 +256,7 @@ if __name__ == '__main__':
     parser.add_argument('--label-field', type=str, default='label')
     parser.add_argument('--trigger-length', type=int, default=5)
     parser.add_argument('--finetune', action='store_true')
-    parser.add_argument('--ckpt-dir', type=str, default='ckpt')
+    parser.add_argument('--ckpt-dir', type=Path, default='ckpt')
     parser.add_argument('--num-labels', type=int, default=2)
     parser.add_argument('--bsz', type=int, default=32)
     parser.add_argument('--epochs', type=int, default=10)
@@ -276,3 +270,4 @@ if __name__ == '__main__':
     args = parser.parse_args()
 
     main(args)
+

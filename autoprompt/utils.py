@@ -381,7 +381,7 @@ def load_classification_dataset(
             add_special_tokens=True,
             truncation=True,
             padding='max_length',
-            # add_prefix_space=True,
+            max_length=500,  # TODO: Don't hardcode, base on # triggers.
             return_tensors='pt'
         )
         logger.debug(model_inputs)
