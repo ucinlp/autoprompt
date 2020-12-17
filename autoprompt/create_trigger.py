@@ -115,14 +115,6 @@ def load_pretrained(model_name):
     return config, model, tokenizer
 
 
-def set_seed(seed: int):
-    """Sets the relevant random seeds."""
-    random.seed(seed)
-    np.random.seed(seed)
-    torch.random.manual_seed(seed)
-    torch.cuda.manual_seed(seed)
-
-
 def get_embeddings(model, config):
     """Returns the wordpiece embedding module."""
     base_model = getattr(model, config.model_type)
@@ -192,7 +184,7 @@ def isupper(idx, tokenizer):
 
 def run_model(args):
 
-    set_seed(args.seed)
+    utils.set_seed(args.seed)
     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 
     logger.info('Loading model, tokenizer, etc.')

@@ -16,14 +16,6 @@ from autoprompt.preprocessors import PREPROCESSORS
 logger = logging.getLogger(__name__)
 
 
-def set_seed(seed: int):
-    """Sets the relevant random seeds."""
-    random.seed(seed)
-    np.random.seed(seed)
-    torch.random.manual_seed(seed)
-    torch.cuda.manual_seed(seed)
-
-
 def forward_w_triggers(model, model_inputs, labels=None):
     """
     Run model forward w/ preprocessing for continuous triggers.
@@ -124,7 +116,7 @@ def decode(model, model_inputs, strategy="iterative"):
 
 def main(args):
     logger.info("Dataset: %s" % str(args.train).split("/")[3])
-    set_seed(args.seed)
+    utils.set_seed(args.seed)
     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 
     config = AutoConfig.from_pretrained(args.model_name)
