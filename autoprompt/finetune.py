@@ -182,9 +182,7 @@ def main(args):
 
             if accuracy > best_accuracy:
                 logger.info('Best performance so far.')
-                if args.adapter:
-                    model.save_adapter(args.ckpt_dir, 'adapter')
-                else:
+                if not args.adapter:
                     model.save_pretrained(args.ckpt_dir)
                 tokenizer.save_pretrained(args.ckpt_dir)
                 best_accuracy = accuracy
@@ -192,9 +190,7 @@ def main(args):
         logger.info('Interrupted...')
 
     logger.info('Testing...')
-    if args.adapter:
-        model.load_adapter(args.ckpt_dir)
-    else:
+    if not args.adapter:
         model.from_pretrained(args.ckpt_dir)
     model.eval()
     shutil.rmtree(args.ckpt_dir)
