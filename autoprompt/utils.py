@@ -343,6 +343,7 @@ def load_trigger_dataset(
         else:
             instances.append((model_inputs, label_id))
     if limit:
+        limit = min(len(instances), limit)
         return random.sample(instances, limit)
     else:
         return instances
@@ -393,6 +394,7 @@ def load_classification_dataset(
         logger.debug(f'Label id: {label_id}')
         instances.append((model_inputs, label_id))
     if limit:
+        limit = min(len(instances), limit)
         instances = random.sample(instances, limit)
     return instances, label_map
 

@@ -8,6 +8,7 @@ import argparse
 import logging
 from pathlib import Path
 import random
+import shutil
 
 import numpy as np
 import torch
@@ -181,16 +182,25 @@ def main(args):
 
             if accuracy > best_accuracy:
                 logger.info('Best performance so far.')
-                model.save_pretrained(args.ckpt_dir)
+                if args.adapter:
+                    model.save_adapter(args.ckpt_dir, 'adapter')
+                else:
+                    model.save_pretrained(args.ckpt_dir)
                 tokenizer.save_pretrained(args.ckpt_dir)
                 best_accuracy = accuracy
     except KeyboardInterrupt:
         logger.info('Interrupted...')
 
     logger.info('Testing...')
+    if args.adapter:
+        model.load_adapter(args.ckpt_dir)
+    else:
+        model.from_pretrained(args.ckpt_dir)
     model.eval()
+    shutil.rmtree(args.ckpt_dir)
     correct = 0
     total = 0
+
     with torch.no_grad():
         for model_inputs, labels in test_loader:
             model_inputs = {k: v.to(device) for k, v in model_inputs.items()}
@@ -236,3 +246,4 @@ if __name__ == '__main__':
     logging.basicConfig(level=level)
 
     main(args)
+
