@@ -205,11 +205,14 @@ class MultiTokenTemplatizer:
     label_field : str
         The field in the input dictionary that corresponds to the label.
     """
-    def __init__(self,
-                 template,
-                 tokenizer,
-                 label_field='label'):
-
+    def __init__(
+        self,
+        template,
+        tokenizer,
+        label_field='label',
+        label_map=None,
+        add_padding=False,
+    ):
         if not hasattr(tokenizer, 'predict_token') or \
            not hasattr(tokenizer, 'trigger_token'):
             raise ValueError(
@@ -219,6 +222,8 @@ class MultiTokenTemplatizer:
         self._template = template
         self._tokenizer = tokenizer
         self._label_field = label_field
+        self._label_map = label_map
+        self._add_padding = add_padding
 
     # TODO(rloganiv): If there is any more shared code between tokenizers,
     # consider creating a base class.
@@ -245,6 +250,8 @@ class MultiTokenTemplatizer:
                 f'No label detected for instance: {format_kwargs}.'
                 f'Double check that label field is correct: {self._label_field}.'
             )
+        if self._label_map is not None:
+            label = self._label_map[label]
         label_tokens = self._tokenizer.encode(
             label,
             add_special_tokens=False,  # Don't want to add [CLS] mid-sentence
@@ -255,19 +262,21 @@ class MultiTokenTemplatizer:
         # Add padding, by initializing a longer tensor of <pad> tokens and
         # replacing the fron with the label tokens. Magic numbers below come
         # from PET WSC settings.
-        if train:
-            pad_length = random.randint(0, 3)
+        if self._add_padding:
+            if train:
+                pad_length = random.randint(0, 3)
+            else:
+                pad_length = 1
+            padded_label_size = label_size + pad_length
+            padded_label_tokens = label_tokens.new_zeros(1, padded_label_size)
+            padded_label_tokens.fill_(self._tokenizer.pad_token_id)
+            padded_label_tokens[:,:label_size] = label_tokens
         else:
-            pad_length = 1
-        padded_label_size = label_size + pad_length
-        padded_label_tokens = label_tokens.new_zeros(1, padded_label_size)
-        padded_label_tokens.fill_(self._tokenizer.pad_token_id)
-        padded_label_tokens[:,:label_size] = label_tokens
+            padded_label_size = label_size
+            padded_label_tokens = label_tokens
 
         # For sake of convenience we're just going to replace [P] with multiple
         # [P]s to help with the bookkeeping.
-        # TODO(rloganiv): Consider making this a function to improve
-        # readability.
         template = self._template.replace(
             '[P]', 
             ' '.join(['[P]'] * padded_label_size),
@@ -283,12 +292,11 @@ class MultiTokenTemplatizer:
         )
         input_ids = model_inputs['input_ids']
 
-        # Trigger & predict token bookkeeping.
-        # TODO(rloganiv): Unlike in other templatizer, triggers are replaced by
-        # [MASK] tokens by default. This is to avoid unnecc. post-processing
-        # for continuous triggers (using OOV tokens during the forward pass is
-        # the recipe for a serious headache). The Consider making this the
-        # default behavior across templatizers.
+        # Trigger & predict token bookkeeping. Unlike in other templatizer,
+        # triggers are replaced by [MASK] tokens by default. This is to avoid
+        # unnecc. post-processing for continuous triggers (using OOV tokens
+        # during the forward pass is the recipe for a serious headache).
+        # TODO: Consider making this the default behavior across templatizers.
         trigger_mask = input_ids.eq(self._tokenizer.trigger_token_id)
         input_ids[trigger_mask] = self._tokenizer.mask_token_id
         predict_mask = input_ids.eq(self._tokenizer.predict_token_id)

@@ -75,7 +75,6 @@ class ContTriggerTransformer(PreTrainedModel):
             inputs_embeds=inputs_embeds,
         )
 
-
         return output
 
 
