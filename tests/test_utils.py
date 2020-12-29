@@ -135,6 +135,7 @@ class TestMultiTokenTemplatizer(TestCase):
         templatizer = utils.MultiTokenTemplatizer(
             self.default_template,
             self.default_tokenizer,
+            add_padding=True,
         )
         format_kwargs = {
             'arbitrary': 'ehh',

@@ -231,6 +231,26 @@ class MultiTokenTemplatizer:
     def num_trigger_tokens(self):
         return sum(token == '[T]' for token in self._template.split())
 
+    def _maybe_truncate(self, format_kwargs, padded_label_size):
+        """
+        If instantiated template would exceed maximum sequence length then
+        reduce the input sizes.
+        """
+        format_kwargs = format_kwargs.copy()
+        budget = self._tokenizer.model_max_length - 2  # Constant for added special tokens
+        budget -= padded_label_size
+        budget -= self.num_trigger_tokens
+        while True:
+            field_lengths = {k: len(self._tokenizer.tokenize(v)) for k, v in format_kwargs.items()}
+            instance_length = sum(field_lengths.values())
+            gap = budget - instance_length
+            if gap < 0:
+                longest_field = max(field_lengths.items(), key=lambda x: x[1])[0]
+                format_kwargs[longest_field] = format_kwargs[longest_field][:gap]
+            else:
+                break
+        return format_kwargs
+
     def __call__(self, format_kwargs, train=False, **kwargs):
         """
         Combines the template with instance specific inputs.
@@ -283,7 +303,10 @@ class MultiTokenTemplatizer:
         )
 
         # Instantiate & tokenize the template
-        format_kwargs = format_kwargs.copy()
+        format_kwargs = self._maybe_truncate(
+            format_kwargs,
+            padded_label_size=padded_label_size
+        )
         text = template.format(**format_kwargs)
         model_inputs = self._tokenizer(
             text,
