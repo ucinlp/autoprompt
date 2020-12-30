@@ -249,7 +249,6 @@ class MultiTokenTemplatizer:
                 encoded = self._tokenizer.encode(format_kwargs[longest_field], add_special_tokens=False)
                 truncated = encoded[:(gap - 1)]
                 format_kwargs[longest_field] = self._tokenizer.decode(truncated)
-                logger.info(f'Truncated kwargs: {format_kwargs}')
             else:
                 break
         return format_kwargs
