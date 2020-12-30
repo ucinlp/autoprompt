@@ -57,10 +57,10 @@ def get_linear_schedule_with_warmup(optimizer, num_warmup_steps, num_training_st
 def main(args):
     set_seed(args.seed)
 
-    if args.rank == -1:
+    if args.local_rank == -1:
         device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
     else:
-        device = torch.device('cuda', args.rank)
+        device = torch.device('cuda', args.local_rank)
 
     config = AutoConfig.from_pretrained(args.model_name, num_labels=args.num_labels)
     tokenizer = AutoTokenizer.from_pretrained(args.model_name)
@@ -232,7 +232,7 @@ if __name__ == '__main__':
     parser.add_argument('-f', '--force-overwrite', action='store_true')
     parser.add_argument('--adapter', action='store_true')
     parser.add_argument('--debug', action='store_true')
-    parser.add_argument('--rank', type=int, default=-1)
+    parser.add_argument('--local_rank', type=int, default=-1)
     args = parser.parse_args()
 
     if args.debug:

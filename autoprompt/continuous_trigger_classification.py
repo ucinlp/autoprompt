@@ -82,6 +82,8 @@ class ContTriggerTransformer(PreTrainedModel):
 
 
 def main(args):
+    logger.info(args)
+
     utils.set_seed(args.seed)
 
     # Handle multi-GPU setup
@@ -224,11 +226,12 @@ def main(args):
                 tokenizer.save_pretrained(args.ckpt_dir)
 
     logger.info('Testing...')
-    checkpoint = torch.load(args.ckpt_dir / "pytorch_model.bin")
-    model.load_state_dict(checkpoint)
-    if args.tmp:
-        logger.info('Temporary mode enabled, deleting checkpoint')
-        shutil.rmtree(args.ckpt_dir)
+    if epochs > 0:
+        checkpoint = torch.load(args.ckpt_dir / "pytorch_model.bin")
+        model.load_state_dict(checkpoint)
+        if args.tmp:
+            logger.info('Temporary mode enabled, deleting checkpoint')
+            shutil.rmtree(args.ckpt_dir)
     model.eval()
     correct = torch.tensor(0.0, device=device)
     total = torch.tensor(0.0, device=device)

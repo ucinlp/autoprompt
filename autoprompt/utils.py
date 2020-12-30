@@ -241,12 +241,15 @@ class MultiTokenTemplatizer:
         budget -= padded_label_size
         budget -= self.num_trigger_tokens
         while True:
-            field_lengths = {k: len(self._tokenizer.tokenize(v)) for k, v in format_kwargs.items()}
+            field_lengths = {k: len(self._tokenizer.encode(v, add_special_tokens=False)) for k, v in format_kwargs.items()}
             instance_length = sum(field_lengths.values())
             gap = budget - instance_length
             if gap < 0:
                 longest_field = max(field_lengths.items(), key=lambda x: x[1])[0]
-                format_kwargs[longest_field] = format_kwargs[longest_field][:gap]
+                encoded = self._tokenizer.encode(format_kwargs[longest_field], add_special_tokens=False)
+                truncated = encoded[:(gap - 1)]
+                format_kwargs[longest_field] = self._tokenizer.decode(truncated)
+                logger.info(f'Truncated kwargs: {format_kwargs}')
             else:
                 break
         return format_kwargs

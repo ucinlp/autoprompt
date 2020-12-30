@@ -202,6 +202,7 @@ def main(args):
         assert args.decoding_strategy is not None
     elif args.evaluation_strategy == 'multiple-choice':
         assert args.label_map is not None
+    logger.info(args)
 
     utils.set_seed(args.seed)
 
@@ -385,11 +386,12 @@ def main(args):
                 tokenizer.save_pretrained(args.ckpt_dir)
 
     logger.info('Testing...')
-    checkpoint = torch.load(args.ckpt_dir / "pytorch_model.bin")
-    model.load_state_dict(checkpoint)
-    if args.tmp:
-        logger.info('Temporary mode enabled, deleting checkpoint')
-        shutil.rmtree(args.ckpt_dir)
+    if args.epochs > 0:
+        checkpoint = torch.load(args.ckpt_dir / "pytorch_model.bin")
+        model.load_state_dict(checkpoint)
+        if args.tmp:
+            logger.info('Temporary mode enabled, deleting checkpoint')
+            shutil.rmtree(args.ckpt_dir)
     model.eval()
     total_correct = torch.tensor(0.0, device=device)
     denom = torch.tensor(0.0, device=device)
