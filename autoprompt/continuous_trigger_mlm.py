@@ -1,8 +1,11 @@
 import argparse
 import json
 import logging
+import os
 from pathlib import Path
 import random
+import shutil
+
 import numpy as np
 import torch
 import torch.nn.functional as F
@@ -201,7 +204,28 @@ def main(args):
         assert args.label_map is not None
 
     utils.set_seed(args.seed)
-    device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+
+    # Handle multi-GPU setup
+    world_size = os.getenv('WORLD_SIZE', -1)
+    if args.local_rank == -1:
+        device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+    else:
+        device = torch.device('cuda', args.local_rank)
+        if world_size != -1:
+            torch.distributed.init_process_group(
+                backend='nccl',
+                init_method='env://',
+                rank=args.local_rank,
+                world_size=world_size,
+            )
+    is_main_process = args.local_rank in [-1, 0] or world_size == -1
+
+    if args.debug:
+        logging.basicConfig(level=logging.DEBUG)
+    else:
+        logging.basicConfig(level=logging.INFO if is_main_process else logging.WARN)
+
+    logger.warning('Rank: %s - World Size: %s', args.local_rank, world_size)
 
     config = AutoConfig.from_pretrained(args.model_name)
     tokenizer = AutoTokenizer.from_pretrained(args.model_name, add_prefix_space=True)
@@ -237,20 +261,34 @@ def main(args):
         templatizer=templatizer,
         train=True,
         preprocessor_key=args.preprocessor,
+        limit=args.limit,
     )
-    train_loader = DataLoader(train_dataset, batch_size=args.bsz, shuffle=True, collate_fn=collator)
+    if world_size == -1:
+        train_sampler = torch.utils.data.RandomSampler(train_dataset)
+    else:
+        train_sampler = torch.utils.data.DistributedSampler(train_dataset, shuffle=True)
+    train_loader = DataLoader(train_dataset, batch_size=args.bsz, collate_fn=collator, sampler=train_sampler)
     dev_dataset = utils.load_trigger_dataset(
         args.dev,
         templatizer=templatizer,
         preprocessor_key=args.preprocessor,
+        limit=args.limit,
     )
-    dev_loader = DataLoader(dev_dataset, batch_size=1, collate_fn=collator)
+    if world_size == -1:
+        dev_sampler = torch.utils.data.SequentialSampler(dev_dataset)
+    else:
+        dev_sampler = torch.utils.data.DistributedSampler(dev_dataset)
+    dev_loader = DataLoader(dev_dataset, batch_size=args.bsz, collate_fn=collator, sampler=dev_sampler)
     test_dataset = utils.load_trigger_dataset(
         args.test,
         templatizer=templatizer,
         preprocessor_key=args.preprocessor,
     )
-    test_loader = DataLoader(test_dataset, batch_size=1, collate_fn=collator)
+    if world_size == -1:
+        test_sampler = torch.utils.data.SequentialSampler(test_dataset)
+    else:
+        test_sampler = torch.utils.data.DistributedSampler(test_dataset)
+    test_loader = DataLoader(test_dataset, batch_size=args.bsz, shuffle=True, collate_fn=collator)
 
     evaluator = EVALUATORS[args.evaluation_strategy](
         model=model,
@@ -276,6 +314,12 @@ def main(args):
             ), 
         )
     model.to(device)
+    if world_size != -1:
+        model = torch.nn.parallel.DistributedDataParallel(
+            model,
+            device_ids=[args.local_rank],
+        )
+
 
     optimizer = torch.optim.Adam(model.parameters(), lr=args.lr, weight_decay=1e-6)
 
@@ -283,11 +327,14 @@ def main(args):
     for epoch in range(args.epochs):
         logger.info('Training...')
         model.train()
-        pbar = tqdm(train_loader)
-        total_loss = 0.0
-        total_correct = 0.0
-        denom = 0.0
-        for model_inputs, labels in pbar:
+        if is_main_process:
+            iter_ = tqdm(train_loader)
+        else:
+            iter_ = train_loader
+        total_loss = torch.tensor(0.0, device=device)
+        total_correct = torch.tensor(0.0, device=device)
+        denom = torch.tensor(0.0, device=device)
+        for model_inputs, labels in iter_:
             model_inputs = {k: v.to(device) for k, v in model_inputs.items()}
             labels = labels.to(device)
             loss, correct = evaluator(model_inputs, labels)
@@ -296,16 +343,19 @@ def main(args):
             total_loss += loss.detach() * labels.size(0)
             total_correct += correct.detach()
             denom += labels.size(0)
-            pbar.set_description(
-                f'loss: {total_loss / (denom + 1e-13): 0.4f}, '
-                f'correct: {total_correct / (denom + 1e-13): 0.4f}'
-            )
+            # NOTE: This loss/accuracy is only on the subset  of training data
+            # in the main process.
+            if is_main_process:
+                iter_.set_description(
+                    f'Loss: {total_loss / (denom + 1e-13): 0.4f}, '
+                    f'Accuracy: {total_correct / (denom + 1e-13): 0.4f}'
+                )
 
         logger.info('Evaluating...')
         model.eval()
-        total_loss = 0.0
-        total_correct = 0.0
-        denom = 0
+        total_loss = torch.tensor(0.0, device=device)
+        total_correct = torch.tensor(0.0, device=device)
+        denom = torch.tensor(0.0, device=device)
         with torch.no_grad():
             for model_inputs, labels in tqdm(dev_loader):
                 model_inputs = {k: v.to(device) for k, v in model_inputs.items()}
@@ -314,36 +364,47 @@ def main(args):
                 total_loss += loss.detach() * labels.size(0)
                 total_correct += correct.detach()
                 denom += labels.size(0)
+        if world_size != -1:
+            torch.distributed.reduce(total_loss, 0)
+            torch.distributed.reduce(total_correct, 0)
+            torch.distributed.reduce(denom, 0)
 
         logger.info(
-            f'loss: {total_loss / (denom + 1e-13): 0.4f}, '
-            f'correct: {total_correct / (denom + 1e-13): 0.4f}'
+            f'Loss: {total_loss / (denom + 1e-13): 0.4f}, '
+            f'Accuracy: {total_correct / (denom + 1e-13): 0.4f}'
         )
+        accuracy = total_correct / (denom + 1e-13)
 
-        # if accuracy > best_accuracy:
-            # logger.info('Best performance so far.')
-            # # torch.save(model.state_dict(), args.ckpt_dir / WEIGHTS_NAME)
-            # # model.config.to_json_file(args.ckpt_dir / CONFIG_NAME)
-            # # tokenizer.save_pretrained(args.ckpt_dir)
-            # best_accuracy = accuracy
+        if is_main_process:
+            if accuracy > best_accuracy:
+                logger.info('Best performance so far.')
+                best_accuracy = accuracy
+                if not args.ckpt_dir.exists():
+                    args.ckpt_dir.mkdir(parents=True)
+                model.save_pretrained(args.ckpt_dir)
+                tokenizer.save_pretrained(args.ckpt_dir)
 
-    # logger.info('Testing...')
-    # model.eval()
-    # correct = 0
-    # total = 0
-    # # TO DO: currently testing on last model, not best validation model
-    # for model_inputs, labels in test_loader:
-        # model_inputs = {k: v.to(device) for k, v in model_inputs.items()}
-        # mask_token_idxs = (model_inputs["input_ids"] == eos_idx).nonzero()[:,1] + args.trigger_length
-        # model_inputs = generate_inputs_embeds(model_inputs, model, tokenizer, eos_idx)
-        # labels = labels.to(device)[:, 1]
-        # logits, *_ = model(**model_inputs)
-        # mask_logits = logits[torch.arange(0, logits.shape[0], dtype=torch.long), mask_token_idxs]
-        # preds = torch.topk(mask_logits, 1, dim=1).indices[:, 0]
-        # correct += (preds == labels).sum().item()
-        # total += labels.size(0)
-    # accuracy = correct / (total + 1e-13)
-    # logger.info(f'Accuracy: {accuracy : 0.4f}')
+    logger.info('Testing...')
+    checkpoint = torch.load(args.ckpt_dir / "pytorch_model.bin")
+    model.load_state_dict(checkpoint)
+    if args.tmp:
+        logger.info('Temporary mode enabled, deleting checkpoint')
+        shutil.rmtree(args.ckpt_dir)
+    model.eval()
+    total_correct = torch.tensor(0.0, device=device)
+    denom = torch.tensor(0.0, device=device)
+    with torch.no_grad():
+        for model_inputs, labels in test_loader:
+            model_inputs = {k: v.to(device) for k, v in model_inputs.items()}
+            labels = labels.to(device)
+            _, correct = evaluator(model_inputs, labels)
+            total_correct += correct.detach()
+            denom += labels.size(0)
+    if world_size != -1:
+        torch.distributed.reduce(correct, 0)
+        torch.distributed.reduce(denom, 0)
+    accuracy = total_correct / (denom + 1e-13)
+    logger.info(f'Accuracy: {accuracy : 0.4f}')
 
 
 if __name__ == '__main__':
@@ -365,6 +426,7 @@ if __name__ == '__main__':
                         choices=['parallel', 'monotonic', 'iterative'])
     parser.add_argument('--finetune', action='store_true')
     parser.add_argument('--ckpt-dir', type=Path, default=Path('ckpt/'))
+    parser.add_argument('--tmp', action='store_true')
     parser.add_argument('--num-labels', type=int, default=2)
     parser.add_argument('--bsz', type=int, default=32)
     parser.add_argument('--epochs', type=int, default=10)
@@ -373,6 +435,7 @@ if __name__ == '__main__':
     parser.add_argument('--seed', type=int, default=1234)
     parser.add_argument('-f', '--force-overwrite', action='store_true')
     parser.add_argument('--debug', action='store_true')
+    parser.add_argument('--local_rank', type=int, default=-1)
     args = parser.parse_args()
 
     if args.debug:
