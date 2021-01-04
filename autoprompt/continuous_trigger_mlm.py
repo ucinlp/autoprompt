@@ -249,6 +249,7 @@ def main(args):
         label_map = json.loads(args.label_map)
     else:
         label_map = None
+    logger.info(f'Label map: {label_map}')
     templatizer = utils.MultiTokenTemplatizer(
         template=args.template,
         tokenizer=tokenizer,
