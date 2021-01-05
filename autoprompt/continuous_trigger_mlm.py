@@ -10,7 +10,9 @@ import numpy as np
 import torch
 import torch.nn.functional as F
 from torch.utils.data import DataLoader
-from transformers import AutoConfig, AutoTokenizer, AutoModelForMaskedLM
+from transformers import AdamW, AutoConfig, AutoTokenizer, AutoModelForMaskedLM
+from transformers.modeling_bert import BertPreTrainedModel
+from transformers.modeling_roberta import RobertaPreTrainedModel
 from tqdm import tqdm
 
 import autoprompt.utils as utils
@@ -238,12 +240,14 @@ def main(args):
     if not args.finetune:
         for param in model.parameters():
             param.requires_grad = False
-    if args.model_name == "bert-base-cased":
+    if isinstance(model, BertPreTrainedModel):
         model.embeds = model.bert.embeddings.word_embeddings
         # model.bert.cls.predictions.decoder.bias.zero_()
-    elif args.model_name == "roberta-base":
+    elif isinstance(model, RobertaPreTrainedModel):
         model.embeds = model.roberta.embeddings.word_embeddings
         # model.lm_head.decoder.bias.zero_()
+    else:
+        raise ValueError(f'{args.model_name} not currently supported.')
 
     if args.label_map is not None:
         label_map = json.loads(args.label_map)
@@ -323,13 +327,18 @@ def main(args):
         )
 
 
-    optimizer = torch.optim.Adam(model.parameters(), lr=args.lr, weight_decay=1e-6)
+    optimizer = AdamW(
+        model.parameters(),
+        lr=args.lr,
+        weight_decay=1e-2,
+        betas=(0.9, 0.999),
+    )
 
     best_accuracy = 0
     for epoch in range(args.epochs):
         logger.info('Training...')
         model.train()
-        if is_main_process:
+        if is_main_process and not args.quiet:
             iter_ = tqdm(train_loader)
         else:
             iter_ = train_loader
@@ -347,7 +356,7 @@ def main(args):
             denom += labels.size(0)
             # NOTE: This loss/accuracy is only on the subset  of training data
             # in the main process.
-            if is_main_process:
+            if is_main_process and not args.quiet:
                 iter_.set_description(
                     f'Loss: {total_loss / (denom + 1e-13): 0.4f}, '
                     f'Accuracy: {total_correct / (denom + 1e-13): 0.4f}'
@@ -358,8 +367,12 @@ def main(args):
         total_loss = torch.tensor(0.0, device=device)
         total_correct = torch.tensor(0.0, device=device)
         denom = torch.tensor(0.0, device=device)
+        if is_main_process and not args.quiet:
+            iter_ = tqdm(dev_loader)
+        else:
+            iter_ = dev_loader
         with torch.no_grad():
-            for model_inputs, labels in tqdm(dev_loader):
+            for model_inputs, labels in iter_:
                 model_inputs = {k: v.to(device) for k, v in model_inputs.items()}
                 labels = labels.to(device)
                 loss, correct = evaluator(model_inputs, labels)
@@ -438,6 +451,7 @@ if __name__ == '__main__':
     parser.add_argument('--seed', type=int, default=1234)
     parser.add_argument('-f', '--force-overwrite', action='store_true')
     parser.add_argument('--debug', action='store_true')
+    parser.add_argument('--quiet', action='store_true')
     parser.add_argument('--local_rank', type=int, default=-1)
     args = parser.parse_args()
 
