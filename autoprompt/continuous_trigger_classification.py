@@ -111,7 +111,9 @@ def main(args):
     config = AutoConfig.from_pretrained(args.model_name, num_labels=args.num_labels)
     tokenizer = AutoTokenizer.from_pretrained(args.model_name)
     model = ContTriggerTransformer(config, args.model_name, args.trigger_length, finetune=args.finetune)
-    
+
+
+    #Can be removed.
     if args.model_name == "bert-base-cased":
         eos_idx = 102
     elif args.model_name == "roberta-base":
@@ -171,7 +173,10 @@ def main(args):
     optimizer = torch.optim.Adam(list(model.model.classifier.parameters()) + [model.relation_embeds],
                                                         lr=args.lr, weight_decay=args.weight_decay)
 
-    best_accuracy = 0
+    best_accuracy1 = 0
+    accuracy1_for2 = 0
+    best_accuracy2 = 0
+    accuracy2_for1 = 0
     for epoch in range(args.epochs):
         logger.info('Training...')
         model.train()
@@ -185,7 +190,7 @@ def main(args):
             model_inputs = generate_inputs_embeds(model_inputs, model, tokenizer, eos_idx)
             labels = labels.to(device)
             optimizer.zero_grad()
-            logits, *_ = model(**model_inputs)    
+            logits, *_ = model(**model_inputs).values()
             loss = F.cross_entropy(logits, labels.squeeze(-1))
             loss.backward()
             optimizer.step()
@@ -195,7 +200,7 @@ def main(args):
             if is_main_process:
                 iter_.set_description(f'loss: {avg_loss.get_metric(): 0.4f}')
 
-        logger.info('Evaluating...')
+        logger.info('Evaluating1...')
         model.eval()
         correct = torch.tensor(0.0, device=device)
         total = torch.tensor(0.0, device=device)
@@ -204,7 +209,7 @@ def main(args):
                 model_inputs = {k: v.to(device) for k, v in model_inputs.items()}
                 model_inputs = generate_inputs_embeds(model_inputs, model, tokenizer, eos_idx)
                 labels = labels.to(device)
-                logits, *_ = model(**model_inputs)
+                logits, *_ = model(**model_inputs).values()
                 _, preds = logits.max(dim=-1)
                 correct += (preds == labels.squeeze(-1)).sum().item()
                 total += labels.size(0)
@@ -213,43 +218,87 @@ def main(args):
         if world_size != -1:
             torch.distributed.reduce(correct, 0)
             torch.distributed.reduce(total, 0)
-        accuracy = correct / (total + 1e-13)
-        logger.info(f'Accuracy: {accuracy : 0.4f}')
+        accuracy1 = correct / (total + 1e-13)
+        logger.info(f'Accuracy: {accuracy1 : 0.4f}')
+
+        logger.info('Evaluating2...')
+        model.eval()
+        correct = torch.tensor(0.0, device=device)
+        total = torch.tensor(0.0, device=device)
+        with torch.no_grad():
+            for model_inputs, labels in test_loader:
+                model_inputs = {k: v.to(device) for k, v in model_inputs.items()}
+                model_inputs = generate_inputs_embeds(model_inputs, model, tokenizer, eos_idx)
+                labels = labels.to(device)
+                logits, *_ = model(**model_inputs).values()
+                _, preds = logits.max(dim=-1)
+                correct += (preds == labels.squeeze(-1)).sum().item()
+                total += labels.size(0)
+        if world_size != -1:
+            torch.distributed.reduce(correct, 0)
+            torch.distributed.reduce(total, 0)
+        accuracy2 = correct / (total + 1e-13)
+        logger.info(f'Accuracy: {accuracy2 : 0.4f}')
 
         if is_main_process:
-            if accuracy > best_accuracy:
-                logger.info('Best performance so far.')
-                best_accuracy = accuracy
-                if not args.ckpt_dir.exists():
-                    args.ckpt_dir.mkdir(parents=True)
-                model.save_pretrained(args.ckpt_dir)
-                tokenizer.save_pretrained(args.ckpt_dir)
+            if accuracy1 >= best_accuracy1:
+                logger.info('Best performance so far for 1.')
+                if best_accuracy1 == accuracy1:
+                    if accuracy2 > accuracy1_for2:
+                        accuracy1_for2 = accuracy2
+                else:
+                    accuracy1_for2 = accuracy2
+                best_accuracy1 = accuracy1
 
-    logger.info('Testing...')
-    if epochs > 0:
-        checkpoint = torch.load(args.ckpt_dir / "pytorch_model.bin")
-        model.load_state_dict(checkpoint)
-        if args.tmp:
-            logger.info('Temporary mode enabled, deleting checkpoint')
-            shutil.rmtree(args.ckpt_dir)
-    model.eval()
-    correct = torch.tensor(0.0, device=device)
-    total = torch.tensor(0.0, device=device)
-    with torch.no_grad():
-        for model_inputs, labels in test_loader:
-            model_inputs = {k: v.to(device) for k, v in model_inputs.items()}
-            model_inputs = generate_inputs_embeds(model_inputs, model, tokenizer, eos_idx)
-            labels = labels.to(device)
-            logits, *_ = model(**model_inputs)
-            _, preds = logits.max(dim=-1)
-            correct += (preds == labels.squeeze(-1)).sum().item()
-            total += labels.size(0)
+                # if not args.ckpt_dir.exists():
+                #     args.ckpt_dir.mkdir(parents=True)
+                # model.save_pretrained(args.ckpt_dir)
+                # tokenizer.save_pretrained(args.ckpt_dir)
+            if accuracy2 >= best_accuracy2:
+                logger.info('Best performance so far for 2.')
+                if best_accuracy2 == accuracy2:
+                    if accuracy1 > accuracy2_for1:
+                        accuracy2_for1 = accuracy1
+                else:
+                    accuracy2_for1 = accuracy1
+                best_accuracy2 = accuracy2
 
-    if world_size != -1:
-        torch.distributed.reduce(correct, 0)
-        torch.distributed.reduce(total, 0)
-    accuracy = correct / (total + 1e-13)
-    logger.info(f'Accuracy: {accuracy : 0.4f}')
+
+    # logger.info(f'Best dev accuracy: {best_accuracy : 0.4f}')
+    logger.info(f'Best dev accuracy for 1: {best_accuracy1 : 0.4f}')
+    logger.info(f'accuracy on 2 when 1 is best is : {accuracy1_for2 : 0.4f}')
+    logger.info(f'Best dev accuracy for 2: {best_accuracy2 : 0.4f}')
+    logger.info(f'accuracy on 1 when 2 is best is : {accuracy2_for1 : 0.4f}')
+
+    print(f'Best dev accuracy for 1: {best_accuracy1 : 0.4f}')
+    print(f'accuracy on 2 when 1 is best is : {accuracy1_for2 : 0.4f}')
+    print(f'Best dev accuracy for 2: {best_accuracy2 : 0.4f}')
+    print(f'accuracy on 1 when 2 is best is : {accuracy2_for1 : 0.4f}')
+    # logger.info('Testing...')
+    # if args.epochs > 0:
+    #     checkpoint = torch.load(args.ckpt_dir / "pytorch_model.bin")
+    #     model.load_state_dict(checkpoint)
+    #     if args.tmp:
+    #         logger.info('Temporary mode enabled, deleting checkpoint')
+    #         shutil.rmtree(args.ckpt_dir)
+    # model.eval()
+    # correct = torch.tensor(0.0, device=device)
+    # total = torch.tensor(0.0, device=device)
+    # with torch.no_grad():
+    #     for model_inputs, labels in test_loader:
+    #         model_inputs = {k: v.to(device) for k, v in model_inputs.items()}
+    #         model_inputs = generate_inputs_embeds(model_inputs, model, tokenizer, eos_idx)
+    #         labels = labels.to(device)
+    #         logits, *_ = model(**model_inputs).values()
+    #         _, preds = logits.max(dim=-1)
+    #         correct += (preds == labels.squeeze(-1)).sum().item()
+    #         total += labels.size(0)
+    #
+    # if world_size != -1:
+    #     torch.distributed.reduce(correct, 0)
+    #     torch.distributed.reduce(total, 0)
+    # accuracy = correct / (total + 1e-13)
+    # logger.info(f'Accuracy: {accuracy : 0.4f}')
 
 
 if __name__ == '__main__':
@@ -271,7 +320,7 @@ if __name__ == '__main__':
     parser.add_argument('--lr', type=float, default=3e-2)
     parser.add_argument('--weight-decay', type=float, default=1e-6)
     parser.add_argument('--limit', type=int, default=None)
-    parser.add_argument('--seed', type=int, default=1234)
+    parser.add_argument('--seed', type=int, default=1)
     parser.add_argument('-f', '--force-overwrite', action='store_true')
     parser.add_argument('--debug', action='store_true')
     parser.add_argument('--local_rank', type=int, default=-1)

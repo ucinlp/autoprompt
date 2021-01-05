@@ -72,8 +72,8 @@ def main(args):
         args.template,
         tokenizer,
         label_map=label_map,
-        label_field=args.label_field,
-        add_special_tokens=False
+        label_field=args.label_field
+        # add_special_tokens=False
     )
 
     # The weights of this projection will help identify the best label words.
@@ -135,13 +135,18 @@ def main(args):
         for i, row in enumerate(scores):
             _, top = row.topk(args.k)
             decoded = tokenizer.convert_ids_to_tokens(top)
-            logger.info(f"Top k for class {reverse_label_map[i]}: {', '.join(decoded)}")
+            s = ', '.join('"{0}"'.format(w) for w in decoded)
+            logger.info(f"Top k for class {reverse_label_map[i]}:[{s}]")
 
     out = {}
     for i, row in enumerate(scores):
         _, top = row.topk(args.k)
         out[reverse_label_map[i]] = tokenizer.convert_ids_to_tokens(top)
-    print(out)
+    S0 = ', '.join('"{0}"'.format(w) for w in out[reverse_label_map[0]])
+    logger.info("*******************")
+    logger.info(f"Top k for class {reverse_label_map[i]}:[{S0}]")
+    S1 = ', '.join('"{0}"'.format(w) for w in out[reverse_label_map[1]])
+    logger.info(f"Top k for class {reverse_label_map[i]}:[{S1}]")
 
 
 
@@ -164,12 +169,13 @@ if __name__ == '__main__':
                         help='Model name passed to HuggingFace AutoX classes.')
     parser.add_argument('--seed', type=int, default=0)
     parser.add_argument('--debug', action='store_true')
+    parser.add_argument('--log-file', type=Path)
     args = parser.parse_args()
 
     if args.debug:
         level = logging.DEBUG
     else:
         level = logging.INFO
-    logging.basicConfig(level=level)
+    logging.basicConfig(level=level, filename=args.log_file)
 
     main(args)

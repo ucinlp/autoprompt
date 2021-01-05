@@ -20,6 +20,7 @@ from transformers import (
     AdamW, AutoConfig, AutoModelForSequenceClassification, AutoTokenizer
 )
 from tqdm import tqdm
+import json
 
 import autoprompt.utils as utils
 from autoprompt.preprocessors import PREPROCESSORS
@@ -84,6 +85,12 @@ def main(args):
         )
     model.to(device)
 
+    if args.label_map is not None:
+        label_map = json.loads(args.label_map)
+        logger.info(f"Label map: {label_map}")
+    else:
+        label_map = None
+
 
     collator = utils.Collator(pad_token_id=tokenizer.pad_token_id)
     train_dataset, label_map = utils.load_classification_dataset(
@@ -92,6 +99,7 @@ def main(args):
         args.field_a,
         args.field_b,
         args.label_field,
+        label_map,
         limit=args.limit,
         preprocessor_key=args.preprocessor,
     )
@@ -154,7 +162,7 @@ def main(args):
                 model_inputs = {k: v.to(device) for k, v in model_inputs.items()}
                 labels = labels.to(device)
                 with torch.cuda.amp.autocast():
-                    logits, *_ = model(**model_inputs)
+                    logits, *_ = model(**model_inputs).values()
                     loss = F.cross_entropy(logits, labels.squeeze(-1))
                 scaler.scale(loss).backward()
                 scaler.step(optimizer)
@@ -173,7 +181,7 @@ def main(args):
                 for model_inputs, labels in dev_loader:
                     model_inputs = {k: v.to(device) for k, v in model_inputs.items()}
                     labels = labels.to(device)
-                    logits, *_ = model(**model_inputs)
+                    logits, *_ = model(**model_inputs).values()
                     _, preds = logits.max(dim=-1)
                     correct += (preds == labels.squeeze(-1)).sum().item()
                     total += labels.size(0)
@@ -201,7 +209,7 @@ def main(args):
         for model_inputs, labels in test_loader:
             model_inputs = {k: v.to(device) for k, v in model_inputs.items()}
             labels = labels.to(device)
-            logits, *_ = model(**model_inputs)
+            logits, *_ = model(**model_inputs).values()
             _, preds = logits.max(dim=-1)
             correct += (preds == labels.squeeze(-1)).sum().item()
             total += labels.size(0)
@@ -223,7 +231,7 @@ if __name__ == '__main__':
     parser.add_argument('--ckpt-dir', type=Path, default=Path('ckpt/'))
     parser.add_argument('--num-labels', type=int, default=2)
     parser.add_argument('--bsz', type=int, default=32)
-    parser.add_argument('--epochs', type=int, default=3)
+    parser.add_argument('--epochs', type=int, default=20)
     parser.add_argument('--lr', type=float, default=2e-5)
     parser.add_argument('--limit', type=int, default=None)
     parser.add_argument('--seed', type=int, default=1234)
@@ -232,14 +240,16 @@ if __name__ == '__main__':
     parser.add_argument('-f', '--force-overwrite', action='store_true')
     parser.add_argument('--adapter', action='store_true')
     parser.add_argument('--debug', action='store_true')
+    parser.add_argument('--label-map', type=str, default=None, help='JSON object defining label map')
     parser.add_argument('--local_rank', type=int, default=-1)
+    parser.add_argument('--log-file', type=Path)
     args = parser.parse_args()
 
     if args.debug:
         level = logging.DEBUG
     else:
         level = logging.INFO
-    logging.basicConfig(level=level)
+    logging.basicConfig(level=level, filename=args.log_file)
 
     main(args)
 

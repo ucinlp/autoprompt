@@ -50,7 +50,7 @@ class PredictWrapper:
         trigger_mask = model_inputs.pop('trigger_mask')
         predict_mask = model_inputs.pop('predict_mask')
         model_inputs = replace_trigger_tokens(model_inputs, trigger_ids, trigger_mask)
-        logits, *_ = self._model(**model_inputs)
+        logits, *_ = self._model(**model_inputs).values()
         predict_logits = logits.masked_select(predict_mask.unsqueeze(-1)).view(logits.size(0), -1)
         return predict_logits
 
@@ -206,7 +206,7 @@ def run_model(args):
         label_map=label_map,
         label_field=args.label_field,
         tokenize_labels=args.tokenize_labels,
-        add_special_tokens=False
+        # add_special_tokens=False
     )
 
     # Obtain the initial trigger tokens and label mapping
@@ -485,7 +485,7 @@ if __name__ == '__main__':
     parser.add_argument('--patience', type=int, default=5)
     parser.add_argument('--num_cand', type=int, default=10)
     parser.add_argument('--sentence_size', type=int, default=50)
-
+    parser.add_argument('--log-file', type=Path)
     parser.add_argument('--debug', action='store_true')
     args = parser.parse_args()
 
@@ -493,6 +493,6 @@ if __name__ == '__main__':
         level = logging.DEBUG
     else:
         level = logging.INFO
-    logging.basicConfig(level=level)
+    logging.basicConfig(level=level, filename=args.log_file)
 
     run_model(args)
