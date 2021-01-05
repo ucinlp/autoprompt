@@ -161,7 +161,7 @@ export PYTHONPATH="${PYTHONPATH}:/path/to/the/AutoPrompt/repo"
 ```
 @inproceedings{autoprompt:emnlp20,
   author = {Taylor Shin and Yasaman Razeghi and Robert L. Logan IV and Eric Wallace and Sameer Singh},
-  title = { {AutoPrompt}: Automatic Prompt Construction for Masked Language Models },
+  title = { {AutoPrompt}: Eliciting Knowledge from Language Models with Automatically Generated Prompts },
   booktitle = {Empirical Methods in Natural Language Processing (EMNLP)},
   year = {2020}
 }
