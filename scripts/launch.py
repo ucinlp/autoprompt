@@ -43,7 +43,7 @@ def main(args):
             # Format command, add rank argument
             cmd = [sys.executable, '-u']
             cmd.append(job['script'])
-            cmd.append(f'--rank={rank}')
+            cmd.append(f'--local_rank={rank}')
             cmd.extend(job['args'])
 
             stdout = open(args.logdir / f'{job["out"]}.stdout', 'w')

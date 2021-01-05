@@ -1,0 +1,28 @@
+---
+out: model_roberta-large_task_cycic
+script: autoprompt/continuous_trigger_mlm.py
+args:
+    - '--model-name=roberta-large'
+    - '--train=data/CycIC/train-f_processed.jsonl'
+    - '--dev=data/CycIC/dev_b-f_processed.jsonl'
+    - '--test=data/CycIC/dev_b-f_processed.jsonl'
+    - '--label-map'
+    - '{"True": "true", "False": "false"}'
+    - '--template'
+    - '[T] [T] [T] [T] {question} [T] [P] [T]'
+    - '--initial-trigger'
+    - 'ĠTrue'
+    - 'Ġor'
+    - 'Ġfalse'
+    - '?'
+    - 'Ġ:'
+    - 'Ġ.'
+    - '--evaluation-strategy=multiple-choice'
+    - '--ckpt-dir=/tmp/deletenow'
+    - '--tmp'
+    - '--bsz=20'
+    - '--epochs=500'
+    - '--lr=1e-3'
+    - '--quiet'
+    - '--seed=1337'
+...
