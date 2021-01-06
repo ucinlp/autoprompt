@@ -5,6 +5,7 @@ Largely copied from:
     https://github.com/huggingface/transformers/blob/master/examples/text-classification/run_glue.py
 """
 import argparse
+import json
 import logging
 from pathlib import Path
 import random
@@ -13,7 +14,9 @@ import shutil
 import numpy as np
 import torch
 import torch.nn.functional as F
-from torch.utils.data import DataLoader
+from torch.utils.data import (
+    DataLoader, DistributedSampler, RandomSampler, SequentialSampler
+)
 from torch.optim.lr_scheduler import LambdaLR
 import transformers
 from transformers import (
@@ -55,12 +58,28 @@ def get_linear_schedule_with_warmup(optimizer, num_warmup_steps, num_training_st
 
 
 def main(args):
-    set_seed(args.seed)
-
+    # Handle multi-GPU setup
+    world_size = None
     if args.local_rank == -1:
         device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
     else:
         device = torch.device('cuda', args.local_rank)
+        torch.distributed.init_process_group(
+            backend='nccl',
+            init_method='env://',
+        )
+        world_size = torch.distributed.get_world_size()
+    is_main_process = args.local_rank in [-1, 0]
+    if args.debug:
+        main_level = logging.DEBUG
+        level = logging.DEBUG
+    else:
+        main_level = logging.INFO
+        level = logging.WARN
+    logging.basicConfig(level=main_level if is_main_process else level)
+    logger.warning('Rank: %s - World Size: %s', args.local_rank, world_size)
+
+    set_seed(args.seed)
 
     config = AutoConfig.from_pretrained(args.model_name, num_labels=args.num_labels)
     tokenizer = AutoTokenizer.from_pretrained(args.model_name)
@@ -83,19 +102,39 @@ def main(args):
             config=config,
         )
     model.to(device)
-
+    if args.local_rank != -1:
+        model = torch.nn.parallel.DistributedDataParallel(
+            model,
+            device_ids=[args.local_rank],
+            output_device=args.local_rank
+        )
 
     collator = utils.Collator(pad_token_id=tokenizer.pad_token_id)
+    if args.label_map:
+        label_map = json.loads(args.label_map)
+    else:
+        label_map = None
     train_dataset, label_map = utils.load_classification_dataset(
         args.train,
         tokenizer,
         args.field_a,
         args.field_b,
         args.label_field,
+        label_map,  # If None then will be learned
         limit=args.limit,
         preprocessor_key=args.preprocessor,
     )
-    train_loader = DataLoader(train_dataset, batch_size=args.bsz, shuffle=True, collate_fn=collator)
+    logger.info(f'Label map: {label_map}')
+    if args.local_rank != -1:
+        train_sampler = DistributedSampler(train_dataset, shuffle=True, seed=args.seed)
+    else:
+        train_sampler = RandomSampler(train_dataset)
+    train_loader = DataLoader(
+        train_dataset,
+        batch_size=args.bsz,
+        sampler=train_sampler,
+        collate_fn=collator,
+    )
     dev_dataset, _ = utils.load_classification_dataset(
         args.dev,
         tokenizer,
@@ -106,7 +145,11 @@ def main(args):
         limit=args.limit,
         preprocessor_key=args.preprocessor,
     )
-    dev_loader = DataLoader(dev_dataset, batch_size=args.bsz, shuffle=False, collate_fn=collator)
+    if args.local_rank != -1:
+        dev_sampler = DistributedSampler(dev_dataset)
+    else:
+        dev_sampler = SequentialSampler(dev_dataset)
+    dev_loader = DataLoader(dev_dataset, batch_size=args.bsz, sampler=dev_sampler, collate_fn=collator)
     test_dataset, _ = utils.load_classification_dataset(
         args.test,
         tokenizer,
@@ -116,7 +159,11 @@ def main(args):
         label_map,
         preprocessor_key=args.preprocessor,
     )
-    test_loader = DataLoader(test_dataset, batch_size=args.bsz, shuffle=False, collate_fn=collator)
+    if args.local_rank != -1:
+        test_sampler = DistributedSampler(test_dataset)
+    else:
+        test_sampler = SequentialSampler(test_dataset)
+    test_loader = DataLoader(test_dataset, batch_size=args.bsz, sampler=test_sampler, collate_fn=collator)
 
     if args.bias_correction:
         betas = (0.9, 0.999)
@@ -132,10 +179,11 @@ def main(args):
     scaler = torch.cuda.amp.GradScaler(enabled=args.fp16)
 
     # Use suggested learning rate scheduler
-    num_training_steps = len(train_dataset) * args.epochs // args.bsz
-    num_warmup_steps = num_training_steps // 10
-    scheduler = get_linear_schedule_with_warmup(optimizer, num_warmup_steps,
-                                                num_training_steps)
+    if args.warmup:
+        num_training_steps = len(train_dataset) * args.epochs // args.bsz
+        num_warmup_steps = num_training_steps // 10
+        scheduler = get_linear_schedule_with_warmup(optimizer, num_warmup_steps,
+                                                    num_training_steps)
 
     if not args.ckpt_dir.exists():
         logger.info(f'Making checkpoint directory: {args.ckpt_dir}')
@@ -143,32 +191,44 @@ def main(args):
     elif not args.force_overwrite:
         raise RuntimeError('Checkpoint directory already exists.')
 
-    try:
+    if not args.skip_train:
         best_accuracy = 0
         for epoch in range(args.epochs):
             logger.info('Training...')
             model.train()
-            avg_loss = utils.ExponentialMovingAverage()
-            pbar = tqdm(train_loader)
-            for model_inputs, labels in pbar:
+            if is_main_process and not args.quiet:
+                iter_ = tqdm(train_loader)
+            else:
+                iter_ = train_loader
+            for i, (model_inputs, labels) in enumerate(iter_):
                 model_inputs = {k: v.to(device) for k, v in model_inputs.items()}
                 labels = labels.to(device)
-                with torch.cuda.amp.autocast():
+                with torch.cuda.amp.autocast(enabled=args.fp16):
                     logits, *_ = model(**model_inputs)
                     loss = F.cross_entropy(logits, labels.squeeze(-1))
+                    loss /= args.accumulation_steps
+                _, preds = logits.max(dim=-1)
+                correct = (preds == labels.squeeze(-1)).sum()
+                total = labels.size(0)
+                accuracy = correct / (total + 1e-13)
                 scaler.scale(loss).backward()
-                scaler.step(optimizer)
-                scaler.update()
-                optimizer.zero_grad()
-                scheduler.step()
-                avg_loss.update(loss.item())
-                pbar.set_description(f'loss: {avg_loss.get_metric(): 0.4f}, '
-                                     f'lr: {optimizer.param_groups[0]["lr"]: .3e}')
+                if i % args.accumulation_steps == 0:
+                    scaler.step(optimizer)
+                    scaler.update()
+                    optimizer.zero_grad()
+                if args.warmup:
+                    scheduler.step()
+                if i % args.log_frequency == 0 and is_main_process and not args.quiet:
+                    iter_.set_description(
+                        f'loss: {loss: 0.4f}, '
+                        f'lr: {optimizer.param_groups[0]["lr"]: .3e} '
+                        f'acc: {accuracy: 0.4f}'
+                    )
 
             logger.info('Evaluating...')
             model.eval()
-            correct = 0
-            total = 0
+            correct = torch.tensor(0.0, device=device)
+            total = torch.tensor(0.0, device=device)
             with torch.no_grad():
                 for model_inputs, labels in dev_loader:
                     model_inputs = {k: v.to(device) for k, v in model_inputs.items()}
@@ -177,26 +237,36 @@ def main(args):
                     _, preds = logits.max(dim=-1)
                     correct += (preds == labels.squeeze(-1)).sum().item()
                     total += labels.size(0)
-                accuracy = correct / (total + 1e-13)
+
+            if args.local_rank != -1:
+                torch.distributed.reduce(correct, 0)
+                torch.distributed.reduce(total, 0)
+            accuracy = correct / (total + 1e-13)
             logger.info(f'Accuracy: {accuracy : 0.4f}')
 
             if accuracy > best_accuracy:
                 logger.info('Best performance so far.')
-                if not args.adapter:
+                if args.local_rank == -1:
                     model.save_pretrained(args.ckpt_dir)
-                tokenizer.save_pretrained(args.ckpt_dir)
+                elif args.local_rank == 0:
+                    model.module.save_pretrained(args.ckpt_dir)
+                if is_main_process:
+                    config.save_pretrained(args.ckpt_dir)
+                    tokenizer.save_pretrained(args.ckpt_dir)
                 best_accuracy = accuracy
-    except KeyboardInterrupt:
-        logger.info('Interrupted...')
 
     logger.info('Testing...')
-    if not args.adapter:
-        model.from_pretrained(args.ckpt_dir)
+    if not args.skip_train:
+        if not args.adapter:
+            model = model.from_pretrained(args.ckpt_dir)
+            model.to(device)
+        if args.tmp:
+            logger.info('Removing checkpoint.')
+            shutil.rmtree(args.ckpt_dir)
     model.eval()
-    shutil.rmtree(args.ckpt_dir)
-    correct = 0
-    total = 0
 
+    correct = torch.tensor(0.0, device=device)
+    total = torch.tensor(0.0, device=device)
     with torch.no_grad():
         for model_inputs, labels in test_loader:
             model_inputs = {k: v.to(device) for k, v in model_inputs.items()}
@@ -205,7 +275,11 @@ def main(args):
             _, preds = logits.max(dim=-1)
             correct += (preds == labels.squeeze(-1)).sum().item()
             total += labels.size(0)
-        accuracy = correct / (total + 1e-13)
+
+    if args.local_rank != -1:
+        torch.distributed.reduce(correct, 0)
+        torch.distributed.reduce(total, 0)
+    accuracy = correct / (total + 1e-13)
     logger.info(f'Accuracy: {accuracy : 0.4f}')
 
 
@@ -218,28 +292,29 @@ if __name__ == '__main__':
     parser.add_argument('--field-a', type=str)
     parser.add_argument('--field-b', type=str, default=None)
     parser.add_argument('--label-field', type=str, default='label')
+    parser.add_argument('--label-map', type=str, default=None)
     parser.add_argument('--preprocessor', type=str, default=None,
                         choices=PREPROCESSORS.keys())
     parser.add_argument('--ckpt-dir', type=Path, default=Path('ckpt/'))
     parser.add_argument('--num-labels', type=int, default=2)
     parser.add_argument('--bsz', type=int, default=32)
     parser.add_argument('--epochs', type=int, default=3)
+    parser.add_argument('--accumulation-steps', type=int, default=1)
     parser.add_argument('--lr', type=float, default=2e-5)
     parser.add_argument('--limit', type=int, default=None)
     parser.add_argument('--seed', type=int, default=1234)
     parser.add_argument('--bias-correction', action='store_true')
     parser.add_argument('--fp16', action='store_true')
+    parser.add_argument('--log-frequency', type=int, default=100)
     parser.add_argument('-f', '--force-overwrite', action='store_true')
     parser.add_argument('--adapter', action='store_true')
+    parser.add_argument('--warmup', action='store_true')
     parser.add_argument('--debug', action='store_true')
+    parser.add_argument('--quiet', action='store_true')
+    parser.add_argument('--skip-train', action='store_true')
+    parser.add_argument('--tmp', action='store_true')
     parser.add_argument('--local_rank', type=int, default=-1)
     args = parser.parse_args()
-
-    if args.debug:
-        level = logging.DEBUG
-    else:
-        level = logging.INFO
-    logging.basicConfig(level=level)
 
     main(args)
 

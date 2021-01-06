@@ -415,7 +415,7 @@ def load_classification_dataset(
             add_special_tokens=True,
             truncation=True,
             padding='max_length',
-            max_length=500,  # TODO: Don't hardcode, base on # triggers.
+            max_length=64,  # TODO: Don't hardcode, base on # triggers.
             return_tensors='pt'
         )
         logger.debug(model_inputs)
