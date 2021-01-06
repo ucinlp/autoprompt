@@ -582,7 +582,7 @@ def main(args):
             torch.distributed.reduce(correct, 0)
             torch.distributed.reduce(denom, 0)
         accuracy = total_correct / (denom + 1e-13)
-        logger.info(f'Accuracy:{name} {accuracy : 0.4f}')
+        logger.info(f'Accuracy:{name} {accuracy : 0.4f, be careful this may be nonsense}')
 
     if args.epochs > 0 and args.tmp:
         logger.info('Temporary mode enabled, deleting checkpoint')

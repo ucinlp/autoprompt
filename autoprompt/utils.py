@@ -268,7 +268,11 @@ class MultiTokenTemplatizer:
             requires special processing).
         """
         # Tokenize label
-        label = format_kwargs.pop(self._label_field)
+        #very bad yasaman
+        try:
+            label = format_kwargs.pop(self._label_field)
+        except KeyError:
+            label = 'True'
         if label is None:
             raise Exception(
                 f'No label detected for instance: {format_kwargs}.'
