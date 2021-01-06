@@ -36,7 +36,7 @@ class EvalData:
     def write_to_file(self, file_path):
         with open(file_path, 'a') as f:
             for predicted_index in self.predictions:
-                print(predicted_index[0], file=f)
+                print(predicted_index, file=f)
         return self
 
 
@@ -344,27 +344,43 @@ def main(args):
     else:
         train_sampler = torch.utils.data.DistributedSampler(train_dataset, shuffle=True)
     train_loader = DataLoader(train_dataset, batch_size=args.bsz, collate_fn=collator, sampler=train_sampler)
-    dev_dataset = utils.load_trigger_dataset(
-        args.dev,
-        templatizer=templatizer,
-        preprocessor_key=args.preprocessor,
-        limit=args.limit,
-    )
-    if world_size == -1:
-        dev_sampler = torch.utils.data.SequentialSampler(dev_dataset)
-    else:
-        dev_sampler = torch.utils.data.DistributedSampler(dev_dataset)
-    dev_loader = DataLoader(dev_dataset, batch_size=args.bsz, collate_fn=collator, sampler=dev_sampler, shuffle=False)
-    test_dataset = utils.load_trigger_dataset(
-        args.test,
-        templatizer=templatizer,
-        preprocessor_key=args.preprocessor,
-    )
-    if world_size == -1:
-        test_sampler = torch.utils.data.SequentialSampler(test_dataset)
-    else:
-        test_sampler = torch.utils.data.DistributedSampler(test_dataset)
-    test_loader = DataLoader(test_dataset, batch_size=args.bsz, shuffle=False, collate_fn=collator)
+
+    dev_a_loader = utils.load_dev_test_dataset(args.dev_a, templatizer, True, args.preprocessor, args.limit,
+                                               world_size, args.bsz, collator)
+    # print("I am out of the functions1::", type(dev_a_loader))
+
+    dev_b_loader = utils.load_dev_test_dataset(args.dev_b, templatizer, True, args.preprocessor, args.limit,
+                                               world_size, args.bsz, collator)
+    test_a_loader = utils.load_dev_test_dataset(args.test_a, templatizer, False, args.preprocessor, args.limit,
+                                               world_size, args.bsz, collator)
+    test_b_loader = utils.load_dev_test_dataset(args.test_b, templatizer, False, args.preprocessor, args.limit,
+                                                world_size, args.bsz, collator)
+    #dev_a
+    # dev_a_dataset = utils.load_trigger_dataset(
+    #     args.dev_a,
+    #     templatizer=templatizer,
+    #     preprocessor_key=args.preprocessor,
+    #     limit=args.limit,
+    # )
+    # if world_size == -1:
+    #     dev_a_sampler = torch.utils.data.SequentialSampler(dev_a_dataset)
+    # else:
+    #     dev_a_sampler = torch.utils.data.DistributedSampler(dev_a_dataset)
+    # dev_a_loader = DataLoader(dev_a_dataset, batch_size=args.bsz, collate_fn=collator, sampler=dev_a_sampler, shuffle=False)
+    # print("I am out of the functions2::", type(dev_a_loader))
+
+
+
+    # test_dataset = utils.load_trigger_dataset(
+    #     args.test,
+    #     templatizer=templatizer,
+    #     preprocessor_key=args.preprocessor,
+    # )
+    # if world_size == -1:
+    #     test_sampler = torch.utils.data.SequentialSampler(test_dataset)
+    # else:
+    #     test_sampler = torch.utils.data.DistributedSampler(test_dataset)
+    # test_loader = DataLoader(test_dataset, batch_size=args.bsz, shuffle=False, collate_fn=collator)
 
     evaluator = EVALUATORS[args.evaluation_strategy](
         model=model,
@@ -444,8 +460,9 @@ def main(args):
 
         acc = {}
         preds = {}
-        for loader, name in [(dev_loader, "1"), (test_loader, "2")]:
-            logger.info(f'Evaluating{name}... ')
+        #dev_data_measuring accuracies
+        for loader, name in [(dev_a_loader, "a"), (dev_b_loader, "b")]:
+            logger.info(f'Evaluating {name}... ')
             model.eval()
             total_loss = torch.tensor(0.0, device=device)
             total_correct = torch.tensor(0.0, device=device)
@@ -479,11 +496,11 @@ def main(args):
             acc[name] = total_correct / (denom + 1e-13)
             preds[name] = all_preds
 
-        accuracy1 = acc["1"]
-        accuracy2 = acc["2"]
+        accuracy1 = acc["a"]
+        accuracy2 = acc["b"]
 
         # calculate conditional accuracy
-        origin, enetailed, conditional_acc,  = compute_accuracy(mapping, preds["1"], preds["2"] , origin_labels, entailed_labels)
+        origin, enetailed, conditional_acc,  = compute_accuracy(mapping, preds["a"], preds["b"] , origin_labels, entailed_labels)
         logger.info(
             f'origin: {origin}, '
             f'enetailed: {enetailed}, '
@@ -508,8 +525,10 @@ def main(args):
                 if best_accuracy2 == accuracy2:
                     if accuracy1 > accuracy2_for1:
                         accuracy2_for1 = accuracy1
+                        save_model(args.ckpt_dir, model, tokenizer)
                 else:
                     accuracy2_for1 = accuracy1
+                    save_model(args.ckpt_dir, model, tokenizer)
                 best_accuracy2 = accuracy2
 
             if accuracy1*accuracy2 > best_mult:
@@ -526,11 +545,6 @@ def main(args):
     acc_mid = max(accuracies, key=lambda a: min(a[0],a[1]))
     acc_mult = max(accuracies, key=lambda a: a[0]*a[1])
 
-
-    # print(f'Best dev accuracy for 1: {best_accuracy1 : 0.4f}')
-    # print(f'accuracy on 2 when 1 is best is : {accuracy1_for2 : 0.4f}')
-    # print(f'Best dev accuracy for 2: {best_accuracy2 : 0.4f}')
-    # print(f'accuracy on 1 when 2 is best is : {accuracy2_for1 : 0.4f}')
     print(f'Best 1 accuracy for all: {acc_1_max[0] : 0.4f} {acc_1_max[1] : 0.4f} {acc_1_max[2] : 0.4f}')
     print(f'Best 2 accuracy for all: {acc_2_max[0] : 0.4f} {acc_2_max[1] : 0.4f} {acc_2_max[2] : 0.4f}')
     print(f'Best mid accuracy for all: {acc_mid[0] : 0.4f} {acc_mid[1] : 0.4f} {acc_mid[2] : 0.4f}')
@@ -542,66 +556,47 @@ def main(args):
 
 
     #start of testing and creating outputs:
-    # if args.dev_a:
-    #     f = open(args.dev_a, 'w')
-    #     f.close()
-    # if args.dev_b:
-    #     f = open(args.dev_b, 'w')
-    #     f.close()
 
-    # logger.info('Testing1...')
-    # if args.epochs > 0:
-    #     checkpoint = torch.load(args.ckpt_dir / "pytorch_model.bin")
-    #     model.load_state_dict(checkpoint)
-    #     # if args.tmp:
-    #     #     logger.info('Temporary mode enabled, deleting checkpoint')
-    #     #     shutil.rmtree(args.ckpt_dir)
-    # model.eval()
-    # total_correct = torch.tensor(0.0, device=device)
-    # denom = torch.tensor(0.0, device=device)
-    # with torch.no_grad():
-    #     for model_inputs, labels in dev_loader:
-    #         model_inputs = {k: v.to(device) for k, v in model_inputs.items()}
-    #         labels = labels.to(device)
-    #         _, correct = evaluator(model_inputs, labels).write_to_file(args.dev_a).val()
-    #         total_correct += correct.detach()
-    #         denom += labels.size(0)
-    # if world_size != -1:
-    #     torch.distributed.reduce(correct, 0)
-    #     torch.distributed.reduce(denom, 0)
-    # accuracy = total_correct / (denom + 1e-13)
-    # logger.info(f'Accuracy: {accuracy : 0.4f}')
-    #
-    # logger.info('Testing2...')
-    # if args.epochs > 0:
-    #     checkpoint = torch.load(args.ckpt_dir / "pytorch_model.bin")
-    #     model.load_state_dict(checkpoint)
-    #     if args.tmp:
-    #         logger.info('Temporary mode enabled, deleting checkpoint')
-    #         shutil.rmtree(args.ckpt_dir)
-    # model.eval()
-    # total_correct = torch.tensor(0.0, device=device)
-    # denom = torch.tensor(0.0, device=device)
-    # with torch.no_grad():
-    #     for model_inputs, labels in test_loader:
-    #         model_inputs = {k: v.to(device) for k, v in model_inputs.items()}
-    #         labels = labels.to(device)
-    #         _, correct = evaluator(model_inputs, labels).write_to_file(args.dev_b).val()
-    #         total_correct += correct.detach()
-    #         denom += labels.size(0)
-    # if world_size != -1:
-    #     torch.distributed.reduce(correct, 0)
-    #     torch.distributed.reduce(denom, 0)
-    # accuracy = total_correct / (denom + 1e-13)
-    # logger.info(f'Accuracy: {accuracy : 0.4f}')
+    if args.test_a_output:
+        f = open(args.test_a_output, 'w')
+        f.close()
+    if args.test_b_output:
+        f = open(args.test_b_output, 'w')
+        f.close()
+    if args.epochs > 0:
+        checkpoint = torch.load(args.ckpt_dir / "pytorch_model.bin")
+        model.load_state_dict(checkpoint)
+    model.eval()
+    for loader, name, output_file in [(test_a_loader, "a", args.test_a_output), (test_b_loader, "b", args.test_b_output)]:
+        logger.info(f'Testing {name}...')
+        total_correct = torch.tensor(0.0, device=device)
+        denom = torch.tensor(0.0, device=device)
+        with torch.no_grad():
+            for model_inputs, labels in loader:
+                model_inputs = {k: v.to(device) for k, v in model_inputs.items()}
+                labels = labels.to(device)
+                _, correct = evaluator(model_inputs, labels).write_to_file(output_file).val()
+                total_correct += correct.detach()
+                denom += labels.size(0)
+        if world_size != -1:
+            torch.distributed.reduce(correct, 0)
+            torch.distributed.reduce(denom, 0)
+        accuracy = total_correct / (denom + 1e-13)
+        logger.info(f'Accuracy:{name} {accuracy : 0.4f}')
+
+    if args.epochs > 0 and args.tmp:
+        logger.info('Temporary mode enabled, deleting checkpoint')
+        shutil.rmtree(args.ckpt_dir)
 
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
     parser.add_argument('--model-name', type=str, required=True)
     parser.add_argument('--train', type=Path, required=True)
-    parser.add_argument('--dev', type=Path, required=True)
-    parser.add_argument('--test', type=Path, required=True)
+    parser.add_argument('--dev-a', type=Path, required=True)
+    parser.add_argument('--dev-b', type=Path, required=True)
+    parser.add_argument('--test-a', type=Path, required=True)
+    parser.add_argument('--test-b', type=Path, required=True)
     parser.add_argument('--template', type=str, required=True)
     parser.add_argument('--label-map', type=str, default=None)
     parser.add_argument('--initial-trigger', nargs='+', type=str, default=None)
@@ -626,8 +621,8 @@ if __name__ == '__main__':
     parser.add_argument('--debug', action='store_true')
     parser.add_argument('--quiet', action='store_true')
     parser.add_argument('--local_rank', type=int, default=-1)
-    parser.add_argument('--dev-a', type=Path)
-    parser.add_argument('--dev-b', type=Path)
+    parser.add_argument('--test-a-output', type=Path)
+    parser.add_argument('--test-b-output', type=Path)
     parser.add_argument('--mapping', type=str, default='/home/yrazeghi/data/CycIC3/cycic3_dev_question_map.csv')
     parser.add_argument('--cycic3a_labels', type=str, default='/home/yrazeghi/data/CycIC3/dev_a_labels.jsonl')
     parser.add_argument('--cycic3b_labels', type=str, default='/home/yrazeghi/data/CycIC3/dev_b_labels.jsonl')

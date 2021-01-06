@@ -6,6 +6,7 @@ import pandas as pd
 import numpy as np
 import torch
 from torch.nn.utils.rnn import pad_sequence
+from torch.utils.data import DataLoader
 
 
 from autoprompt.preprocessors import PREPROCESSORS
@@ -443,6 +444,27 @@ def load_dataset_file(filename):
 
 def load_predictions(prediction_list):
     return pd.DataFrame({'prediction':prediction_list})
+
+
+def load_dev_test_dataset(data_path, templatizer, is_dev, preprocessor, limit, world_size, bsz, collator):
+    if is_dev:
+        _limit = limit
+    else:
+        _limit = None
+    dataset = load_trigger_dataset(
+        data_path,
+        templatizer=templatizer,
+        train=False,
+        preprocessor_key=preprocessor,
+        limit=_limit,
+    )
+    if world_size == -1:
+        data_sampler = torch.utils.data.SequentialSampler(dataset)
+    else:
+        data_sampler = torch.utils.data.DistributedSampler(dataset)
+
+    data_loader = DataLoader(dataset, bsz, collate_fn=collator, sampler=data_sampler, shuffle=False)
+    return data_loader
 
 
 # def load_continuous_trigger_dataset(
