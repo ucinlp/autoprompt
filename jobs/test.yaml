@@ -1,38 +1,31 @@
 ---
-out: <model>bert-large-cased_<task>BoolQ_<seed>1_<limit>10
-script: autoprompt/finetune.py
+out: ./roberta_large/dev-b
+script: autoprompt.continuous_trigger_mlm
 args:
-    - '--model-name=bert-base-cased'
-    - '--train=data/SuperGLUE/BoolQ/train.jsonl'
-    - '--dev=data/SuperGLUE/BoolQ/val.jsonl'
-    - '--test=data/SuperGLUE/BoolQ/val.jsonl'
-    - '--field-a=passage'
-    - '--field-b=question'
-    - '--num-labels=2'
-    - '--bsz=16'
-    - '--epochs=20'
-    - '--lr=2e-5'
-    - '--limit=10'
-    - '--seed=1'
-    - '--bias-correction'
-    - '--ckpt=<model>bert-large-cased_<task>BoolQ_<seed>1_<limit>10'
-...
----
-out: <model>bert-large-cased_<task>BoolQ_<seed>1_<limit>50
-script: autoprompt/finetune.py
-args:
-    - '--model-name=bert-base-cased'
-    - '--train=data/SuperGLUE/BoolQ/train.jsonl'
-    - '--dev=data/SuperGLUE/BoolQ/val.jsonl'
-    - '--test=data/SuperGLUE/BoolQ/val.jsonl'
-    - '--field-a=passage'
-    - '--field-b=question'
-    - '--num-labels=2'
-    - '--bsz=16'
-    - '--epochs=20'
-    - '--lr=2e-5'
-    - '--limit=50'
-    - '--seed=1'
-    - '--bias-correction'
-    - '--ckpt=<model>bert-large-cased_<task>BoolQ_<seed>1_<limit>50'
+
+    - '--model-name=roberta-large'
+    - '--train=/home/yrazeghi/data/CycIC3/train-f_processed.jsonl'
+    - '--dev=/home/yrazeghi/data/CycIC3/dev_a-f_processed.jsonl'
+    - '--test=/home/yrazeghi/data/CycIC3/dev_b-f_processed.jsonl'
+    - '--dev-a=/home/yrazeghi/autoprompt/dev_a-f.lst'
+    - '--dev-b=/home/yrazeghi/autoprompt/dev_b-f.lst'
+    - '--label-map'
+    - '{"True": "true", "False": "false"}'
+    - '--template'
+    - '[T] [T] [T] [T] {question} [T] [P] [T]'
+    - '--initial-trigger'
+    - 'true'
+    - 'or'
+    - 'false'
+    - ':'
+    - '?'
+    - '.'
+    - '--evaluation-strategy=multiple-choice'
+    - '--ckpt-dir=/tmp/deletenow3'
+    - '--tmp'
+    - '--bsz=50'
+    - '--epochs=2'
+    - '--lr=1e-3'
+    - '--quiet'
+    - '--seed=25'
 ...

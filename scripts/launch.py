@@ -18,6 +18,7 @@ def load_job_queue(fname):
     with open(fname, 'r') as f:
         jobs = yaml.load_all(f)
         for job in jobs:
+            print("**", job)
             q.put(job)
     return q
 
@@ -41,15 +42,14 @@ def main(args):
             job = q.get()
 
             # Format command, add rank argument
-            cmd = [sys.executable, '-u']
+            cmd = [sys.executable, '-u', '-m']
             cmd.append(job['script'])
             cmd.append(f'--local_rank={rank}')
             cmd.extend(job['args'])
+            # print(" ".join(cmd))
 
             stdout = open(args.logdir / f'{job["out"]}.stdout', 'w')
             stderr = open(args.logdir / f'{job["out"]}.stderr', 'w')
-
-
             process = subprocess.Popen(cmd, stdout=stdout, stderr=stderr)
             process.wait()
 
@@ -57,6 +57,7 @@ def main(args):
     threads = []
     logger.info('Starting threads')
     for rank in range(torch.cuda.device_count()):
+        print("in rank")
         t = threading.Thread(target=worker, args=(rank,))
         t.start()
         threads.append(t)

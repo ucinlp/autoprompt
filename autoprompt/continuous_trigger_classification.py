@@ -114,9 +114,9 @@ def main(args):
 
 
     #Can be removed.
-    if args.model_name == "bert-base-cased":
+    if args.model_name == "bert-base-cased" or args.model_name == "bert-large-cased":
         eos_idx = 102
-    elif args.model_name == "roberta-base":
+    elif args.model_name == "roberta-base" or args.model_name == "roberta-large":
         eos_idx = tokenizer.eos_token_id
     
     model.to(device)

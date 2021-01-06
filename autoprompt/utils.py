@@ -2,10 +2,11 @@ import csv
 import json
 import logging
 import random
-
+import pandas as pd
 import numpy as np
 import torch
 from torch.nn.utils.rnn import pad_sequence
+
 
 from autoprompt.preprocessors import PREPROCESSORS
 
@@ -430,6 +431,18 @@ def load_classification_dataset(
         limit = min(len(instances), limit)
         instances = random.sample(instances, limit)
     return instances, label_map
+
+
+
+def load_origin_entailed_mapping(filename):
+    logger.info(f'filename: {filename}')
+    return pd.read_csv(filename)
+
+def load_dataset_file(filename):
+    return pd.read_json(filename, lines=True)
+
+def load_predictions(prediction_list):
+    return pd.DataFrame({'prediction':prediction_list})
 
 
 # def load_continuous_trigger_dataset(

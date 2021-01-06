@@ -14,12 +14,30 @@ from transformers import AdamW, AutoConfig, AutoTokenizer, AutoModelForMaskedLM
 from transformers.modeling_bert import BertPreTrainedModel
 from transformers.modeling_roberta import RobertaPreTrainedModel
 from tqdm import tqdm
+import pandas as pd
+from sklearn.metrics import accuracy_score
 
 import autoprompt.utils as utils
 from autoprompt.preprocessors import PREPROCESSORS
 
 
 logger = logging.getLogger(__name__)
+
+
+class EvalData:
+    def __init__(self, loss, correct, predictions):
+        self.predictions = predictions
+        self.correct = correct
+        self.loss = loss
+
+    def val(self):
+        return self.loss, self.correct
+
+    def write_to_file(self, file_path):
+        with open(file_path, 'a') as f:
+            for predicted_index in self.predictions:
+                print(predicted_index[0], file=f)
+        return self
 
 
 class ExactMatchEvaluator:
@@ -65,7 +83,7 @@ class MultipleChoiceEvaluator:
             )
         self._label_tokens = label_tokens.view(1, -1)
 
-    def __call__(self, model_inputs, labels):
+    def __call__(self, model_inputs, labels, output_file_path=None):
 
         # Ensure everything is on the same device
         label_tokens = self._label_tokens.to(labels.device)
@@ -92,7 +110,19 @@ class MultipleChoiceEvaluator:
         # Get evaluation score
         correct = predictions.eq(label_inds).sum()
 
-        return loss, correct
+        # if output_file_path:
+        #     with open(output_file_path, 'a') as f:
+        #     # for l in labels.tolist():
+        #     #     print('Label: ' + self._tokenizer.decode(l))
+        #     # print("**************indexes", label_inds.cpu().tolist())
+        #     # print("**************labels", labels)
+        #         for predicted_index in predictions.cpu().tolist():
+        #             print(predicted_index[0], file=f)
+        ret_preds = []
+        for predicted_index in predictions.cpu().tolist():
+            ret_preds.append(predicted_index[0])
+
+        return EvalData(loss, correct, ret_preds)
 
 
 EVALUATORS = {
@@ -198,6 +228,46 @@ def decode(model, model_inputs, decoding_strategy="iterative"):
 
     return output
 
+def save_model(directory, model, tokenizer):
+    if not directory.exists():
+        directory.mkdir(parents=True)
+    model.save_pretrained(args.ckpt_dir)
+    tokenizer.save_pretrained(args.ckpt_dir)
+
+
+def compute_accuracy(mapping, predictions_a, predictions_b, origin_labels, entailed_labels):
+    # mapping = utils.load_origin_entailed_mapping(map)
+    # origin_labels = load_dataset_file(args.cycic3a_labels)
+    # entailed_labels = load_dataset_file(args.cycic3b_labels)
+
+    origin_preds = utils.load_predictions(predictions_a)
+    entailed_preds = utils.load_predictions(predictions_b)
+
+    origin_accuracy = accuracy_score(origin_labels.correct_answer, origin_preds)
+    entailed_accuracy = accuracy_score(entailed_labels.correct_answer, entailed_preds)
+    accuracy_dataset = compute_accuracy_dataset(origin_labels, origin_preds, entailed_labels, entailed_preds, mapping)
+    origin_correct_idx = accuracy_dataset.origin_prediction == accuracy_dataset.origin_label
+    conditional_accuracy = accuracy_score(accuracy_dataset[origin_correct_idx]['entailed_label'],
+                                          accuracy_dataset[origin_correct_idx]['entailed_prediction'])
+    # print("Origin dataset accuracy:", origin_accuracy)
+    # print("Entailed dataset accuracy:", entailed_accuracy)
+    # print("Conditional accuracy (entailed | origin):", conditional_accuracy)
+    return origin_accuracy, entailed_accuracy, conditional_accuracy
+
+
+def compute_accuracy_dataset(origin_labels, origin_preds, entailed_labels, entailed_preds, mapping):
+    # get a mapping of run_id -> label and prediction for each dataset
+    origin_results = pd.concat([origin_labels['run_id'], origin_labels['correct_answer'], origin_preds], axis=1).rename(
+        columns={"prediction": "origin_prediction", "correct_answer": "origin_label"})
+    entailed_results = pd.concat([entailed_labels['run_id'], entailed_labels['correct_answer'], entailed_preds],
+                                 axis=1).rename(
+        columns={"prediction": "entailed_prediction", "correct_answer": "entailed_label"})
+    # now merge them using map as a key
+    accuracy_dataset = mapping.merge(origin_results, how='left', left_on='origin', right_on='run_id').drop('run_id', 1)
+    accuracy_dataset = accuracy_dataset.merge(entailed_results, how='left', left_on='entailed', right_on='run_id').drop(
+        'run_id', 1)
+    return accuracy_dataset
+
 
 def main(args):
     if args.evaluation_strategy == 'exact-match':
@@ -284,7 +354,7 @@ def main(args):
         dev_sampler = torch.utils.data.SequentialSampler(dev_dataset)
     else:
         dev_sampler = torch.utils.data.DistributedSampler(dev_dataset)
-    dev_loader = DataLoader(dev_dataset, batch_size=args.bsz, collate_fn=collator, sampler=dev_sampler)
+    dev_loader = DataLoader(dev_dataset, batch_size=args.bsz, collate_fn=collator, sampler=dev_sampler, shuffle=False)
     test_dataset = utils.load_trigger_dataset(
         args.test,
         templatizer=templatizer,
@@ -294,7 +364,7 @@ def main(args):
         test_sampler = torch.utils.data.SequentialSampler(test_dataset)
     else:
         test_sampler = torch.utils.data.DistributedSampler(test_dataset)
-    test_loader = DataLoader(test_dataset, batch_size=args.bsz, shuffle=True, collate_fn=collator)
+    test_loader = DataLoader(test_dataset, batch_size=args.bsz, shuffle=False, collate_fn=collator)
 
     evaluator = EVALUATORS[args.evaluation_strategy](
         model=model,
@@ -334,7 +404,16 @@ def main(args):
         betas=(0.9, 0.999),
     )
 
-    best_accuracy = 0
+    mapping = utils.load_origin_entailed_mapping(args.mapping)
+    origin_labels = utils.load_dataset_file(args.cycic3a_labels)
+    entailed_labels = utils.load_dataset_file(args.cycic3b_labels)
+
+    best_accuracy1 = 0
+    accuracy1_for2 = 0
+    best_accuracy2 = 0
+    accuracy2_for1 = 0
+    best_mult = 0
+    accuracies = []
     for epoch in range(args.epochs):
         logger.info('Training...')
         model.train()
@@ -348,7 +427,7 @@ def main(args):
         for model_inputs, labels in iter_:
             model_inputs = {k: v.to(device) for k, v in model_inputs.items()}
             labels = labels.to(device)
-            loss, correct = evaluator(model_inputs, labels)
+            loss, correct = evaluator(model_inputs, labels).val()
             loss.backward()
             optimizer.step()
             total_loss += loss.detach() * labels.size(0)
@@ -362,65 +441,159 @@ def main(args):
                     f'Accuracy: {total_correct / (denom + 1e-13): 0.4f}'
                 )
 
-        logger.info('Evaluating...')
-        model.eval()
-        total_loss = torch.tensor(0.0, device=device)
-        total_correct = torch.tensor(0.0, device=device)
-        denom = torch.tensor(0.0, device=device)
-        if is_main_process and not args.quiet:
-            iter_ = tqdm(dev_loader)
-        else:
-            iter_ = dev_loader
-        with torch.no_grad():
-            for model_inputs, labels in iter_:
-                model_inputs = {k: v.to(device) for k, v in model_inputs.items()}
-                labels = labels.to(device)
-                loss, correct = evaluator(model_inputs, labels)
-                total_loss += loss.detach() * labels.size(0)
-                total_correct += correct.detach()
-                denom += labels.size(0)
-        if world_size != -1:
-            torch.distributed.reduce(total_loss, 0)
-            torch.distributed.reduce(total_correct, 0)
-            torch.distributed.reduce(denom, 0)
 
+        acc = {}
+        preds = {}
+        for loader, name in [(dev_loader, "1"), (test_loader, "2")]:
+            logger.info(f'Evaluating{name}... ')
+            model.eval()
+            total_loss = torch.tensor(0.0, device=device)
+            total_correct = torch.tensor(0.0, device=device)
+            denom = torch.tensor(0.0, device=device)
+            if is_main_process and not args.quiet:
+                iter_ = tqdm(loader)
+            else:
+                iter_ = loader
+            with torch.no_grad():
+                all_preds = []
+                for model_inputs, labels in iter_:
+                    model_inputs = {k: v.to(device) for k, v in model_inputs.items()}
+                    labels = labels.to(device)
+                    eval_data = evaluator(model_inputs, labels)
+                    loss = eval_data.loss
+                    correct = eval_data.correct
+                    predictions = eval_data.predictions
+                    all_preds.extend(predictions)
+                    total_loss += loss.detach() * labels.size(0)
+                    total_correct += correct.detach()
+                    denom += labels.size(0)
+            if world_size != -1:
+                torch.distributed.reduce(total_loss, 0)
+                torch.distributed.reduce(total_correct, 0)
+                torch.distributed.reduce(denom, 0)
+
+            logger.info(
+                f'Loss: {total_loss / (denom + 1e-13): 0.4f}, '
+                f'Accuracy: {total_correct / (denom + 1e-13): 0.4f}'
+            )
+            acc[name] = total_correct / (denom + 1e-13)
+            preds[name] = all_preds
+
+        accuracy1 = acc["1"]
+        accuracy2 = acc["2"]
+
+        # calculate conditional accuracy
+        origin, enetailed, conditional_acc,  = compute_accuracy(mapping, preds["1"], preds["2"] , origin_labels, entailed_labels)
         logger.info(
-            f'Loss: {total_loss / (denom + 1e-13): 0.4f}, '
-            f'Accuracy: {total_correct / (denom + 1e-13): 0.4f}'
+            f'origin: {origin}, '
+            f'enetailed: {enetailed}, '
+            f'conditional_acc: {conditional_acc}, '
         )
-        accuracy = total_correct / (denom + 1e-13)
 
+        accuracies.append((accuracy1,accuracy2, conditional_acc))
         if is_main_process:
-            if accuracy > best_accuracy:
-                logger.info('Best performance so far.')
-                best_accuracy = accuracy
-                if not args.ckpt_dir.exists():
-                    args.ckpt_dir.mkdir(parents=True)
-                model.save_pretrained(args.ckpt_dir)
-                tokenizer.save_pretrained(args.ckpt_dir)
+            if accuracy1 >= best_accuracy1:
+                logger.info('Best performance so far for 1.')
+                if best_accuracy1 == accuracy1:
+                    if accuracy2 > accuracy1_for2:
+                        accuracy1_for2 = accuracy2
+                        # save_model(args.ckpt_dir, model, tokenizer)
+                else:
+                    accuracy1_for2 = accuracy2
+                    # save_model(args.ckpt_dir, model, tokenizer)
+                best_accuracy1 = accuracy1
 
-    logger.info('Testing...')
-    if args.epochs > 0:
-        checkpoint = torch.load(args.ckpt_dir / "pytorch_model.bin")
-        model.load_state_dict(checkpoint)
-        if args.tmp:
-            logger.info('Temporary mode enabled, deleting checkpoint')
-            shutil.rmtree(args.ckpt_dir)
-    model.eval()
-    total_correct = torch.tensor(0.0, device=device)
-    denom = torch.tensor(0.0, device=device)
-    with torch.no_grad():
-        for model_inputs, labels in test_loader:
-            model_inputs = {k: v.to(device) for k, v in model_inputs.items()}
-            labels = labels.to(device)
-            _, correct = evaluator(model_inputs, labels)
-            total_correct += correct.detach()
-            denom += labels.size(0)
-    if world_size != -1:
-        torch.distributed.reduce(correct, 0)
-        torch.distributed.reduce(denom, 0)
-    accuracy = total_correct / (denom + 1e-13)
-    logger.info(f'Accuracy: {accuracy : 0.4f}')
+            if accuracy2 >= best_accuracy2:
+                logger.info('Best performance so far for 2.')
+                if best_accuracy2 == accuracy2:
+                    if accuracy1 > accuracy2_for1:
+                        accuracy2_for1 = accuracy1
+                else:
+                    accuracy2_for1 = accuracy1
+                best_accuracy2 = accuracy2
+
+            if accuracy1*accuracy2 > best_mult:
+                best_mult = accuracy1*accuracy2
+                # save_model(args.ckpt_dir, model, tokenizer)
+
+    logger.info(f'Best dev accuracy for 1: {best_accuracy1 : 0.4f}')
+    logger.info(f'accuracy on 2 when 1 is best is : {accuracy1_for2 : 0.4f}')
+    logger.info(f'Best dev accuracy for 2: {best_accuracy2 : 0.4f}')
+    logger.info(f'accuracy on 1 when 2 is best is : {accuracy2_for1 : 0.4f}')
+
+    acc_1_max = max(accuracies, key=lambda a: (a[0], a[1]))
+    acc_2_max = max(accuracies, key=lambda a: (a[1], a[0]))
+    acc_mid = max(accuracies, key=lambda a: min(a[0],a[1]))
+    acc_mult = max(accuracies, key=lambda a: a[0]*a[1])
+
+
+    # print(f'Best dev accuracy for 1: {best_accuracy1 : 0.4f}')
+    # print(f'accuracy on 2 when 1 is best is : {accuracy1_for2 : 0.4f}')
+    # print(f'Best dev accuracy for 2: {best_accuracy2 : 0.4f}')
+    # print(f'accuracy on 1 when 2 is best is : {accuracy2_for1 : 0.4f}')
+    print(f'Best 1 accuracy for all: {acc_1_max[0] : 0.4f} {acc_1_max[1] : 0.4f} {acc_1_max[2] : 0.4f}')
+    print(f'Best 2 accuracy for all: {acc_2_max[0] : 0.4f} {acc_2_max[1] : 0.4f} {acc_2_max[2] : 0.4f}')
+    print(f'Best mid accuracy for all: {acc_mid[0] : 0.4f} {acc_mid[1] : 0.4f} {acc_mid[2] : 0.4f}')
+    print(f'Best mult accuracy for all: {acc_mult[0] : 0.4f} {acc_mult[1] : 0.4f} {acc_mult[2] : 0.4f}')
+
+
+
+
+
+
+    #start of testing and creating outputs:
+    # if args.dev_a:
+    #     f = open(args.dev_a, 'w')
+    #     f.close()
+    # if args.dev_b:
+    #     f = open(args.dev_b, 'w')
+    #     f.close()
+
+    # logger.info('Testing1...')
+    # if args.epochs > 0:
+    #     checkpoint = torch.load(args.ckpt_dir / "pytorch_model.bin")
+    #     model.load_state_dict(checkpoint)
+    #     # if args.tmp:
+    #     #     logger.info('Temporary mode enabled, deleting checkpoint')
+    #     #     shutil.rmtree(args.ckpt_dir)
+    # model.eval()
+    # total_correct = torch.tensor(0.0, device=device)
+    # denom = torch.tensor(0.0, device=device)
+    # with torch.no_grad():
+    #     for model_inputs, labels in dev_loader:
+    #         model_inputs = {k: v.to(device) for k, v in model_inputs.items()}
+    #         labels = labels.to(device)
+    #         _, correct = evaluator(model_inputs, labels).write_to_file(args.dev_a).val()
+    #         total_correct += correct.detach()
+    #         denom += labels.size(0)
+    # if world_size != -1:
+    #     torch.distributed.reduce(correct, 0)
+    #     torch.distributed.reduce(denom, 0)
+    # accuracy = total_correct / (denom + 1e-13)
+    # logger.info(f'Accuracy: {accuracy : 0.4f}')
+    #
+    # logger.info('Testing2...')
+    # if args.epochs > 0:
+    #     checkpoint = torch.load(args.ckpt_dir / "pytorch_model.bin")
+    #     model.load_state_dict(checkpoint)
+    #     if args.tmp:
+    #         logger.info('Temporary mode enabled, deleting checkpoint')
+    #         shutil.rmtree(args.ckpt_dir)
+    # model.eval()
+    # total_correct = torch.tensor(0.0, device=device)
+    # denom = torch.tensor(0.0, device=device)
+    # with torch.no_grad():
+    #     for model_inputs, labels in test_loader:
+    #         model_inputs = {k: v.to(device) for k, v in model_inputs.items()}
+    #         labels = labels.to(device)
+    #         _, correct = evaluator(model_inputs, labels).write_to_file(args.dev_b).val()
+    #         total_correct += correct.detach()
+    #         denom += labels.size(0)
+    # if world_size != -1:
+    #     torch.distributed.reduce(correct, 0)
+    #     torch.distributed.reduce(denom, 0)
+    # accuracy = total_correct / (denom + 1e-13)
+    # logger.info(f'Accuracy: {accuracy : 0.4f}')
 
 
 if __name__ == '__main__':
@@ -453,6 +626,11 @@ if __name__ == '__main__':
     parser.add_argument('--debug', action='store_true')
     parser.add_argument('--quiet', action='store_true')
     parser.add_argument('--local_rank', type=int, default=-1)
+    parser.add_argument('--dev-a', type=Path)
+    parser.add_argument('--dev-b', type=Path)
+    parser.add_argument('--mapping', type=str, default='/home/yrazeghi/data/CycIC3/cycic3_dev_question_map.csv')
+    parser.add_argument('--cycic3a_labels', type=str, default='/home/yrazeghi/data/CycIC3/dev_a_labels.jsonl')
+    parser.add_argument('--cycic3b_labels', type=str, default='/home/yrazeghi/data/CycIC3/dev_b_labels.jsonl')
     args = parser.parse_args()
 
     if args.debug:
