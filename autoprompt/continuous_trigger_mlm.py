@@ -1,4 +1,5 @@
 import argparse
+import csv
 import json
 import logging
 import os
@@ -25,13 +26,11 @@ logger = logging.getLogger(__name__)
 
 
 class EvalData:
-    def __init__(self, loss, correct, predictions):
-        self.predictions = predictions
-        self.correct = correct
+    def __init__(self, loss, correct, predictions, p_true_label=None):
         self.loss = loss
-
-    def val(self):
-        return self.loss, self.correct
+        self.correct = correct
+        self.predictions = predictions
+        self.p_true_label = p_true_label
 
     def write_to_file(self, file_path):
         with open(file_path, 'a') as f:
@@ -105,6 +104,7 @@ class MultipleChoiceEvaluator:
 
         # Get loss
         predict_logp = F.log_softmax(predict_logits, dim=-1)
+        p_true_label = predict_logp.exp()
         loss = -predict_logp.gather(-1, label_inds).mean()
 
         # Get evaluation score
@@ -122,7 +122,7 @@ class MultipleChoiceEvaluator:
         for predicted_index in predictions.cpu().tolist():
             ret_preds.append(predicted_index[0])
 
-        return EvalData(loss, correct, ret_preds)
+        return EvalData(loss, correct, ret_preds, p_true_label)
 
 
 EVALUATORS = {
@@ -228,11 +228,10 @@ def decode(model, model_inputs, decoding_strategy="iterative"):
 
     return output
 
+
 def save_model(directory, model, tokenizer):
-    if not directory.exists():
-        directory.mkdir(parents=True)
-    model.save_pretrained(args.ckpt_dir)
-    tokenizer.save_pretrained(args.ckpt_dir)
+    model.save_pretrained(directory)
+    tokenizer.save_pretrained(directory)
 
 
 def compute_accuracy(mapping, predictions_a, predictions_b, origin_labels, entailed_labels):
@@ -278,6 +277,11 @@ def main(args):
 
     utils.set_seed(args.seed)
 
+    if not args.ckpt_dir.exists():
+        logger.info(f'Creating directory: args.ckpt_dir')
+        args.ckpt_dir.mkdir(parents=True)
+
+
     # Handle multi-GPU setup
     world_size = os.getenv('WORLD_SIZE', -1)
     if args.local_rank == -1:
@@ -292,6 +296,14 @@ def main(args):
                 world_size=world_size,
             )
     is_main_process = args.local_rank in [-1, 0] or world_size == -1
+
+    if args.predict:
+        assert is_main_process, 'Prediction logging not supported for multi-gpu setups.'
+        predict_path = args.ckpt_dir / 'predictions.csv'
+        predict_file = open(predict_path, 'w')
+        fieldnames = ('epoch', 'dataset', 'instance_id', 'p_true_label')
+        predict_writer = csv.DictWriter(predict_file, fieldnames=fieldnames)
+        predict_writer.writeheader()
 
     if args.debug:
         logging.basicConfig(level=logging.DEBUG)
@@ -318,6 +330,7 @@ def main(args):
         # model.lm_head.decoder.bias.zero_()
     else:
         raise ValueError(f'{args.model_name} not currently supported.')
+
 
     if args.label_map is not None:
         label_map = json.loads(args.label_map)
@@ -412,7 +425,6 @@ def main(args):
             device_ids=[args.local_rank],
         )
 
-
     optimizer = AdamW(
         model.parameters(),
         lr=args.lr,
@@ -441,14 +453,14 @@ def main(args):
         total_loss = torch.tensor(0.0, device=device)
         total_correct = torch.tensor(0.0, device=device)
         denom = torch.tensor(0.0, device=device)
-        for model_inputs, labels in iter_:
+        for instance_ids, model_inputs, labels in iter_:
             model_inputs = {k: v.to(device) for k, v in model_inputs.items()}
             labels = labels.to(device)
-            loss, correct = evaluator(model_inputs, labels).val()
-            loss.backward()
+            eval_data = evaluator(model_inputs, labels)
+            eval_data.loss.backward()
             optimizer.step()
-            total_loss += loss.detach() * labels.size(0)
-            total_correct += correct.detach()
+            total_loss += eval_data.loss.detach() * labels.size(0)
+            total_correct += eval_data.correct.detach()
             denom += labels.size(0)
             # NOTE: This loss/accuracy is only on the subset  of training data
             # in the main process.
@@ -457,6 +469,15 @@ def main(args):
                     f'Loss: {total_loss / (denom + 1e-13): 0.4f}, '
                     f'Accuracy: {total_correct / (denom + 1e-13): 0.4f}'
                 )
+
+            if args.predict:
+                for instance_id, p_true_label in zip(instance_ids, eval_data.p_true_label):
+                    predict_writer.writerow({
+                        'epoch': epoch,
+                        'dataset': 'train',
+                        'instance_id': instance_id,
+                        'p_true_label': p_true_label.item(),
+                    })
 
         logger.info(
             f'Loss: {total_loss / (denom + 1e-13): 0.4f}, '
@@ -479,7 +500,7 @@ def main(args):
                 iter_ = loader
             with torch.no_grad():
                 all_preds = []
-                for model_inputs, labels in iter_:
+                for instance_ids, model_inputs, labels in iter_:
                     model_inputs = {k: v.to(device) for k, v in model_inputs.items()}
                     labels = labels.to(device)
                     eval_data = evaluator(model_inputs, labels)
@@ -490,6 +511,14 @@ def main(args):
                     total_loss += loss.detach() * labels.size(0)
                     total_correct += correct.detach()
                     denom += labels.size(0)
+                    if args.predict:
+                        for instance_id, p_true_label in zip(instance_ids, eval_data.p_true_label):
+                            predict_writer.writerow({
+                                'epoch': epoch,
+                                'dataset': f'dev_{name}',
+                                'instance_id': instance_id,
+                                'p_true_label': p_true_label.item(),
+                            })
             if world_size != -1:
                 torch.distributed.reduce(total_loss, 0)
                 torch.distributed.reduce(total_correct, 0)
@@ -554,6 +583,9 @@ def main(args):
     print(f'Best mult accuracy for all:      {acc_mult[0]*acc_mult[1] : 0.4f} ****** {acc_mult[0] : 0.4f} {acc_mult[1] : 0.4f} {acc_mult[2] : 0.4f}')
     print(f'Best mult cond accuracy for all: {acc_mult_cond[0]*acc_mult_cond[2] : 0.4f}  ******  {acc_mult_cond[0] : 0.4f} {acc_mult_cond[1] : 0.4f} {acc_mult_cond[2] : 0.4f}')
 
+    if args.predict:
+        predict_file.close()
+
 
 
 
@@ -576,11 +608,11 @@ def main(args):
     #     total_correct = torch.tensor(0.0, device=device)
     #     denom = torch.tensor(0.0, device=device)
     #     with torch.no_grad():
-    #         for model_inputs, labels in loader:
+    #         for instance_id, model_inputs, labels in loader:
     #             model_inputs = {k: v.to(device) for k, v in model_inputs.items()}
     #             labels = labels.to(device)
-    #             _, correct = evaluator(model_inputs, labels).write_to_file(output_file).val()
-    #             total_correct += correct.detach()
+    #             eval_data = evaluator(model_inputs, labels).write_to_file(output_file)
+    #             total_correct += eval_data.correct.detach()
     #             denom += labels.size(0)
     #     if world_size != -1:
     #         torch.distributed.reduce(correct, 0)
@@ -630,6 +662,7 @@ if __name__ == '__main__':
     parser.add_argument('--mapping', type=str, default='/home/yrazeghi/data/CycIC3/cycic3_dev_question_map.csv')
     parser.add_argument('--cycic3a_labels', type=str, default='/home/yrazeghi/data/CycIC3/dev_a_labels.jsonl')
     parser.add_argument('--cycic3b_labels', type=str, default='/home/yrazeghi/data/CycIC3/dev_b_labels.jsonl')
+    parser.add_argument('--predict', action='store_true')
     args = parser.parse_args()
 
     if args.debug:
