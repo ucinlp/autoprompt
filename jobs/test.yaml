@@ -1,5 +1,5 @@
 ---
-out: ./roberta_large/dev-b
+out: ./roberta_large/testlr4-nodroupout-200
 script: autoprompt.continuous_trigger_mlm
 args:
 
@@ -7,8 +7,8 @@ args:
     - '--train=/home/yrazeghi/data/CycIC3/train-f_processed.jsonl'
     - '--dev-a=/home/yrazeghi/data/CycIC3/dev_a-f_processed.jsonl'
     - '--dev-b=/home/yrazeghi/data/CycIC3/dev_b-f_processed.jsonl'
-    - '--test-a=/home/yrazeghi/data/CycIC3/test_a_questions-proc.jsonl'
-    - '--test-b=/home/yrazeghi/data/CycIC3/test_b_questions-proc.jsonl'
+    - '--test-a=/home/yrazeghi/data/CycIC3/test_a_questions_processed.jsonl'
+    - '--test-b=/home/yrazeghi/data/CycIC3/test_b_questions_processed.jsonl'
     - '--test-a-output=/home/yrazeghi/autoprompt/test_a-f.lst'
     - '--test-b-output=/home/yrazeghi/autoprompt/test_b-f.lst'
     - '--label-map'
@@ -26,8 +26,8 @@ args:
     - '--ckpt-dir=/tmp/deletenow3'
     - '--tmp'
     - '--bsz=50'
-    - '--epochs=100'
-    - '--lr=1e-3'
+    - '--epochs=200'
+    - '--lr=1e-4'
     - '--quiet'
     - '--seed=12'
 ...

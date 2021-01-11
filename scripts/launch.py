@@ -47,10 +47,14 @@ def main(args):
             cmd.append(f'--local_rank={rank}')
             cmd.extend(job['args'])
             # print(" ".join(cmd))
+            DEBUG = True
+            if DEBUG:
+                process = subprocess.Popen(cmd)
+            else:
+                stdout = open(args.logdir / f'{job["out"]}.stdout', 'w')
+                stderr = open(args.logdir / f'{job["out"]}.stderr', 'w')
+                process = subprocess.Popen(cmd, stdout=stdout, stderr=stderr)
 
-            stdout = open(args.logdir / f'{job["out"]}.stdout', 'w')
-            stderr = open(args.logdir / f'{job["out"]}.stderr', 'w')
-            process = subprocess.Popen(cmd, stdout=stdout, stderr=stderr)
             process.wait()
 
     # Start all of the jobs

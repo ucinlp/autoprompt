@@ -419,6 +419,7 @@ def main(args):
         weight_decay=1e-2,
         betas=(0.9, 0.999),
     )
+    #weight_decay=1e-2
 
     mapping = utils.load_origin_entailed_mapping(args.mapping)
     origin_labels = utils.load_dataset_file(args.cycic3a_labels)
@@ -432,7 +433,7 @@ def main(args):
     accuracies = []
     for epoch in range(args.epochs):
         logger.info('Training...')
-        model.train()
+        model.eval()
         if is_main_process and not args.quiet:
             iter_ = tqdm(train_loader)
         else:
@@ -456,6 +457,11 @@ def main(args):
                     f'Loss: {total_loss / (denom + 1e-13): 0.4f}, '
                     f'Accuracy: {total_correct / (denom + 1e-13): 0.4f}'
                 )
+
+        logger.info(
+            f'Loss: {total_loss / (denom + 1e-13): 0.4f}, '
+            f'Accuracy: {total_correct / (denom + 1e-13): 0.4f}'
+        )
 
 
         acc = {}
@@ -514,10 +520,8 @@ def main(args):
                 if best_accuracy1 == accuracy1:
                     if accuracy2 > accuracy1_for2:
                         accuracy1_for2 = accuracy2
-                        # save_model(args.ckpt_dir, model, tokenizer)
                 else:
                     accuracy1_for2 = accuracy2
-                    # save_model(args.ckpt_dir, model, tokenizer)
                 best_accuracy1 = accuracy1
 
             if accuracy2 >= best_accuracy2:
@@ -525,16 +529,14 @@ def main(args):
                 if best_accuracy2 == accuracy2:
                     if accuracy1 > accuracy2_for1:
                         accuracy2_for1 = accuracy1
-                        save_model(args.ckpt_dir, model, tokenizer)
+                        # save_model(args.ckpt_dir, model, tokenizer)
                 else:
                     accuracy2_for1 = accuracy1
-                    save_model(args.ckpt_dir, model, tokenizer)
+                    # save_model(args.ckpt_dir, model, tokenizer)
                 best_accuracy2 = accuracy2
 
             if accuracy1*accuracy2 > best_mult:
                 best_mult = accuracy1*accuracy2
-                # save_model(args.ckpt_dir, model, tokenizer)
-
     logger.info(f'Best dev accuracy for 1: {best_accuracy1 : 0.4f}')
     logger.info(f'accuracy on 2 when 1 is best is : {accuracy1_for2 : 0.4f}')
     logger.info(f'Best dev accuracy for 2: {best_accuracy2 : 0.4f}')
@@ -544,11 +546,13 @@ def main(args):
     acc_2_max = max(accuracies, key=lambda a: (a[1], a[0]))
     acc_mid = max(accuracies, key=lambda a: min(a[0],a[1]))
     acc_mult = max(accuracies, key=lambda a: a[0]*a[1])
+    acc_mult_cond = max(accuracies, key=lambda a: a[0] * a[2])
 
-    print(f'Best 1 accuracy for all: {acc_1_max[0] : 0.4f} {acc_1_max[1] : 0.4f} {acc_1_max[2] : 0.4f}')
-    print(f'Best 2 accuracy for all: {acc_2_max[0] : 0.4f} {acc_2_max[1] : 0.4f} {acc_2_max[2] : 0.4f}')
-    print(f'Best mid accuracy for all: {acc_mid[0] : 0.4f} {acc_mid[1] : 0.4f} {acc_mid[2] : 0.4f}')
-    print(f'Best mult accuracy for all: {acc_mult[0] : 0.4f} {acc_mult[1] : 0.4f} {acc_mult[2] : 0.4f}')
+    print(f'Best 1 accuracy for all:          {acc_1_max[0] : 0.4f} ****** {acc_1_max[0] : 0.4f} {acc_1_max[1] : 0.4f} {acc_1_max[2] : 0.4f}')
+    print(f'Best 2 accuracy for all:          {acc_2_max[1] : 0.4f} ******  {acc_2_max[0] : 0.4f} {acc_2_max[1] : 0.4f} {acc_2_max[2] : 0.4f}')
+    print(f'Best mid accuracy for all:        ______  ****** {acc_mid[0] : 0.4f} {acc_mid[1] : 0.4f} {acc_mid[2] : 0.4f}')
+    print(f'Best mult accuracy for all:      {acc_mult[0]*acc_mult[1] : 0.4f} ****** {acc_mult[0] : 0.4f} {acc_mult[1] : 0.4f} {acc_mult[2] : 0.4f}')
+    print(f'Best mult cond accuracy for all: {acc_mult_cond[0]*acc_mult_cond[2] : 0.4f}  ******  {acc_mult_cond[0] : 0.4f} {acc_mult_cond[1] : 0.4f} {acc_mult_cond[2] : 0.4f}')
 
 
 
@@ -557,36 +561,36 @@ def main(args):
 
     #start of testing and creating outputs:
 
-    if args.test_a_output:
-        f = open(args.test_a_output, 'w')
-        f.close()
-    if args.test_b_output:
-        f = open(args.test_b_output, 'w')
-        f.close()
-    if args.epochs > 0:
-        checkpoint = torch.load(args.ckpt_dir / "pytorch_model.bin")
-        model.load_state_dict(checkpoint)
-    model.eval()
-    for loader, name, output_file in [(test_a_loader, "a", args.test_a_output), (test_b_loader, "b", args.test_b_output)]:
-        logger.info(f'Testing {name}...')
-        total_correct = torch.tensor(0.0, device=device)
-        denom = torch.tensor(0.0, device=device)
-        with torch.no_grad():
-            for model_inputs, labels in loader:
-                model_inputs = {k: v.to(device) for k, v in model_inputs.items()}
-                labels = labels.to(device)
-                _, correct = evaluator(model_inputs, labels).write_to_file(output_file).val()
-                total_correct += correct.detach()
-                denom += labels.size(0)
-        if world_size != -1:
-            torch.distributed.reduce(correct, 0)
-            torch.distributed.reduce(denom, 0)
-        accuracy = total_correct / (denom + 1e-13)
-        logger.info(f'Accuracy:{name} {accuracy : 0.4f, be careful this may be nonsense}')
-
-    if args.epochs > 0 and args.tmp:
-        logger.info('Temporary mode enabled, deleting checkpoint')
-        shutil.rmtree(args.ckpt_dir)
+    # if args.test_a_output:
+    #     f = open(args.test_a_output, 'w')
+    #     f.close()
+    # if args.test_b_output:
+    #     f = open(args.test_b_output, 'w')
+    #     f.close()
+    # if args.epochs > 0:
+    #     checkpoint = torch.load(args.ckpt_dir / "pytorch_model.bin")
+    #     model.load_state_dict(checkpoint)
+    # model.eval()
+    # for loader, name, output_file in [(test_a_loader, "a", args.test_a_output), (test_b_loader, "b", args.test_b_output)]:
+    #     logger.info(f'Testing {name}...')
+    #     total_correct = torch.tensor(0.0, device=device)
+    #     denom = torch.tensor(0.0, device=device)
+    #     with torch.no_grad():
+    #         for model_inputs, labels in loader:
+    #             model_inputs = {k: v.to(device) for k, v in model_inputs.items()}
+    #             labels = labels.to(device)
+    #             _, correct = evaluator(model_inputs, labels).write_to_file(output_file).val()
+    #             total_correct += correct.detach()
+    #             denom += labels.size(0)
+    #     if world_size != -1:
+    #         torch.distributed.reduce(correct, 0)
+    #         torch.distributed.reduce(denom, 0)
+    #     accuracy = total_correct / (denom + 1e-13)
+    #     logger.info(f'Accuracy:{name} {accuracy} : 0.4f, be careful this may be nonsense')
+    #
+    # if args.epochs > 0 and args.tmp:
+    #     logger.info('Temporary mode enabled, deleting checkpoint')
+    #     shutil.rmtree(args.ckpt_dir)
 
 
 if __name__ == '__main__':
