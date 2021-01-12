@@ -11,7 +11,7 @@ import numpy as np
 import torch
 import torch.nn.functional as F
 from torch.utils.data import DataLoader
-from transformers import AdamW, AutoConfig, AutoTokenizer, AutoModelForMaskedLM
+from transformers import AdamW, AutoConfig, AutoTokenizer, AutoModelForMaskedLM, Adafactor
 from transformers.modeling_bert import BertPreTrainedModel
 from transformers.modeling_roberta import RobertaPreTrainedModel
 from tqdm import tqdm
@@ -425,13 +425,28 @@ def main(args):
             device_ids=[args.local_rank],
         )
 
-    optimizer = AdamW(
+
+    # optimizer = AdamW(
+    #     model.parameters(),
+    #     lr=args.lr,
+    #     weight_decay=0.0,
+    #     # betas=(0.9, 0.999),
+    # )
+    # weight_decay=1e-2
+    # optimizer = torch.optim.SGD(model.parameters(), lr=args.lr, momentum=0.9)
+    optimizer = Adafactor(
         model.parameters(),
         lr=args.lr,
-        weight_decay=1e-2,
-        betas=(0.9, 0.999),
+        eps=(1e-30, 1e-3),
+        clip_threshold=1.0,
+        decay_rate=-0.8,
+        beta1=None,
+        weight_decay=0.0,
+        relative_step=False,
+        scale_parameter=False,
+        warmup_init=False
     )
-    #weight_decay=1e-2
+
 
     mapping = utils.load_origin_entailed_mapping(args.mapping)
     origin_labels = utils.load_dataset_file(args.cycic3a_labels)
@@ -458,6 +473,8 @@ def main(args):
             labels = labels.to(device)
             eval_data = evaluator(model_inputs, labels)
             eval_data.loss.backward()
+            #gradient clipping:
+            # torch.nn.utils.clip_grad_norm_(model.parameters(), 0.9)
             optimizer.step()
             total_loss += eval_data.loss.detach() * labels.size(0)
             total_correct += eval_data.correct.detach()
@@ -592,7 +609,6 @@ def main(args):
 
 
     #start of testing and creating outputs:
-
     # if args.test_a_output:
     #     f = open(args.test_a_output, 'w')
     #     f.close()

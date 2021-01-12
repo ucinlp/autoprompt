@@ -47,7 +47,7 @@ def main(args):
             cmd.append(f'--local_rank={rank}')
             cmd.extend(job['args'])
             # print(" ".join(cmd))
-            DEBUG = True
+            DEBUG = False
             if DEBUG:
                 process = subprocess.Popen(cmd)
             else:
