@@ -70,7 +70,7 @@ class Collator:
 
     def __call__(self, features):
         # Separate the list of inputs and labels
-        model_inputs, labels = list(zip(*features))
+        instance_ids, model_inputs, labels = list(zip(*features))
         # Assume that all inputs have the same keys as the first
         proto_input = model_inputs[0]
         keys = list(proto_input.keys())
@@ -85,7 +85,7 @@ class Collator:
             padded = pad_squeeze_sequence(sequence, batch_first=True, padding_value=padding_value)
             padded_inputs[key] = padded
         labels = pad_squeeze_sequence(labels, batch_first=True, padding_value=self._pad_token_id)
-        return padded_inputs, labels
+        return instance_ids, padded_inputs, labels
 
 
 def encode_label(tokenizer, label, tokenize=False):
@@ -373,14 +373,14 @@ def load_trigger_dataset(
     else:
         preprocessor = PREPROCESSORS[preprocessor_key]
     instances = []
-    for x in preprocessor(fname):
+    for instance_id, x in enumerate(preprocessor(fname)):
         try:
             model_inputs, label_id = templatizer(x, train=train)
         except ValueError as e:
             logger.warning('Encountered error "%s" when processing "%s".  Skipping.', e, x)
             continue
         else:
-            instances.append((model_inputs, label_id))
+            instances.append((instance_id, model_inputs, label_id))
     if limit:
         limit = min(len(instances), limit)
         return random.sample(instances, limit)
