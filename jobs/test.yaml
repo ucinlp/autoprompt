@@ -1,5 +1,36 @@
 ---
-out: ./roberta_large/testlr4-nodroupout-200
+out: ./roberta_large-all75/temp11_1
+script: autoprompt.continuous_trigger_mlm
+args:
+
+    - '--model-name=roberta-large'
+    - '--train=/home/yrazeghi/data/CycIC3/train-f_processed-75.jsonl'
+    - '--dev-a=/home/yrazeghi/data/CycIC3/dev_a-f_processed.jsonl'
+    - '--dev-b=/home/yrazeghi/data/CycIC3/dev_b-f_processed.jsonl'
+    - '--test-a=/home/yrazeghi/data/CycIC3/test_a_questions_processed.jsonl'
+    - '--test-b=/home/yrazeghi/data/CycIC3/test_b_questions_processed.jsonl'
+    - '--label-map'
+    - '{"True": "true", "False": "false"}'
+    - '--template'
+    - '[T] [T] [T] [T] {question} [T] [P] [T]'
+    - '--initial-trigger'
+    - 'True'
+    - '/'
+    - 'False'
+    - ':'
+    - '?'
+    - '.'
+    - '--evaluation-strategy=multiple-choice'
+    - '--ckpt-dir=/tmp/deletenow3'
+    - '--tmp'
+    - '--bsz=50'
+    - '--epochs=200'
+    - '--quiet'
+    - '--lr=1e-4'
+    - '--seed=1'
+...
+---
+out: ./roberta_large-all75/temp1_1
 script: autoprompt.continuous_trigger_mlm
 args:
 
@@ -9,8 +40,6 @@ args:
     - '--dev-b=/home/yrazeghi/data/CycIC3/dev_b-f_processed.jsonl'
     - '--test-a=/home/yrazeghi/data/CycIC3/test_a_questions_processed.jsonl'
     - '--test-b=/home/yrazeghi/data/CycIC3/test_b_questions_processed.jsonl'
-    - '--test-a-output=/home/yrazeghi/autoprompt/test_a-f.lst'
-    - '--test-b-output=/home/yrazeghi/autoprompt/test_b-f.lst'
     - '--label-map'
     - '{"True": "true", "False": "false"}'
     - '--template'
@@ -29,5 +58,284 @@ args:
     - '--epochs=200'
     - '--lr=1e-4'
     - '--quiet'
-    - '--seed=12'
+    - '--seed=1'
+...
+---
+out: ./roberta_large-all75/temp1_2
+script: autoprompt.continuous_trigger_mlm
+args:
+
+    - '--model-name=roberta-large'
+    - '--train=/home/yrazeghi/data/CycIC3/train-f_processed.jsonl'
+    - '--dev-a=/home/yrazeghi/data/CycIC3/dev_a-f_processed.jsonl'
+    - '--dev-b=/home/yrazeghi/data/CycIC3/dev_b-f_processed.jsonl'
+    - '--test-a=/home/yrazeghi/data/CycIC3/test_a_questions_processed.jsonl'
+    - '--test-b=/home/yrazeghi/data/CycIC3/test_b_questions_processed.jsonl'
+    - '--label-map'
+    - '{"True": "true", "False": "false"}'
+    - '--template'
+    - '[T] [T] [T] [T] {question} [T] [P] [T]'
+    - '--initial-trigger'
+    - 'true'
+    - 'or'
+    - 'false'
+    - ':'
+    - '?'
+    - '.'
+    - '--evaluation-strategy=multiple-choice'
+    - '--ckpt-dir=/tmp/deletenow3'
+    - '--tmp'
+    - '--bsz=50'
+    - '--epochs=200'
+    - '--lr=1e-4'
+    - '--quiet'
+    - '--seed=2'
+...
+---
+out: ./roberta_large-all75/temp1_3
+script: autoprompt.continuous_trigger_mlm
+args:
+
+    - '--model-name=roberta-large'
+    - '--train=/home/yrazeghi/data/CycIC3/train-f_processed.jsonl'
+    - '--dev-a=/home/yrazeghi/data/CycIC3/dev_a-f_processed.jsonl'
+    - '--dev-b=/home/yrazeghi/data/CycIC3/dev_b-f_processed.jsonl'
+    - '--test-a=/home/yrazeghi/data/CycIC3/test_a_questions_processed.jsonl'
+    - '--test-b=/home/yrazeghi/data/CycIC3/test_b_questions_processed.jsonl'
+    - '--label-map'
+    - '{"True": "true", "False": "false"}'
+    - '--template'
+    - '[T] [T] [T] [T] {question} [T] [P] [T]'
+    - '--initial-trigger'
+    - 'true'
+    - 'or'
+    - 'false'
+    - ':'
+    - '?'
+    - '.'
+    - '--evaluation-strategy=multiple-choice'
+    - '--ckpt-dir=/tmp/deletenow3'
+    - '--tmp'
+    - '--bsz=50'
+    - '--epochs=200'
+    - '--lr=1e-4'
+    - '--quiet'
+    - '--seed=3'
+...
+---
+out: ./roberta_large-all75/temp1_4
+script: autoprompt.continuous_trigger_mlm
+args:
+
+    - '--model-name=roberta-large'
+    - '--train=/home/yrazeghi/data/CycIC3/train-f_processed.jsonl'
+    - '--dev-a=/home/yrazeghi/data/CycIC3/dev_a-f_processed.jsonl'
+    - '--dev-b=/home/yrazeghi/data/CycIC3/dev_b-f_processed.jsonl'
+    - '--test-a=/home/yrazeghi/data/CycIC3/test_a_questions_processed.jsonl'
+    - '--test-b=/home/yrazeghi/data/CycIC3/test_b_questions_processed.jsonl'
+    - '--label-map'
+    - '{"True": "true", "False": "false"}'
+    - '--template'
+    - '[T] [T] [T] [T] {question} [T] [P] [T]'
+    - '--initial-trigger'
+    - 'true'
+    - 'or'
+    - 'false'
+    - ':'
+    - '?'
+    - '.'
+    - '--evaluation-strategy=multiple-choice'
+    - '--ckpt-dir=/tmp/deletenow3'
+    - '--tmp'
+    - '--bsz=50'
+    - '--epochs=200'
+    - '--lr=1e-4'
+    - '--quiet'
+    - '--seed=4'
+...
+---
+out: ./roberta_large-all75/temp1_5
+script: autoprompt.continuous_trigger_mlm
+args:
+
+    - '--model-name=roberta-large'
+    - '--train=/home/yrazeghi/data/CycIC3/train-f_processed.jsonl'
+    - '--dev-a=/home/yrazeghi/data/CycIC3/dev_a-f_processed.jsonl'
+    - '--dev-b=/home/yrazeghi/data/CycIC3/dev_b-f_processed.jsonl'
+    - '--test-a=/home/yrazeghi/data/CycIC3/test_a_questions_processed.jsonl'
+    - '--test-b=/home/yrazeghi/data/CycIC3/test_b_questions_processed.jsonl'
+    - '--label-map'
+    - '{"True": "true", "False": "false"}'
+    - '--template'
+    - '[T] [T] [T] [T] {question} [T] [P] [T]'
+    - '--initial-trigger'
+    - 'true'
+    - 'or'
+    - 'false'
+    - ':'
+    - '?'
+    - '.'
+    - '--evaluation-strategy=multiple-choice'
+    - '--ckpt-dir=/tmp/deletenow3'
+    - '--tmp'
+    - '--bsz=50'
+    - '--epochs=200'
+    - '--lr=1e-4'
+    - '--quiet'
+    - '--seed=5'
+...
+---
+out: ./roberta_large-all75/temp1_6
+script: autoprompt.continuous_trigger_mlm
+args:
+
+    - '--model-name=roberta-large'
+    - '--train=/home/yrazeghi/data/CycIC3/train-f_processed.jsonl'
+    - '--dev-a=/home/yrazeghi/data/CycIC3/dev_a-f_processed.jsonl'
+    - '--dev-b=/home/yrazeghi/data/CycIC3/dev_b-f_processed.jsonl'
+    - '--test-a=/home/yrazeghi/data/CycIC3/test_a_questions_processed.jsonl'
+    - '--test-b=/home/yrazeghi/data/CycIC3/test_b_questions_processed.jsonl'
+    - '--label-map'
+    - '{"True": "true", "False": "false"}'
+    - '--template'
+    - '[T] [T] [T] [T] {question} [T] [P] [T]'
+    - '--initial-trigger'
+    - 'true'
+    - 'or'
+    - 'false'
+    - ':'
+    - '?'
+    - '.'
+    - '--evaluation-strategy=multiple-choice'
+    - '--ckpt-dir=/tmp/deletenow3'
+    - '--tmp'
+    - '--bsz=50'
+    - '--epochs=200'
+    - '--lr=1e-4'
+    - '--quiet'
+    - '--seed=6'
+...
+---
+out: ./roberta_large-all75/temp1_7
+script: autoprompt.continuous_trigger_mlm
+args:
+
+    - '--model-name=roberta-large'
+    - '--train=/home/yrazeghi/data/CycIC3/train-f_processed.jsonl'
+    - '--dev-a=/home/yrazeghi/data/CycIC3/dev_a-f_processed.jsonl'
+    - '--dev-b=/home/yrazeghi/data/CycIC3/dev_b-f_processed.jsonl'
+    - '--test-a=/home/yrazeghi/data/CycIC3/test_a_questions_processed.jsonl'
+    - '--test-b=/home/yrazeghi/data/CycIC3/test_b_questions_processed.jsonl'
+    - '--label-map'
+    - '{"True": "true", "False": "false"}'
+    - '--template'
+    - '[T] [T] [T] [T] {question} [T] [P] [T]'
+    - '--initial-trigger'
+    - 'true'
+    - 'or'
+    - 'false'
+    - ':'
+    - '?'
+    - '.'
+    - '--evaluation-strategy=multiple-choice'
+    - '--ckpt-dir=/tmp/deletenow3'
+    - '--tmp'
+    - '--bsz=50'
+    - '--epochs=200'
+    - '--lr=1e-4'
+    - '--quiet'
+    - '--seed=7'
+...
+---
+out: ./roberta_large-all75/temp1_8
+script: autoprompt.continuous_trigger_mlm
+args:
+
+    - '--model-name=roberta-large'
+    - '--train=/home/yrazeghi/data/CycIC3/train-f_processed.jsonl'
+    - '--dev-a=/home/yrazeghi/data/CycIC3/dev_a-f_processed.jsonl'
+    - '--dev-b=/home/yrazeghi/data/CycIC3/dev_b-f_processed.jsonl'
+    - '--test-a=/home/yrazeghi/data/CycIC3/test_a_questions_processed.jsonl'
+    - '--test-b=/home/yrazeghi/data/CycIC3/test_b_questions_processed.jsonl'
+    - '--label-map'
+    - '{"True": "true", "False": "false"}'
+    - '--template'
+    - '[T] [T] [T] [T] {question} [T] [P] [T]'
+    - '--initial-trigger'
+    - 'true'
+    - 'or'
+    - 'false'
+    - ':'
+    - '?'
+    - '.'
+    - '--evaluation-strategy=multiple-choice'
+    - '--ckpt-dir=/tmp/deletenow3'
+    - '--tmp'
+    - '--bsz=50'
+    - '--epochs=200'
+    - '--lr=1e-4'
+    - '--quiet'
+    - '--seed=8'
+...
+---
+out: ./roberta_large-all75/temp1_9
+script: autoprompt.continuous_trigger_mlm
+args:
+
+    - '--model-name=roberta-large'
+    - '--train=/home/yrazeghi/data/CycIC3/train-f_processed.jsonl'
+    - '--dev-a=/home/yrazeghi/data/CycIC3/dev_a-f_processed.jsonl'
+    - '--dev-b=/home/yrazeghi/data/CycIC3/dev_b-f_processed.jsonl'
+    - '--test-a=/home/yrazeghi/data/CycIC3/test_a_questions_processed.jsonl'
+    - '--test-b=/home/yrazeghi/data/CycIC3/test_b_questions_processed.jsonl'
+    - '--label-map'
+    - '{"True": "true", "False": "false"}'
+    - '--template'
+    - '[T] [T] [T] [T] {question} [T] [P] [T]'
+    - '--initial-trigger'
+    - 'true'
+    - 'or'
+    - 'false'
+    - ':'
+    - '?'
+    - '.'
+    - '--evaluation-strategy=multiple-choice'
+    - '--ckpt-dir=/tmp/deletenow3'
+    - '--tmp'
+    - '--bsz=50'
+    - '--epochs=200'
+    - '--lr=1e-4'
+    - '--quiet'
+    - '--seed=9'
+...
+---
+out: ./roberta_large-all75/temp1_10
+script: autoprompt.continuous_trigger_mlm
+args:
+
+    - '--model-name=roberta-large'
+    - '--train=/home/yrazeghi/data/CycIC3/train-f_processed.jsonl'
+    - '--dev-a=/home/yrazeghi/data/CycIC3/dev_a-f_processed.jsonl'
+    - '--dev-b=/home/yrazeghi/data/CycIC3/dev_b-f_processed.jsonl'
+    - '--test-a=/home/yrazeghi/data/CycIC3/test_a_questions_processed.jsonl'
+    - '--test-b=/home/yrazeghi/data/CycIC3/test_b_questions_processed.jsonl'
+    - '--label-map'
+    - '{"True": "true", "False": "false"}'
+    - '--template'
+    - '[T] [T] [T] [T] {question} [T] [P] [T]'
+    - '--initial-trigger'
+    - 'true'
+    - 'or'
+    - 'false'
+    - ':'
+    - '?'
+    - '.'
+    - '--evaluation-strategy=multiple-choice'
+    - '--ckpt-dir=/tmp/deletenow3'
+    - '--tmp'
+    - '--bsz=50'
+    - '--epochs=200'
+    - '--lr=1e-4'
+    - '--quiet'
+    - '--seed=10'
 ...
