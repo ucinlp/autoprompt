@@ -1,0 +1,18 @@
+version: 2
+jobs:
+    test:
+        working_directory: ~/autoprompt
+        docker:
+            - image: circleci/python:3.7
+        environment:
+            OMP_NUM_THREADS: 1
+        resource_class: medium
+        parallelism: 1
+        steps:
+            - checkout
+            - run: pip install --upgrade pip
+            - run: pip install -e '.[test]'
+            - run: python -m pytest --disable-warnings
+            - store_test_results:
+                path: test-results
+        
