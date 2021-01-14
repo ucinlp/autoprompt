@@ -18,7 +18,9 @@ setuptools.setup(
     url='https://github.com/ucinlp/autoprompt',
     packages=setuptools.find_packages(),
     install_requires=[
-        'transformers>=4.0.0',
+        'adapter-transformers>=1.1.0',
+        'Jinja2>=2.7.0',
+        'PyYAML>=5.3.1',
     ],
     extras_require={
         'test': ['pytest']
@@ -27,5 +29,5 @@ setuptools.setup(
         'Intended Audience :: Science/Research',
         'Topic :: Scientific/Engineering :: Artificial Intelligence',
     ],
-    keywords='text nlp machinelearining',
+    keywords='text nlp machinelearning',
 )

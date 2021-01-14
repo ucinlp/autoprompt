@@ -15,14 +15,16 @@ An automated method based on gradient-guided search to create prompts for a dive
 conda create -n autoprompt -y python=3.7 && conda activate autoprompt
 ```
 
-### 2. Install dependecies
-Install the required packages
+### 2. Install AutoPrompt
+The following command will install AutoPrompt and its dependencies.
 ```
-pip install -r requirements.txt
+pip install -e .
 ```
-Also download the spacy model
+
+NOTE: To ensure the correct version of CUDA is installed you may wish to use conda to manage your
+PyTorch installation:
 ```
-python -m spacy download en
+conda install pytorch cudatoolkit=10.2 -c pytorch
 ```
 
 ### 3. Download the data
