@@ -1,6 +1,6 @@
 version: 2
 jobs:
-    test:
+    build:
         working_directory: ~/autoprompt
         docker:
             - image: circleci/python:3.7
