@@ -26,6 +26,16 @@ def pad_squeeze_sequence(sequence, *args, **kwargs):
     return pad_sequence([x.squeeze(0) for x in sequence], *args, **kwargs)
 
 
+def _get_special_ids(tokenizer):
+    trigger_token_id = tokenizer.convert_tokens_to_ids('[T]')
+    if trigger_token_id == tokenizer.unk_token_id:
+        raise ValueError('Tokenizer does not have special [T] token.')
+    predict_token_id = tokenizer.convert_tokens_to_ids('[P]')
+    if predict_token_id == tokenizer.unk_token_id:
+        raise ValueError('Tokenizer does not have special [P] token.')
+    return trigger_token_id, predict_token_id
+
+
 class OutputStorage:
     """
     This object stores the intermediate gradients of the output a the given PyTorch module, which
@@ -134,17 +144,15 @@ class TriggerTemplatizer:
                  label_field='label',
                  label_map=None,
                  tokenize_labels=False):
-        if not hasattr(tokenizer, 'predict_token') or \
-           not hasattr(tokenizer, 'trigger_token'):
-            raise ValueError(
-                'Tokenizer missing special trigger and predict tokens in vocab.'
-                'Use `utils.add_special_tokens` to add them.'
-            )
         self._template = template
         self._tokenizer = tokenizer
         self._label_field = label_field
         self._label_map = label_map
         self._tokenize_labels = tokenize_labels
+
+        trigger_token_id, predict_token_id = _get_special_ids(tokenizer)
+        self._trigger_token_id = trigger_token_id
+        self._predict_token_id = predict_token_id
 
     @property
     def num_trigger_tokens(self):
@@ -167,8 +175,8 @@ class TriggerTemplatizer:
             return_tensors='pt'
         )
         input_ids = model_inputs['input_ids']
-        trigger_mask = input_ids.eq(self._tokenizer.trigger_token_id)
-        predict_mask = input_ids.eq(self._tokenizer.predict_token_id)
+        trigger_mask = input_ids.eq(self._trigger_token_id)
+        predict_mask = input_ids.eq(self._predict_token_id)
         input_ids[predict_mask] = self._tokenizer.mask_token_id
 
         model_inputs['trigger_mask'] = trigger_mask
@@ -213,17 +221,15 @@ class MultiTokenTemplatizer:
         label_map=None,
         add_padding=False,
     ):
-        if not hasattr(tokenizer, 'predict_token') or \
-           not hasattr(tokenizer, 'trigger_token'):
-            raise ValueError(
-                'Tokenizer missing special trigger and predict tokens in vocab.'
-                'Use `utils.add_special_tokens` to add them.'
-            )
         self._template = template
         self._tokenizer = tokenizer
         self._label_field = label_field
         self._label_map = label_map
         self._add_padding = add_padding
+
+        trigger_token_id, predict_token_id = _get_special_ids(tokenizer)
+        self._trigger_token_id = trigger_token_id
+        self._predict_token_id = predict_token_id
 
     # TODO(rloganiv): If there is any more shared code between tokenizers,
     # consider creating a base class.
@@ -322,9 +328,9 @@ class MultiTokenTemplatizer:
         # unnecc. post-processing for continuous triggers (using OOV tokens
         # during the forward pass is the recipe for a serious headache).
         # TODO: Consider making this the default behavior across templatizers.
-        trigger_mask = input_ids.eq(self._tokenizer.trigger_token_id)
+        trigger_mask = input_ids.eq(self._trigger_token_id)
         input_ids[trigger_mask] = self._tokenizer.mask_token_id
-        predict_mask = input_ids.eq(self._tokenizer.predict_token_id)
+        predict_mask = input_ids.eq(self._predict_token_id)
         input_ids[predict_mask] = self._tokenizer.mask_token_id
 
         # For sake of convenience, we're going to use HuggingFace's built-in
@@ -339,20 +345,6 @@ class MultiTokenTemplatizer:
         model_inputs['predict_mask'] = predict_mask
 
         return model_inputs, labels
-
-
-def add_task_specific_tokens(tokenizer):
-    tokenizer.add_special_tokens({
-        'additional_special_tokens': ['[T]', '[P]', '[Y]']
-    })
-    tokenizer.trigger_token = '[T]'
-    tokenizer.trigger_token_id = tokenizer.convert_tokens_to_ids('[T]')
-    tokenizer.predict_token = '[P]'
-    tokenizer.predict_token_id = tokenizer.convert_tokens_to_ids('[P]')
-    # tokenizer.lama_x = '[X]'
-    # tokenizer.lama_x_id = tokenizer.convert_tokens_to_ids('[X]')
-    tokenizer.lama_y = '[Y]'
-    tokenizer.lama_x_id = tokenizer.convert_tokens_to_ids('[Y]')
 
 
 def load_trigger_dataset(

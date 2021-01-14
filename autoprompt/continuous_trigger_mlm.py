@@ -231,8 +231,11 @@ def main(args):
     logger.warning('Rank: %s - World Size: %s', args.local_rank, world_size)
 
     config = AutoConfig.from_pretrained(args.model_name)
-    tokenizer = AutoTokenizer.from_pretrained(args.model_name, add_prefix_space=True)
-    utils.add_task_specific_tokens(tokenizer)
+    tokenizer = AutoTokenizer.from_pretrained(
+        args.model_name,
+        add_prefix_space=True,
+        additional_special_tokens=('[T]', '[P]'),
+    )
     model = AutoModelForMaskedLM.from_pretrained(args.model_name, config=config)
 
     # TODO(rloganiv): See if transformers has a general API call for getting
