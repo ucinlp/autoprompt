@@ -11,6 +11,7 @@ import torch
 import torch.nn.functional as F
 from torch.utils.data import DataLoader
 from transformers import AdamW, AutoConfig, AutoTokenizer, AutoModelForMaskedLM
+from transformers.modeling_albert import AlbertPreTrainedModel
 from transformers.modeling_bert import BertPreTrainedModel
 from transformers.modeling_roberta import RobertaPreTrainedModel
 from tqdm import tqdm
@@ -249,6 +250,8 @@ def main(args):
     elif isinstance(model, RobertaPreTrainedModel):
         model.embeds = model.roberta.embeddings.word_embeddings
         # model.lm_head.decoder.bias.zero_()
+    elif isinstance(model, AlbertPreTrainedModel):
+        model.embeds = model.albert.embeddings.word_embeddings
     else:
         raise ValueError(f'{args.model_name} not currently supported.')
 
