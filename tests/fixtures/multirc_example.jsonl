@@ -1,0 +1,1 @@
+{"passage": {"text": "This is a test", "questions": [{"question": "Is this a test?", "answers": [{"text": "yes", "label": 1}, {"text": "no", "label": 0}]}]}}
