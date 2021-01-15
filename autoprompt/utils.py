@@ -30,6 +30,7 @@ def pad_squeeze_sequence(sequence, *args, **kwargs):
 
 
 def _get_special_ids(tokenizer):
+    """Gets the ids of special [T] and [P] tokens."""
     trigger_token_id = tokenizer.convert_tokens_to_ids('[T]')
     if trigger_token_id == tokenizer.unk_token_id:
         raise ValueError('Tokenizer does not have special [T] token.')
