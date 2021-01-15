@@ -352,7 +352,7 @@ def main(args):
             loss, correct = evaluator(model_inputs, labels)
             loss.backward()
             if args.clip is not None:
-                torch.utils.clip_grad_norm_(model.parameters(), args.clip)
+                torch.nn.utils.clip_grad_norm_(model.parameters(), args.clip)
             optimizer.step()
             total_loss += loss.detach() * labels.size(0)
             total_correct += correct.detach()
