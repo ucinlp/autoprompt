@@ -347,17 +347,21 @@ def main(args):
         total_loss = torch.tensor(0.0, device=device)
         total_correct = torch.tensor(0.0, device=device)
         denom = torch.tensor(0.0, device=device)
-        for model_inputs, labels in iter_:
+        optimizer.zero_grad()
+        for i, (model_inputs, labels) in enumerate(iter_):
             model_inputs = {k: v.to(device) for k, v in model_inputs.items()}
             labels = labels.to(device)
             loss, correct = evaluator(model_inputs, labels)
             loss.backward()
-            if args.clip is not None:
-                torch.nn.utils.clip_grad_norm_(model.parameters(), args.clip)
-            optimizer.step()
+            if i % args.accumulation_steps == args.accumulation_steps - 1:
+                if args.clip is not None:
+                    torch.nn.utils.clip_grad_norm_(model.parameters(), args.clip)
+                optimizer.step()
+                optimizer.zero_grad()
             total_loss += loss.detach() * labels.size(0)
             total_correct += correct.detach()
             denom += labels.size(0)
+            
             # NOTE: This loss/accuracy is only on the subset  of training data
             # in the main process.
             if is_main_process and not args.quiet:
@@ -471,6 +475,7 @@ if __name__ == '__main__':
     parser.add_argument('--ckpt-dir', type=Path, default=Path('ckpt/'))
     parser.add_argument('--num-labels', type=int, default=2)
     parser.add_argument('--bsz', type=int, default=32)
+    parser.add_argument('--accumulation-steps', type=int, default=1)
     parser.add_argument('--epochs', type=int, default=10)
     parser.add_argument('--lr', type=float, default=1e-4)
     parser.add_argument('--disable-dropout', action='store_true')
