@@ -6,6 +6,9 @@ import random
 import numpy as np
 import torch
 from torch.nn.utils.rnn import pad_sequence
+from transformers.modeling_albert import AlbertPreTrainedModel
+from transformers.modeling_bert import BertPreTrainedModel
+from transformers.modeling_roberta import RobertaPreTrainedModel
 
 from autoprompt.preprocessors import PREPROCESSORS
 
@@ -424,50 +427,34 @@ def load_classification_dataset(
     return instances, label_map
 
 
-# def load_continuous_trigger_dataset(
-    # fname,
-    # tokenizer,
-    # input_field_a,
-    # input_field_b=None,
-    # label_field='label',
-    # limit=None,
-    # preprocessor_key=None,
-# ):
-    # """
-    # Loads a dataset for classification
+def get_word_embeddings(model):
+    for module in model.modules():
+        if hasattr(module, 'word_embeddings'):
+            return module.word_embeddings
 
-    # Parameters
-    # ==========
-    # tokenizer : transformers.PretrainedTokenizer
-        # Maps text to id tensors.
-    # sentence1 :
-    # """
-    # instances = []
-    # if preprocessor_key is None:
-        # preprocessor = PREPROCESSORS[fname.suffix]
-    # else:
-        # preprocessor = PREPROCESSORS[preprocessor_key]
-    # for instance in preprocessor(fname):
-        # logger.debug(instance)
-        # model_inputs = tokenizer(
-            # instance[input_field_a],
-            # instance[input_field_b] if input_field_b else None,
-            # add_special_tokens=True,
-            # # add_prefix_space=True,
-            # return_tensors='pt'
-        # )
-        # logger.debug(model_inputs)
-        # label = instance[label_field]
-        # label_id = tokenizer.encode(
-            # label,
-            # add_special_tokens=True,
-            # add_prefix_space=True,
-            # return_tensors='pt'
-        # )
-        # # label_id = torch.tensor([[label_id]])  # To make collator expectation
-        # logger.debug(f'Label id: {label_id}')
-        # instances.append((model_inputs, label_id))
-    # if limit:
-        # instances = random.sample(instances, limit)
-    # return instances
+
+def get_lm_head(model):
+    for module in model.modules():
+        if hasattr(module, 'cls'):
+            return module.cls
+        elif hasattr(module, 'lm_head'):
+            return module.lm_head
+        elif hasattr(module, 'predictions'):
+            return module.predictions
+        else:
+            raise NotImplementedError(
+                'Unable to retrieve MLM head for model. You may need to add a special case to '
+                '`utils.get_lm_head`.'
+            )
+
+
+def get_clf_head(model):
+    for module in model.modules():
+        if hasattr(module, 'classifier'):
+            return module.classifier
+        else:
+            raise NotImplementedError(
+                'Unable to retrieve classifier head for model. You may need to add a special case to '
+                '`utils.get_clf_head`.'
+            )
 

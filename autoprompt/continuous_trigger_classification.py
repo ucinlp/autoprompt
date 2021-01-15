@@ -11,6 +11,9 @@ import torch.nn.functional as F
 from torch.utils.data import DataLoader
 from transformers import AutoConfig, AutoTokenizer, AutoModelForSequenceClassification, PreTrainedModel
 from transformers import get_linear_schedule_with_warmup, AdamW
+from transformers.modeling_albert import AlbertPreTrainedModel
+from transformers.modeling_bert import BertPreTrainedModel
+from transformers.modeling_roberta import RobertaPreTrainedModel
 from tqdm import tqdm
 
 import autoprompt.utils as utils
@@ -40,23 +43,13 @@ def generate_inputs_embeds(model_inputs, model, tokenizer, eos_idx):
 
 class ContTriggerTransformer(PreTrainedModel):
 
-    def __init__(self, config, model_name, trigger_length, finetune=False):
+    def __init__(self, config, model_name, trigger_length):
         super(ContTriggerTransformer, self).__init__(config)
         self.model = AutoModelForSequenceClassification.from_pretrained(model_name, config=self.config)
-        if model_name == "bert-base-cased":
-            self.embeds = self.model.bert.embeddings.word_embeddings
-            if not finetune:
-                for param in self.model.bert.parameters():
-                    param.requires_grad = False
-        elif model_name == "roberta-base":
-            self.embeds = self.model.roberta.embeddings.word_embeddings
-            if not finetune:
-                for param in self.model.roberta.parameters():
-                    param.requires_grad = False
+        self.embeds = utils.get_word_embeddings(self.model)
         indices = np.random.randint(0, self.embeds.weight.shape[0], size=trigger_length)
-        self.relation_embeds = torch.nn.Parameter(self.embeds.weight.detach()[indices], 
-                                                                            requires_grad=True)
-
+        self.relation_embeds = torch.nn.Parameter(self.embeds.weight.detach()[indices], requires_grad=True)
+        self.clf_head = utils.get_clf_head(self.model)
     
     def forward(
         self,
@@ -78,7 +71,6 @@ class ContTriggerTransformer(PreTrainedModel):
         )
 
         return output
-
 
 
 def main(args):
@@ -110,14 +102,17 @@ def main(args):
 
     config = AutoConfig.from_pretrained(args.model_name, num_labels=args.num_labels)
     tokenizer = AutoTokenizer.from_pretrained(args.model_name)
-    model = ContTriggerTransformer(config, args.model_name, args.trigger_length, finetune=args.finetune)
-    
-    if args.model_name == "bert-base-cased":
-        eos_idx = 102
-    elif args.model_name == "roberta-base":
-        eos_idx = tokenizer.eos_token_id
-    
+    eos_idx = tokenizer.eos_token_id if tokenizer.eos_token_id else tokenizer.sep_token_id
+
+    model = ContTriggerTransformer(config, args.model_name, args.trigger_length)
     model.to(device)
+
+    ckpt_path = args.ckpt_dir / 'pytorch_model.bin'
+    if ckpt_path.exists():
+        logger.info('Restoring checkpoint.')
+        state_dict = torch.load(ckpt_path, map_location=device)
+        model.load_state_dict(state_dict)
+
     if world_size != -1:
         model = torch.nn.parallel.DistributedDataParallel(
             model,
@@ -168,8 +163,22 @@ def main(args):
     else:
         test_sampler = torch.utils.data.DistributedSampler(test_dataset)
     test_loader = DataLoader(test_dataset, batch_size=args.bsz, shuffle=True, collate_fn=collator)
-    optimizer = torch.optim.Adam(list(model.model.classifier.parameters()) + [model.relation_embeds],
-                                                        lr=args.lr, weight_decay=args.weight_decay)
+    params = [{'params': [model.relation_embeds]}]
+    if args.finetune_mode == 'partial': 
+        params.append({
+            'params': model.clf_head.parameters(),
+            'lr': args.finetune_lr if args.finetune_lr else args.lr
+        })
+    elif args.finetune_mode == 'all':
+        params.append({
+            'params': [p for p in model.parameters() if not torch.equal(p, model.relation_embeds)],
+            'lr': args.finetune_lr if args.finetune_lr else args.lr
+        })
+    optimizer = torch.optim.Adam(
+        params,
+        lr=args.lr,
+        weight_decay=args.weight_decay,
+    )
 
     best_accuracy = 0
     for epoch in range(args.epochs):
@@ -222,16 +231,20 @@ def main(args):
                 best_accuracy = accuracy
                 if not args.ckpt_dir.exists():
                     args.ckpt_dir.mkdir(parents=True)
-                model.save_pretrained(args.ckpt_dir)
+                if world_size != -1:
+                    state_dict = model.module.state_dict()
+                else:
+                    state_dict = model.state_dict()
+                if is_main_process:
+                    torch.save(state_dict, ckpt_path)
                 tokenizer.save_pretrained(args.ckpt_dir)
 
     logger.info('Testing...')
-    if epochs > 0:
-        checkpoint = torch.load(args.ckpt_dir / "pytorch_model.bin")
-        model.load_state_dict(checkpoint)
-        if args.tmp:
-            logger.info('Temporary mode enabled, deleting checkpoint')
-            shutil.rmtree(args.ckpt_dir)
+    if ckpt_path.exists():
+        logger.info('Restoring checkpoint.')
+        state_dict = torch.load(ckpt_path, map_location=device)
+        model.load_state_dict(state_dict)
+
     model.eval()
     correct = torch.tensor(0.0, device=device)
     total = torch.tensor(0.0, device=device)
@@ -251,6 +264,10 @@ def main(args):
     accuracy = correct / (total + 1e-13)
     logger.info(f'Accuracy: {accuracy : 0.4f}')
 
+    if args.tmp:
+        logger.info('Temporary mode enabled, deleting checkpoint dir')
+        shutil.rmtree(args.ckpt_dir)
+
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
@@ -262,7 +279,9 @@ if __name__ == '__main__':
     parser.add_argument('--field-b', type=str, default=None)
     parser.add_argument('--label-field', type=str, default='label')
     parser.add_argument('--trigger-length', type=int, default=5)
-    parser.add_argument('--finetune', action='store_true')
+    parser.add_argument('--finetune-mode', type=str, default='trigger',
+                        choices=['trigger', 'partial', 'all'])
+    parser.add_argument('--finetune-lr', type=float, default=None)
     parser.add_argument('--ckpt-dir', type=Path, default='ckpt')
     parser.add_argument('--tmp', action='store_true')
     parser.add_argument('--num-labels', type=int, default=2)

@@ -11,9 +11,6 @@ import torch
 import torch.nn.functional as F
 from torch.utils.data import DataLoader
 from transformers import AdamW, AutoConfig, AutoTokenizer, AutoModelForMaskedLM
-from transformers.modeling_albert import AlbertPreTrainedModel
-from transformers.modeling_bert import BertPreTrainedModel
-from transformers.modeling_roberta import RobertaPreTrainedModel
 from tqdm import tqdm
 
 import autoprompt.utils as utils
@@ -38,8 +35,6 @@ class ExactMatchEvaluator:
     def __call__(self, model_inputs, labels):
         predict_mask = model_inputs['predict_mask'].clone()
         preds = decode(self._model, model_inputs, decoding_strategy=self._decoding_strategy)
-        print('Label: ' + self._tokenizer.decode(labels[predict_mask].tolist()))
-        print('Predicted: ' + self._tokenizer.decode(preds[predict_mask].tolist()))
         correct = (preds == labels).all().item()
         return correct
 
@@ -205,7 +200,6 @@ def main(args):
         assert args.decoding_strategy is not None
     elif args.evaluation_strategy == 'multiple-choice':
         assert args.label_map is not None
-    logger.info(args)
 
     utils.set_seed(args.seed)
 
@@ -223,12 +217,10 @@ def main(args):
                 world_size=world_size,
             )
     is_main_process = args.local_rank in [-1, 0] or world_size == -1
-
     if args.debug:
         logging.basicConfig(level=logging.DEBUG)
     else:
         logging.basicConfig(level=logging.INFO if is_main_process else logging.WARN)
-
     logger.warning('Rank: %s - World Size: %s', args.local_rank, world_size)
 
     config = AutoConfig.from_pretrained(args.model_name)
@@ -237,23 +229,7 @@ def main(args):
         add_prefix_space=True,
         additional_special_tokens=('[T]', '[P]'),
     )
-    model = AutoModelForMaskedLM.from_pretrained(args.model_name, config=config)
 
-    # TODO(rloganiv): See if transformers has a general API call for getting
-    # the word embeddings. If so simplify the below code.
-    if not args.finetune:
-        for param in model.parameters():
-            param.requires_grad = False
-    if isinstance(model, BertPreTrainedModel):
-        model.embeds = model.bert.embeddings.word_embeddings
-        # model.bert.cls.predictions.decoder.bias.zero_()
-    elif isinstance(model, RobertaPreTrainedModel):
-        model.embeds = model.roberta.embeddings.word_embeddings
-        # model.lm_head.decoder.bias.zero_()
-    elif isinstance(model, AlbertPreTrainedModel):
-        model.embeds = model.albert.embeddings.word_embeddings
-    else:
-        raise ValueError(f'{args.model_name} not currently supported.')
 
     if args.label_map is not None:
         label_map = json.loads(args.label_map)
@@ -302,6 +278,55 @@ def main(args):
         test_sampler = torch.utils.data.DistributedSampler(test_dataset)
     test_loader = DataLoader(test_dataset, batch_size=args.bsz, shuffle=True, collate_fn=collator)
 
+    model = AutoModelForMaskedLM.from_pretrained(args.model_name, config=config)
+    model.embeds = utils.get_word_embeddings(model)
+    model.lm_head = utils.get_lm_head(model)
+    model.relation_embeds = torch.nn.Parameter(
+        torch.randn(
+            templatizer.num_trigger_tokens,
+            model.embeds.weight.size(1),
+            requires_grad=True,
+        ), 
+    )
+    if args.initial_trigger is not None:
+        initial_trigger_ids = torch.tensor(
+            tokenizer.convert_tokens_to_ids(args.initial_trigger),
+        )
+        initial_trigger_embeds = model.embeds(initial_trigger_ids)
+        model.relation_embeds.data.copy_(initial_trigger_embeds)
+    model.to(device)
+
+    ckpt_path = args.ckpt_dir / 'pytorch_model.bin'
+    if ckpt_path.exists():
+        logger.info('Restoring checkpoint.')
+        state_dict = torch.load(ckpt_path, map_location=device)
+        model.load_state_dict(state_dict)
+
+    params = [{'params': [model.relation_embeds]}]
+    if args.finetune_mode == 'partial': 
+        params.append({
+            'params': model.lm_head.parameters(),
+            'lr': args.finetune_lr if args.finetune_lr else args.lr
+        })
+    elif args.finetune_mode == 'all':
+        params.append({
+            'params': [p for p in model.parameters() if not torch.equal(p, model.relation_embeds)],
+            'lr': args.finetune_lr if args.finetune_lr else args.lr
+        })
+
+    optimizer = AdamW(
+        params,
+        lr=args.lr,
+        weight_decay=1e-6,
+        betas=(0.9, 0.999),
+    )
+
+    if world_size != -1:
+        model = torch.nn.parallel.DistributedDataParallel(
+            model,
+            device_ids=[args.local_rank],
+        )
+
     evaluator = EVALUATORS[args.evaluation_strategy](
         model=model,
         tokenizer=tokenizer,
@@ -309,41 +334,11 @@ def main(args):
         decoding_strategy=args.decoding_strategy,
     )
 
-    # TODO: Consider refactoring to make model more portable.
-    if args.initial_trigger is not None:
-        initial_trigger_ids = torch.tensor(
-            tokenizer.convert_tokens_to_ids(args.initial_trigger),
-        )
-        model.relation_embeds = torch.nn.Parameter(
-            model.embeds(initial_trigger_ids).detach().clone()
-        )
-    else:
-        model.relation_embeds = torch.nn.Parameter(
-            torch.randn(
-                templatizer.num_trigger_tokens,
-                model.embeds.weight.size(1),
-                requires_grad=True,
-            ), 
-        )
-    model.to(device)
-    if world_size != -1:
-        model = torch.nn.parallel.DistributedDataParallel(
-            model,
-            device_ids=[args.local_rank],
-        )
-
-
-    optimizer = AdamW(
-        model.parameters(),
-        lr=args.lr,
-        weight_decay=1e-2,
-        betas=(0.9, 0.999),
-    )
-
     best_accuracy = 0
     for epoch in range(args.epochs):
         logger.info('Training...')
-        model.train()
+        if not args.disable_dropout:
+            model.train()
         if is_main_process and not args.quiet:
             iter_ = tqdm(train_loader)
         else:
@@ -356,6 +351,8 @@ def main(args):
             labels = labels.to(device)
             loss, correct = evaluator(model_inputs, labels)
             loss.backward()
+            if args.clip is not None:
+                torch.nn.utils.clip_grad_norm_(model.parameters(), args.clip)
             optimizer.step()
             total_loss += loss.detach() * labels.size(0)
             total_correct += correct.detach()
@@ -402,16 +399,19 @@ def main(args):
                 best_accuracy = accuracy
                 if not args.ckpt_dir.exists():
                     args.ckpt_dir.mkdir(parents=True)
-                model.save_pretrained(args.ckpt_dir)
+                if world_size != -1:
+                    state_dict = model.module.state_dict()
+                else:
+                    state_dict = model.state_dict()
+                if is_main_process:
+                    torch.save(state_dict, ckpt_path)
                 tokenizer.save_pretrained(args.ckpt_dir)
 
     logger.info('Testing...')
-    if args.epochs > 0:
-        checkpoint = torch.load(args.ckpt_dir / "pytorch_model.bin")
-        model.load_state_dict(checkpoint)
-        if args.tmp:
-            logger.info('Temporary mode enabled, deleting checkpoint')
-            shutil.rmtree(args.ckpt_dir)
+    if ckpt_path.exists():
+        logger.info('Restoring checkpoint.')
+        state_dict = torch.load(ckpt_path, map_location=device)
+        model.load_state_dict(state_dict)
     model.eval()
     total_correct = torch.tensor(0.0, device=device)
     denom = torch.tensor(0.0, device=device)
@@ -427,6 +427,10 @@ def main(args):
         torch.distributed.reduce(denom, 0)
     accuracy = total_correct / (denom + 1e-13)
     logger.info(f'Accuracy: {accuracy : 0.4f}')
+
+    if args.tmp:
+        logger.info('Temporary mode enabled, deleting checkpoint')
+        shutil.rmtree(args.ckpt_dir)
 
 
 if __name__ == '__main__':
@@ -446,13 +450,17 @@ if __name__ == '__main__':
                         choices=EVALUATORS.keys())
     parser.add_argument('--decoding-strategy', type=str, default=None,
                         choices=['parallel', 'monotonic', 'iterative'])
-    parser.add_argument('--finetune', action='store_true')
+    parser.add_argument('--finetune-mode', type=str, default='trigger',
+                        choices=['trigger', 'partial', 'all'])
+    parser.add_argument('--finetune-lr', type=float, default=None)
     parser.add_argument('--ckpt-dir', type=Path, default=Path('ckpt/'))
     parser.add_argument('--tmp', action='store_true')
     parser.add_argument('--num-labels', type=int, default=2)
     parser.add_argument('--bsz', type=int, default=32)
     parser.add_argument('--epochs', type=int, default=10)
-    parser.add_argument('--lr', type=float, default=3e-2)
+    parser.add_argument('--lr', type=float, default=1e-4)
+    parser.add_argument('--disable-dropout', action='store_true')
+    parser.add_argument('--clip', type=float, default=None)
     parser.add_argument('--limit', type=int, default=None)
     parser.add_argument('--seed', type=int, default=1234)
     parser.add_argument('-f', '--force-overwrite', action='store_true')
