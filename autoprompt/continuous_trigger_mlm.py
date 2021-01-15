@@ -11,9 +11,6 @@ import torch
 import torch.nn.functional as F
 from torch.utils.data import DataLoader
 from transformers import AdamW, AutoConfig, AutoTokenizer, AutoModelForMaskedLM
-from transformers.modeling_albert import AlbertPreTrainedModel
-from transformers.modeling_bert import BertPreTrainedModel
-from transformers.modeling_roberta import RobertaPreTrainedModel
 from tqdm import tqdm
 
 import autoprompt.utils as utils
@@ -38,8 +35,6 @@ class ExactMatchEvaluator:
     def __call__(self, model_inputs, labels):
         predict_mask = model_inputs['predict_mask'].clone()
         preds = decode(self._model, model_inputs, decoding_strategy=self._decoding_strategy)
-        print('Label: ' + self._tokenizer.decode(labels[predict_mask].tolist()))
-        print('Predicted: ' + self._tokenizer.decode(preds[predict_mask].tolist()))
         correct = (preds == labels).all().item()
         return correct
 
@@ -244,16 +239,7 @@ def main(args):
     if not args.finetune:
         for param in model.parameters():
             param.requires_grad = False
-    if isinstance(model, BertPreTrainedModel):
-        model.embeds = model.bert.embeddings.word_embeddings
-        # model.bert.cls.predictions.decoder.bias.zero_()
-    elif isinstance(model, RobertaPreTrainedModel):
-        model.embeds = model.roberta.embeddings.word_embeddings
-        # model.lm_head.decoder.bias.zero_()
-    elif isinstance(model, AlbertPreTrainedModel):
-        model.embeds = model.albert.embeddings.word_embeddings
-    else:
-        raise ValueError(f'{args.model_name} not currently supported.')
+    model.embeds = utils.get_word_embeddings(model)
 
     if args.label_map is not None:
         label_map = json.loads(args.label_map)
@@ -331,7 +317,6 @@ def main(args):
             model,
             device_ids=[args.local_rank],
         )
-
 
     optimizer = AdamW(
         model.parameters(),

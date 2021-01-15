@@ -11,6 +11,9 @@ import torch.nn.functional as F
 from torch.utils.data import DataLoader
 from transformers import AutoConfig, AutoTokenizer, AutoModelForSequenceClassification, PreTrainedModel
 from transformers import get_linear_schedule_with_warmup, AdamW
+from transformers.modeling_albert import AlbertPreTrainedModel
+from transformers.modeling_bert import BertPreTrainedModel
+from transformers.modeling_roberta import RobertaPreTrainedModel
 from tqdm import tqdm
 
 import autoprompt.utils as utils
@@ -43,20 +46,9 @@ class ContTriggerTransformer(PreTrainedModel):
     def __init__(self, config, model_name, trigger_length, finetune=False):
         super(ContTriggerTransformer, self).__init__(config)
         self.model = AutoModelForSequenceClassification.from_pretrained(model_name, config=self.config)
-        if model_name == "bert-base-cased":
-            self.embeds = self.model.bert.embeddings.word_embeddings
-            if not finetune:
-                for param in self.model.bert.parameters():
-                    param.requires_grad = False
-        elif model_name == "roberta-base":
-            self.embeds = self.model.roberta.embeddings.word_embeddings
-            if not finetune:
-                for param in self.model.roberta.parameters():
-                    param.requires_grad = False
+        self.embeds = utils.get_word_embeddings(self.model)
         indices = np.random.randint(0, self.embeds.weight.shape[0], size=trigger_length)
-        self.relation_embeds = torch.nn.Parameter(self.embeds.weight.detach()[indices], 
-                                                                            requires_grad=True)
-
+        self.relation_embeds = torch.nn.Parameter(self.embeds.weight.detach()[indices], requires_grad=True)
     
     def forward(
         self,
@@ -111,11 +103,7 @@ def main(args):
     config = AutoConfig.from_pretrained(args.model_name, num_labels=args.num_labels)
     tokenizer = AutoTokenizer.from_pretrained(args.model_name)
     model = ContTriggerTransformer(config, args.model_name, args.trigger_length, finetune=args.finetune)
-    
-    if args.model_name == "bert-base-cased":
-        eos_idx = 102
-    elif args.model_name == "roberta-base":
-        eos_idx = tokenizer.eos_token_id
+    eos_idx = tokenizer.eos_token_id if tokenizer.eos_token_id else tokenizer.sep_token_id
     
     model.to(device)
     if world_size != -1:
