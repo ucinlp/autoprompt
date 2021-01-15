@@ -432,3 +432,29 @@ def get_word_embeddings(model):
         if hasattr(module, 'word_embeddings'):
             return module.word_embeddings
 
+
+def get_lm_head(model):
+    for module in model.modules():
+        if hasattr(module, 'cls'):
+            return module.cls
+        elif hasattr(module, 'lm_head'):
+            return module.lm_head
+        elif hasattr(module, 'predictions'):
+            return module.predictions
+        else:
+            raise NotImplementedError(
+                'Unable to retrieve MLM head for model. You may need to add a special case to '
+                '`utils.get_lm_head`.'
+            )
+
+
+def get_clf_head(model):
+    for module in model.modules():
+        if hasattr(module, 'classifier'):
+            return module.classifier
+        else:
+            raise NotImplementedError(
+                'Unable to retrieve classifier head for model. You may need to add a special case to '
+                '`utils.get_clf_head`.'
+            )
+
