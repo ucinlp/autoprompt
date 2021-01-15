@@ -21,6 +21,7 @@ logger = logging.getLogger(__name__)
 
 
 class ExactMatchEvaluator:
+    """Used for generative evaluation."""
     def __init__(
             self,
             model,
@@ -40,6 +41,7 @@ class ExactMatchEvaluator:
 
 
 class MultipleChoiceEvaluator:
+    """Used for multiple choice evaluation."""
     def __init__(
         self,
         model,
@@ -230,6 +232,7 @@ def main(args):
         additional_special_tokens=('[T]', '[P]'),
     )
 
+    # Load & preprocess trigger template and data.
     if args.label_map is not None:
         label_map = json.loads(args.label_map)
     else:
@@ -277,6 +280,7 @@ def main(args):
         test_sampler = torch.utils.data.DistributedSampler(test_dataset)
     test_loader = DataLoader(test_dataset, batch_size=args.bsz, shuffle=True, collate_fn=collator)
 
+    # Setup model
     model = AutoModelForMaskedLM.from_pretrained(args.model_name, config=config)
     model.embeds = utils.get_word_embeddings(model)
     model.lm_head = utils.get_lm_head(model)
@@ -288,6 +292,7 @@ def main(args):
         ), 
     )
     if args.initial_trigger is not None:
+        logger.info('Overwriting embedding weights using initial trigger.')
         initial_trigger_ids = torch.tensor(
             tokenizer.convert_tokens_to_ids(args.initial_trigger),
         )
@@ -301,6 +306,7 @@ def main(args):
         state_dict = torch.load(ckpt_path, map_location=device)
         model.load_state_dict(state_dict)
 
+    # Setup optimizer
     params = [{'params': [model.relation_embeds]}]
     if args.finetune_mode == 'partial': 
         params.append({
@@ -312,7 +318,6 @@ def main(args):
             'params': [p for p in model.parameters() if not torch.equal(p, model.relation_embeds)],
             'lr': args.finetune_lr if args.finetune_lr else args.lr
         })
-
     optimizer = AdamW(
         params,
         lr=args.lr,
@@ -325,7 +330,6 @@ def main(args):
             model,
             device_ids=[args.local_rank],
         )
-
     evaluator = EVALUATORS[args.evaluation_strategy](
         model=model,
         tokenizer=tokenizer,
@@ -340,6 +344,8 @@ def main(args):
         logger.info('Training...')
         if not args.disable_dropout:
             model.train()
+        else:
+            model.eval()
         if is_main_process and not args.quiet:
             iter_ = tqdm(train_loader)
         else:
@@ -447,48 +453,96 @@ def main(args):
     logger.info(f'Accuracy: {accuracy : 0.4f}')
 
     if args.tmp:
-        logger.info('Temporary mode enabled, deleting checkpoint')
-        # shutil.rmtree(args.ckpt_dir)
-        ckpt_path.remove()
+        logger.info('Temporary mode enabled, deleting checkpoint.')
+        os.remove(ckpt_path)
 
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
-    parser.add_argument('--model-name', type=str, required=True)
-    parser.add_argument('--train', type=Path, required=True)
-    parser.add_argument('--dev', type=Path, required=True)
-    parser.add_argument('--test', type=Path, required=True)
-    parser.add_argument('--template', type=str, required=True)
-    parser.add_argument('--label-map', type=str, default=None)
-    parser.add_argument('--initial-trigger', nargs='+', type=str, default=None)
-    parser.add_argument('--label-field', type=str, default='label')
-    parser.add_argument('--add-padding', action='store_true')
+
+    # Dataset & model paths
+    parser.add_argument('--model-name', type=str, required=True,
+                        help='Name or path to the underlying MLM.')
+    parser.add_argument('--train', type=Path, required=True,
+                        help='Path to the training dataset.')
+    parser.add_argument('--dev', type=Path, required=True,
+                        help='Path to the development dataset.')
+    parser.add_argument('--test', type=Path, required=True,
+                        help='Path to the test dataset.')
+    parser.add_argument('--ckpt-dir', type=Path, default=Path('ckpt/'),
+                        help='Path to save/load model checkpoint.')
+
+    # Model/training set up
+    parser.add_argument('--template', type=str, required=True,
+                        help='Template used to define the placement of instance '
+                             'fields, triggers, and prediction tokens.')
+    parser.add_argument('--label-map', type=str, default=None,
+                        help='A json-formatted string defining how labels are '
+                             'mapped to strings in the model vocabulary.')
+    parser.add_argument('--initial-trigger', nargs='+', type=str, default=None,
+                        help='A list of tokens used to initialize the trigger '
+                             'embeddings.')
+    parser.add_argument('--label-field', type=str, default='label',
+                        help='The name of label field in the instance '
+                             'dictionary.')
+    parser.add_argument('--add-padding', action='store_true',
+                        help='Add padding to the label field. Used for WSC-like '
+                             'training.')
     parser.add_argument('--preprocessor', type=str, default=None,
-                        choices=PREPROCESSORS.keys())
+                        choices=PREPROCESSORS.keys(),
+                        help='Data preprocessor. If unspecified a default '
+                             'preprocessor will be selected based on filetype.')
     parser.add_argument('--evaluation-strategy', type=str, required=True,
-                        choices=EVALUATORS.keys())
+                        choices=EVALUATORS.keys(),
+                        help='Evaluation strategy. Options: '
+                             'exact-match: For generative tasks,'
+                             'multiple-choice: For prediction tasks with a fixed '
+                             'set of labels.')
     parser.add_argument('--decoding-strategy', type=str, default=None,
-                        choices=['parallel', 'monotonic', 'iterative'])
+                        choices=['parallel', 'monotonic', 'iterative'],
+                        help='Decoding strategy for generative tasks. For more '
+                             'details refer to the PET paper.')
     parser.add_argument('--finetune-mode', type=str, default='trigger',
-                        choices=['trigger', 'partial', 'all'])
-    parser.add_argument('--finetune-lr', type=float, default=None)
-    parser.add_argument('--ckpt-dir', type=Path, default=Path('ckpt/'))
-    parser.add_argument('--num-labels', type=int, default=2)
-    parser.add_argument('--bsz', type=int, default=32)
-    parser.add_argument('--accumulation-steps', type=int, default=1)
-    parser.add_argument('--epochs', type=int, default=10)
-    parser.add_argument('--lr', type=float, default=1e-4)
-    parser.add_argument('--disable-dropout', action='store_true')
-    parser.add_argument('--clip', type=float, default=None)
-    parser.add_argument('--limit', type=int, default=None)
-    parser.add_argument('--seed', type=int, default=1234)
+                        choices=['trigger', 'partial', 'all'],
+                        help='Approach used for finetuning. Options: '
+                             'trigger: Only triggers are tuned. '
+                             'partial: Top model weights additionally tuned. '
+                             'all: All model weights are tuned.')
 
-    parser.add_argument('-f', '--force-overwrite', action='store_true')
-    parser.add_argument('--debug', action='store_true')
-    parser.add_argument('--quiet', action='store_true')
-    parser.add_argument('--tmp', action='store_true')
+    # Hyperparameters
+    parser.add_argument('--bsz', type=int, default=32, help='Batch size.')
+    parser.add_argument('--accumulation-steps', type=int, default=1,
+                        help='Number of accumulation steps.')
+    parser.add_argument('--epochs', type=int, default=10,
+                        help='Number of training epochs.')
+    parser.add_argument('--lr', type=float, default=1e-4,
+                        help='Global learning rate.')
+    parser.add_argument('--finetune-lr', type=float, default=None,
+                        help='Optional learning rate used when optimizing '
+                             'non-trigger weights')
+    parser.add_argument('--disable-dropout', action='store_true',
+                        help='Disable dropout during training.')
+    parser.add_argument('--clip', type=float, default=None,
+                        help='Gradient clipping value.')
+    parser.add_argument('--limit', type=int, default=None,
+                        help='Randomly limit train/dev sets to specified '
+                             'number of datapoints.')
+    parser.add_argument('--seed', type=int, default=1234,
+                        help='Random seed.')
 
-    parser.add_argument('--local_rank', type=int, default=-1)
+    # Additional options
+    parser.add_argument('-f', '--force-overwrite', action='store_true',
+                        help='Allow overwriting an existing model checkpoint.')
+    parser.add_argument('--debug', action='store_true',
+                        help='Enable debug-level logging messages.')
+    parser.add_argument('--quiet', action='store_true',
+                        help='Make tqdm shut up. Useful if storing logs.')
+    parser.add_argument('--tmp', action='store_true',
+                        help='Remove model checkpoint after evaluation. '
+                             'Useful when performing many experiments.')
+    parser.add_argument('--local_rank', type=int, default=-1,
+                        help='For parallel/distributed training. Usually will '
+                             'be set automatically.')
 
     args = parser.parse_args()
 
