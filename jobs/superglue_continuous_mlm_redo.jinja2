@@ -1,0 +1,53 @@
+{% for task_name, template, label_map, initial_trigger in [
+    ("BoolQ", "{passage} [T] [T] [T] {question} [T] [T] [T] [P] [T]", '{"True": "yes", "False": "no"}', ['.', 'Question', ':', '?', 'Answer', ':', '.']),
+] -%}
+{% for seed in [1, 420, 808, 1234, 1337] -%}
+{% for limit in [0, 1000] -%}
+{% for pet in [True, False] -%}
+{% for epochs in [10] -%}
+---
+out: cinf-prompt-mlm_model_bert-base-cased_task_{{task_name}}_seed_{{seed}}_limit_{{limit}}_pet_{{pet}}_epochs_{{epochs}}
+script: autoprompt/continuous_trigger_mlm.py
+args:
+    - '--model-name'
+    - 'bert-base-cased'
+    - '--train'
+    - 'data/SuperGLUE/{{task_name}}/train.jsonl'
+    - '--dev'
+    - 'data/SuperGLUE/{{task_name}}/val.jsonl'
+    - '--test'
+    - 'data/SuperGLUE/{{task_name}}/val.jsonl'
+    - '--bsz'
+    - '8'
+    - '--epochs'
+    - '{{epochs}}'
+    - '--lr'
+    - '1e-3'
+    - '--evaluation-strategy'
+    - 'multiple-choice'
+{% if limit %}
+    - '--limit'
+    - '{{limit}}'
+{% endif %}
+    - '--seed'
+    - '{{seed}}'
+    - '--template'
+    - '{{template}}'
+    - '--label-map'
+    - '{{label_map}}'
+{% if pet %}
+    - '--initial-trigger' 
+{% for token in initial_trigger %}
+    - '{{token}}'
+{% endfor %}
+{% endif %}
+    - '--tmp'
+    - '--ckpt-dir'
+    - 'cinf-prompt-mlm_model_bert-base-cased_task_{{task_name}}_seed_{{seed}}_limit_{{limit}}_pet_{{pet}}_epochs_{{epochs}}'
+    - '-f'
+...
+{% endfor %}
+{%- endfor %}
+{%- endfor %}
+{%- endfor %}
+{%- endfor %}

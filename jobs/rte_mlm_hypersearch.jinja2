@@ -1,0 +1,85 @@
+{% for seed in [1, 420, 808, 1234, 1337] -%}
+{% for template, initial_trigger in [
+    ('{hypothesis} [T] [T] [P] [T] {premise}', ['?', '|', ',']),
+    ('[T] {hypothesis} [T] [T] [T] [P] [T] [T] {premise} [T]', ['"', '"', '?', '|', ',', '"', '"']),
+    ('{hypothesis} [T] [T] [P] [T] {premise}', ['?', '|', '.']),
+    ('[T] {hypothesis} [T] [T] [T] [P] [T] [T] {premise} [T]', ['"', '"', '?', '|', '.', '"', '"']),
+] -%}
+{% set i = loop.index %}
+{% for pet in [True, False] -%}
+{% for label_map in [
+    '{"entailment": "yes", "not_entailment": "no"}',
+    '{"entailment": "true", "not_entailment": "false"}'
+] -%}
+{% set j = loop.index %}
+{% for lr in [1e-3, 5e-4, 1e-4] -%}
+{% for finetune_mode, finetune_lr  in [
+    ('trigger', False),
+    ('partial', False),
+    ('partial', 1e-5),
+    ('all', False),
+    ('all', 1e-5),
+] -%}
+{% for clip in [False, 1.0, 0.1] -%}
+{% for disable_dropout in [True, False] -%}
+---
+out: model_albert-xxlarge-v2_seed_{{seed}}_template_{{i}}_label-map_{{j}}_pet_{{pet}}_lr_{{lr}}_finetune-mode_{{finetune_mode}}_finetune-lr_{{finetune_lr}}_clip_{{clip}}_disable-dropout_{{disable_dropout}}
+script: autoprompt/continuous_trigger_mlm.py
+args:
+    - '--model-name'
+    - 'albert-xxlarge-v2'
+    - '--train'
+    - 'data/FewGLUE/RTE/train.jsonl'
+    - '--dev'
+    - 'data/FewGLUE/RTE/val.jsonl'
+    - '--test'
+    - 'data/SuperGLUE/RTE/val.jsonl'
+    - '--evaluation-strategy'
+    - 'multiple-choice'
+    - '--epochs'
+    - '10'
+    - '--seed'
+    - '{{seed}}'
+    - '--template'
+    - '{{template}}'
+{% if pet %}
+    - '--initial-trigger' 
+{% for token in initial_trigger %}
+    - '{{token}}'
+{% endfor %}
+{% endif %}
+    - '--label-map'
+    - '{{label_map}}'
+    - '--bsz'
+    - '4'
+    - '--accumulation-steps'
+    - '4'
+    - '--lr'
+    - '{{lr}}'
+    - '--finetune-mode'
+    - '{{finetune_mode}}'
+{% if finetune_lr %}
+    - '--finetune-lr'
+    - '{{finetune_lr}}'
+{% endif %}
+{% if clip %}
+    - '--clip'
+    - '{{clip}}'
+{% endif %}
+{% if disable_dropout %}
+    - '--disable-dropout'
+{% endif %}
+    - '--ckpt-dir'
+    - 'rte-ckpt/model_albert-xxlarge-v2_seed_{{seed}}_template_{{i}}_label-map_{{j}}_pet_{{pet}}_lr_{{lr}}_finetune-mode_{{finetune_mode}}_finetune-lr_{{finetune_lr}}_clip_{{clip}}_disable-dropout_{{disable_dropout}}'
+    - '--quiet'
+    - '--tmp'
+    - '-f'
+...
+{% endfor %}
+{%- endfor %}
+{%- endfor %}
+{%- endfor %}
+{%- endfor %}
+{%- endfor %}
+{%- endfor %}
+{%- endfor %}

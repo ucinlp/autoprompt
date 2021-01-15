@@ -1,0 +1,38 @@
+{#    ("BoolQ", "passage", "question", 2), #}
+{% for task_name, field_a, field_b, num_labels in [
+    ("CB", "premise", "hypothesis", 3),
+    ("RTE", "premise", "hypothesis", 2),
+] -%}
+{% for mode in ['just-prompt', 'linear', 'finetune'] -%}
+{% for seed in [1, 420, 808, 1234, 1337] -%}
+{% for limit in [10, 50, 100, 1000] -%}
+{% for trigger_length in [3,5,7,9] -%}
+---
+out: cinf-prompt_model_roberta-large_task_{{task_name}}_seed_{{seed}}_limit_{{limit}}_mode_{{mode}}_trigger-length_{{trigger_length}}
+script: autoprompt/continuous_trigger_classification.py
+args:
+    - '--model-name=roberta-large'
+    - '--train=data/SuperGLUE/{{task_name}}/train.jsonl'
+    - '--dev=data/SuperGLUE/{{task_name}}/val.jsonl'
+    - '--test=data/SuperGLUE/{{task_name}}/val.jsonl'
+    - '--field-a={{field_a}}'
+    - '--field-b={{field_b}}'
+    - '--num-labels={{num_labels}}'
+    - '--bsz=16'
+    - '--epochs=10'
+    - '--lr=1e-3'
+    - '--limit={{limit}}'
+    - '--seed={{seed}}'
+    - '--trigger-length={{trigger_length}}'
+    - '--mode={{mode}}'
+{% if mode in ['linear', 'finetune'] %}
+    - '--finetune-lr=1e-5'
+{% endif %}
+    - '--ckpt=cinf-prompt_model_roberta-large_task_{{task_name}}_seed_{{seed}}_limit_{{limit}}_mode_{{mode}}_trigger-length_{{trigger_length}}'
+    - '-f'
+...
+{% endfor %}
+{%- endfor %}
+{%- endfor %}
+{%- endfor %}
+{%- endfor %}
