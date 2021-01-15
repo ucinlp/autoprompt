@@ -230,7 +230,6 @@ def main(args):
         additional_special_tokens=('[T]', '[P]'),
     )
 
-
     if args.label_map is not None:
         label_map = json.loads(args.label_map)
     else:
@@ -333,6 +332,8 @@ def main(args):
         label_map=label_map,
         decoding_strategy=args.decoding_strategy,
     )
+    if is_main_process:
+        writer = torch.utils.tensorboard.SummaryWriter(log_dir=args.ckpt_dir)
 
     best_accuracy = 0
     for epoch in range(args.epochs):
@@ -346,17 +347,21 @@ def main(args):
         total_loss = torch.tensor(0.0, device=device)
         total_correct = torch.tensor(0.0, device=device)
         denom = torch.tensor(0.0, device=device)
-        for model_inputs, labels in iter_:
+        optimizer.zero_grad()
+        for i, (model_inputs, labels) in enumerate(iter_):
             model_inputs = {k: v.to(device) for k, v in model_inputs.items()}
             labels = labels.to(device)
             loss, correct = evaluator(model_inputs, labels)
             loss.backward()
-            if args.clip is not None:
-                torch.nn.utils.clip_grad_norm_(model.parameters(), args.clip)
-            optimizer.step()
+            if i % args.accumulation_steps == args.accumulation_steps - 1:
+                if args.clip is not None:
+                    torch.nn.utils.clip_grad_norm_(model.parameters(), args.clip)
+                optimizer.step()
+                optimizer.zero_grad()
             total_loss += loss.detach() * labels.size(0)
             total_correct += correct.detach()
             denom += labels.size(0)
+            
             # NOTE: This loss/accuracy is only on the subset  of training data
             # in the main process.
             if is_main_process and not args.quiet:
@@ -364,6 +369,13 @@ def main(args):
                     f'Loss: {total_loss / (denom + 1e-13): 0.4f}, '
                     f'Accuracy: {total_correct / (denom + 1e-13): 0.4f}'
                 )
+        if world_size != -1:
+            torch.distributed.reduce(total_loss, 0)
+            torch.distributed.reduce(total_correct, 0)
+            torch.distributed.reduct(denom, 0)
+        if is_main_process:
+            writer.add_scalar('Loss/train', (total_loss / (denom + 1e-13)).item(), epoch)
+            writer.add_scalar('Accuracy/train', (total_correct / (denom + 1e-13)).item(), epoch)
 
         logger.info('Evaluating...')
         model.eval()
@@ -386,6 +398,9 @@ def main(args):
             torch.distributed.reduce(total_loss, 0)
             torch.distributed.reduce(total_correct, 0)
             torch.distributed.reduce(denom, 0)
+        if is_main_process:
+            writer.add_scalar('Loss/dev', (total_loss / (denom + 1e-13)).item(), epoch)
+            writer.add_scalar('Accuracy/dev', (total_correct / (denom + 1e-13)).item(), epoch)
 
         logger.info(
             f'Loss: {total_loss / (denom + 1e-13): 0.4f}, '
@@ -426,11 +441,15 @@ def main(args):
         torch.distributed.reduce(correct, 0)
         torch.distributed.reduce(denom, 0)
     accuracy = total_correct / (denom + 1e-13)
+    if is_main_process:
+        writer.add_scalar('Loss/test', (total_loss / (denom + 1e-13)).item(), 0)
+        writer.add_scalar('Accuracy/test', (total_correct / (denom + 1e-13)).item(), 0)
     logger.info(f'Accuracy: {accuracy : 0.4f}')
 
     if args.tmp:
         logger.info('Temporary mode enabled, deleting checkpoint')
-        shutil.rmtree(args.ckpt_dir)
+        # shutil.rmtree(args.ckpt_dir)
+        ckpt_path.remove()
 
 
 if __name__ == '__main__':
@@ -454,19 +473,23 @@ if __name__ == '__main__':
                         choices=['trigger', 'partial', 'all'])
     parser.add_argument('--finetune-lr', type=float, default=None)
     parser.add_argument('--ckpt-dir', type=Path, default=Path('ckpt/'))
-    parser.add_argument('--tmp', action='store_true')
     parser.add_argument('--num-labels', type=int, default=2)
     parser.add_argument('--bsz', type=int, default=32)
+    parser.add_argument('--accumulation-steps', type=int, default=1)
     parser.add_argument('--epochs', type=int, default=10)
     parser.add_argument('--lr', type=float, default=1e-4)
     parser.add_argument('--disable-dropout', action='store_true')
     parser.add_argument('--clip', type=float, default=None)
     parser.add_argument('--limit', type=int, default=None)
     parser.add_argument('--seed', type=int, default=1234)
+
     parser.add_argument('-f', '--force-overwrite', action='store_true')
     parser.add_argument('--debug', action='store_true')
     parser.add_argument('--quiet', action='store_true')
+    parser.add_argument('--tmp', action='store_true')
+
     parser.add_argument('--local_rank', type=int, default=-1)
+
     args = parser.parse_args()
 
     if args.debug:

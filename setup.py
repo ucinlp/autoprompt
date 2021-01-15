@@ -21,6 +21,7 @@ setuptools.setup(
         'adapter-transformers>=1.1.0',
         'Jinja2>=2.7.0',
         'PyYAML>=5.3.1',
+        'tensorboard>=2.4.1',
     ],
     extras_require={
         'test': ['pytest']
