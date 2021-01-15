@@ -337,7 +337,8 @@ def main(args):
     best_accuracy = 0
     for epoch in range(args.epochs):
         logger.info('Training...')
-        model.train()
+        if not args.disable_dropout:
+            model.train()
         if is_main_process and not args.quiet:
             iter_ = tqdm(train_loader)
         else:
@@ -350,6 +351,8 @@ def main(args):
             labels = labels.to(device)
             loss, correct = evaluator(model_inputs, labels)
             loss.backward()
+            if args.clip is not None:
+                torch.utils.clip_grad_norm_(model.parameters(), args.clip)
             optimizer.step()
             total_loss += loss.detach() * labels.size(0)
             total_correct += correct.detach()
@@ -456,6 +459,8 @@ if __name__ == '__main__':
     parser.add_argument('--bsz', type=int, default=32)
     parser.add_argument('--epochs', type=int, default=10)
     parser.add_argument('--lr', type=float, default=1e-4)
+    parser.add_argument('--disable-dropout', action='store_true')
+    parser.add_argument('--clip', type=float, default=None)
     parser.add_argument('--limit', type=int, default=None)
     parser.add_argument('--seed', type=int, default=1234)
     parser.add_argument('-f', '--force-overwrite', action='store_true')
