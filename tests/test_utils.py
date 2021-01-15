@@ -45,8 +45,11 @@ class TestEncodeLabel(TestCase):
 class TestTriggerTemplatizer(TestCase):
     def setUp(self):
         self.default_template = '[T] [T] {arbitrary} [T] {fields} [P]'
-        self.default_tokenizer = AutoTokenizer.from_pretrained('bert-base-cased')
-        utils.add_task_specific_tokens(self.default_tokenizer)
+        self.default_tokenizer = AutoTokenizer.from_pretrained(
+            'bert-base-cased',
+            add_prefix_space=True,
+            additional_special_tokens=('[T]', '[P]'),
+        )
         self.default_instance = {
             'arbitrary': 'does this',
             'fields': 'work',
@@ -90,8 +93,8 @@ class TestTriggerTemplatizer(TestCase):
         tokenizer = AutoTokenizer.from_pretrained(
             'roberta-base',
             add_prefix_space=True,
+            additional_special_tokens=('[T]', '[P]'),
         )
-        utils.add_task_specific_tokens(tokenizer)
         templatizer = utils.TriggerTemplatizer(
             self.default_template,
             tokenizer,
@@ -128,8 +131,11 @@ class TestTriggerTemplatizer(TestCase):
 class TestMultiTokenTemplatizer(TestCase):
     def setUp(self):
         self.default_template = '[T] [T] {arbitrary} [T] {fields} [P]'
-        self.default_tokenizer = AutoTokenizer.from_pretrained('bert-base-cased')
-        utils.add_task_specific_tokens(self.default_tokenizer)
+        self.default_tokenizer = AutoTokenizer.from_pretrained(
+            'bert-base-cased',
+            add_prefix_space=True,
+            additional_special_tokens=('[T]', '[P]'),
+        )
 
     def test_label(self):
         templatizer = utils.MultiTokenTemplatizer(
@@ -169,8 +175,8 @@ class TestCollator(TestCase):
         tokenizer = AutoTokenizer.from_pretrained(
             'bert-base-cased',
             add_prefix_space=True,
+            additional_special_tokens=('[T]', '[P]'),
         )
-        utils.add_task_specific_tokens(tokenizer)
         templatizer = utils.TriggerTemplatizer(
             template,
             tokenizer

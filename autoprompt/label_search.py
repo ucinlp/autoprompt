@@ -12,7 +12,7 @@ import torch
 import torch.nn.functional as F
 from torch.utils.data import DataLoader
 from transformers import (
-    AutoConfig, AutoModelWithLMHead, AutoTokenizer, BertForMaskedLM, RobertaForMaskedLM
+    AutoConfig, AutoModelForMaskedLM, AutoTokenizer, BertForMaskedLM, RobertaForMaskedLM
 )
 from tqdm import tqdm
 
@@ -30,10 +30,13 @@ def load_pretrained(model_name):
     initialization steps to facilitate working with triggers.
     """
     config = AutoConfig.from_pretrained(args.model_name)
-    model = AutoModelWithLMHead.from_pretrained(args.model_name, config=config)
+    model = AutoModelForMaskedLM.from_pretrained(args.model_name, config=config)
     model.eval()
-    tokenizer = AutoTokenizer.from_pretrained(args.model_name)
-    utils.add_task_specific_tokens(tokenizer)
+    tokenizer = AutoTokenizer.from_pretrained(
+        args.model_name,
+        add_prefix_space=True,
+        additional_special_tokens=('[T]', '[P]'),
+    )
     return config, model, tokenizer
 
 

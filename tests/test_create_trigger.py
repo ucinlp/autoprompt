@@ -1,14 +1,14 @@
 from unittest import TestCase
 
 import torch
-from transformers import AutoConfig, AutoModelWithLMHead, AutoTokenizer
+from transformers import AutoConfig, AutoModelForMaskedLM, AutoTokenizer
 
 import autoprompt.create_trigger as ct
 
 
 def _load(model_name):
     config = AutoConfig.from_pretrained('bert-base-cased')
-    model = AutoModelWithLMHead.from_pretrained('bert-base-cased')
+    model = AutoModelForMaskedLM.from_pretrained('bert-base-cased')
     tokenizer = AutoTokenizer.from_pretrained('bert-base-cased')
     return config, model, tokenizer
 

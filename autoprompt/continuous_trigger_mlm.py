@@ -11,6 +11,7 @@ import torch
 import torch.nn.functional as F
 from torch.utils.data import DataLoader
 from transformers import AdamW, AutoConfig, AutoTokenizer, AutoModelForMaskedLM
+from transformers.modeling_albert import AlbertPreTrainedModel
 from transformers.modeling_bert import BertPreTrainedModel
 from transformers.modeling_roberta import RobertaPreTrainedModel
 from tqdm import tqdm
@@ -231,8 +232,11 @@ def main(args):
     logger.warning('Rank: %s - World Size: %s', args.local_rank, world_size)
 
     config = AutoConfig.from_pretrained(args.model_name)
-    tokenizer = AutoTokenizer.from_pretrained(args.model_name, add_prefix_space=True)
-    utils.add_task_specific_tokens(tokenizer)
+    tokenizer = AutoTokenizer.from_pretrained(
+        args.model_name,
+        add_prefix_space=True,
+        additional_special_tokens=('[T]', '[P]'),
+    )
     model = AutoModelForMaskedLM.from_pretrained(args.model_name, config=config)
 
     # TODO(rloganiv): See if transformers has a general API call for getting
@@ -246,6 +250,8 @@ def main(args):
     elif isinstance(model, RobertaPreTrainedModel):
         model.embeds = model.roberta.embeddings.word_embeddings
         # model.lm_head.decoder.bias.zero_()
+    elif isinstance(model, AlbertPreTrainedModel):
+        model.embeds = model.albert.embeddings.word_embeddings
     else:
         raise ValueError(f'{args.model_name} not currently supported.')
 
