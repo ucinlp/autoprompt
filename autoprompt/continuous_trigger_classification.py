@@ -84,7 +84,7 @@ def main(args):
         device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
     else:
         device = torch.device('cuda', args.local_rank)
-        if args.world_size != -1:
+        if world_size != -1:
             torch.distributed.init_process_group(
                 backend='nccl',
                 init_method='env://',
