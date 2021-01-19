@@ -323,8 +323,8 @@ def main(args):
     params = [{'params': [model.relation_embeds]}]
     if args.finetune_mode == 'partial': 
         params.append({
-            'params': model.lm_head.parameters(),
-            'lr': args.finetune_lr if args.finetune_lr else args.lr
+            'params': model.lm_head.parameters()#,
+            # 'lr': args.finetune_lr if args.finetune_lr else args.lr
         })
     elif args.finetune_mode == 'all':
         params.append({
@@ -423,6 +423,7 @@ def main(args):
                 loss, correct, preds = evaluator(model_inputs, labels, train=False)
                 total_loss += loss.detach() * labels.size(0)
                 total_correct += correct.detach()
+                denom += labels.size(0)
 
                 if args.debug and args.evaluation_strategy == 'generative':
                     for label, pred, mask in zip(labels, preds, model_inputs['predict_mask']):
@@ -431,7 +432,7 @@ def main(args):
                             tokenizer.decode(label[mask]),
                             tokenizer.decode(pred[mask])
                         )
-                    denom += labels.size(0)
+                    
 
         if world_size != -1:
             torch.distributed.reduce(total_loss, 0)
