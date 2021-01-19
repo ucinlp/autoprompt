@@ -20,7 +20,7 @@ from autoprompt.preprocessors import PREPROCESSORS
 logger = logging.getLogger(__name__)
 
 
-class ExactMatchEvaluator:
+class GenerativeEvaluator:
     """Used for generative evaluation."""
     def __init__(
             self,
@@ -47,8 +47,8 @@ class ExactMatchEvaluator:
         return loss, correct, preds
 
 
-class MultipleChoiceEvaluator:
-    """Used for multiple choice evaluation."""
+class ClassificationEvaluator:
+    """Used for evaluating classifiers (e.g., tasks w/ fixed label pools)."""
     def __init__(
         self,
         model,
@@ -101,8 +101,8 @@ class MultipleChoiceEvaluator:
 
 
 EVALUATORS = {
-    'exact-match': ExactMatchEvaluator,
-    'multiple-choice': MultipleChoiceEvaluator,
+    'generative': GenerativeEvaluator,
+    'classification': ClassificationEvaluator,
 }
 
 
@@ -384,7 +384,7 @@ def main(args):
             total_correct += correct.detach()
             denom += labels.size(0)
 
-            if args.debug and args.evaluation_strategy == 'exact-match':
+            if args.debug and args.evaluation_strategy == 'generative':
                 for label, pred, mask in zip(labels, preds, model_inputs['predict_mask']):
                     logger.info(
                         'Label: %s - Pred: %s',
@@ -424,7 +424,7 @@ def main(args):
                 total_loss += loss.detach() * labels.size(0)
                 total_correct += correct.detach()
 
-                if args.debug and args.evaluation_strategy == 'exact-match':
+                if args.debug and args.evaluation_strategy == 'generative':
                     for label, pred, mask in zip(labels, preds, model_inputs['predict_mask']):
                         logger.info(
                             'Label: %s - Pred: %s',
@@ -529,8 +529,8 @@ if __name__ == '__main__':
     parser.add_argument('--evaluation-strategy', type=str, required=True,
                         choices=EVALUATORS.keys(),
                         help='Evaluation strategy. Options: '
-                             'exact-match: For generative tasks,'
-                             'multiple-choice: For prediction tasks with a fixed '
+                             'generative: For generative tasks,'
+                             'classification: For prediction tasks with a fixed '
                              'set of labels.')
     parser.add_argument('--decoding-strategy', type=str, default=None,
                         choices=['parallel', 'monotonic', 'iterative'],
