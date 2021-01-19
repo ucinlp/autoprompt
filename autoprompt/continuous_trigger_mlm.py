@@ -320,7 +320,10 @@ def main(args):
         model.load_state_dict(state_dict)
 
     # Setup optimizer
-    params = [{'params': [model.relation_embeds]}]
+    if args.finetune_mode == 'all-but-trigger':
+        params = []
+    else:
+        params = [{'params': [model.relation_embeds]}]
     if args.finetune_mode == 'partial': 
         params.append({
             'params': model.lm_head.parameters(),
@@ -538,11 +541,12 @@ if __name__ == '__main__':
                         help='Decoding strategy for generative tasks. For more '
                              'details refer to the PET paper.')
     parser.add_argument('--finetune-mode', type=str, default='trigger',
-                        choices=['trigger', 'partial', 'all'],
+                        choices=['trigger', 'partial', 'all', 'all-but-trigger'],
                         help='Approach used for finetuning. Options: '
                              'trigger: Only triggers are tuned. '
                              'partial: Top model weights additionally tuned. '
-                             'all: All model weights are tuned.')
+                             'all: All model weights are tuned.'
+                             'all-but-trigger: All model weights apart from trigger weights are tuned. ')
 
     # Hyperparameters
     parser.add_argument('--bsz', type=int, default=32, help='Batch size.')
