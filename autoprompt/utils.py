@@ -235,6 +235,12 @@ class MultiTokenTemplatizer:
         self._trigger_token_id = trigger_token_id
         self._predict_token_id = predict_token_id
 
+        logger.debug(
+            'Label map (detokenized): %s',
+            {k: tokenizer.decode(tokenizer.encode(v, add_special_tokens=False)) for k, v in label_map.items()}
+        )
+
+
     # TODO(rloganiv): If there is any more shared code between tokenizers,
     # consider creating a base class.
     @property
@@ -336,6 +342,15 @@ class MultiTokenTemplatizer:
         input_ids[trigger_mask] = self._tokenizer.mask_token_id
         predict_mask = input_ids.eq(self._predict_token_id)
         input_ids[predict_mask] = self._tokenizer.mask_token_id
+
+
+        # EXPERIMENTAL: Handle sep mask.
+        sep_mask = input_ids.eq(self._tokenizer.sep_token_id)
+        model_inputs['token_type_ids'][:,1:] = torch.cumsum(
+            sep_mask,
+            dim=-1,
+            dtype=torch.long
+        )[:,:-1]
 
         # For sake of convenience, we're going to use HuggingFace's built-in
         # loss computation for computing cross-entropy. See the description of

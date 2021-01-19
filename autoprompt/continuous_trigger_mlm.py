@@ -73,7 +73,7 @@ class MultipleChoiceEvaluator:
         labels = labels[predict_mask].unsqueeze(-1)
         logits, *_ = forward_w_triggers(self._model, model_inputs)
         predict_logits = torch.gather(
-            input=logits[predict_mask],
+            logits[predict_mask],
             dim=-1,
             index=label_tokens.repeat(labels.size(0), 1)
         )
@@ -237,7 +237,6 @@ def main(args):
         label_map = json.loads(args.label_map)
     else:
         label_map = None
-    logger.info(f'Label map: {label_map}')
     templatizer = utils.MultiTokenTemplatizer(
         template=args.template,
         tokenizer=tokenizer,
@@ -294,10 +293,14 @@ def main(args):
     if args.initial_trigger is not None:
         logger.info('Overwriting embedding weights using initial trigger.')
         initial_trigger_ids = torch.tensor(
-            tokenizer.convert_tokens_to_ids(args.initial_trigger),
+            tokenizer.convert_tokens_to_ids(args.initial_trigger)
         )
+        if args.debug:
+            detokenized = tokenizer.convert_ids_to_tokens(initial_trigger_ids)
+            logger.debug(f'Initial trigger (detokenized): {detokenized}')
         initial_trigger_embeds = model.embeds(initial_trigger_ids)
         model.relation_embeds.data.copy_(initial_trigger_embeds)
+        assert torch.equal(model.relation_embeds.data, initial_trigger_embeds)
     model.to(device)
 
     ckpt_path = args.ckpt_dir / 'pytorch_model.bin'
@@ -321,8 +324,9 @@ def main(args):
     optimizer = AdamW(
         params,
         lr=args.lr,
-        weight_decay=1e-6,
-        betas=(0.9, 0.999),
+        weight_decay=1e-2,
+        #betas=(0.9, 0.999),
+        eps=1e-8
     )
 
     if world_size != -1:
@@ -358,8 +362,10 @@ def main(args):
             model_inputs = {k: v.to(device) for k, v in model_inputs.items()}
             labels = labels.to(device)
             loss, correct = evaluator(model_inputs, labels)
+            loss /= args.accumulation_steps
             loss.backward()
-            if i % args.accumulation_steps == args.accumulation_steps - 1:
+            if (i % args.accumulation_steps) == (args.accumulation_steps - 1):
+                logger.debug('Optimizer step.')
                 if args.clip is not None:
                     torch.nn.utils.clip_grad_norm_(model.parameters(), args.clip)
                 optimizer.step()
@@ -446,15 +452,16 @@ def main(args):
     if world_size != -1:
         torch.distributed.reduce(correct, 0)
         torch.distributed.reduce(denom, 0)
+
+    if args.tmp:
+        logger.info('Temporary mode enabled, deleting checkpoint.')
+        os.remove(ckpt_path)
+
     accuracy = total_correct / (denom + 1e-13)
     if is_main_process:
         writer.add_scalar('Loss/test', (total_loss / (denom + 1e-13)).item(), 0)
         writer.add_scalar('Accuracy/test', (total_correct / (denom + 1e-13)).item(), 0)
     logger.info(f'Accuracy: {accuracy : 0.4f}')
-
-    if args.tmp:
-        logger.info('Temporary mode enabled, deleting checkpoint.')
-        os.remove(ckpt_path)
 
 
 if __name__ == '__main__':
