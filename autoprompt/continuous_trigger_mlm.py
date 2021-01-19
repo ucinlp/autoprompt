@@ -324,12 +324,12 @@ def main(args):
         params = []
     else:
         params = [{'params': [model.relation_embeds]}]
-    if args.finetune_mode == 'partial': 
+    if args.finetune_mode == 'partial' or args.finetune_mode == 'all-but-trigger': 
         params.append({
             'params': model.lm_head.parameters(),
             'lr': args.finetune_lr if args.finetune_lr else args.lr
         })
-    elif args.finetune_mode == 'all':
+    elif args.finetune_mode == 'all' or args.finetune_mode == 'all-but-trigger':
         params.append({
             'params': [p for p in model.parameters() if not torch.equal(p, model.relation_embeds)],
             'lr': args.finetune_lr if args.finetune_lr else args.lr
