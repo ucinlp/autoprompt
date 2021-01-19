@@ -235,10 +235,11 @@ class MultiTokenTemplatizer:
         self._trigger_token_id = trigger_token_id
         self._predict_token_id = predict_token_id
 
-        logger.debug(
-            'Label map (detokenized): %s',
-            {k: tokenizer.decode(tokenizer.encode(v, add_special_tokens=False)) for k, v in label_map.items()}
-        )
+        if label_map is not None:
+            logger.debug(
+                'Label map (detokenized): %s',
+                {k: tokenizer.decode(tokenizer.encode(v, add_special_tokens=False)) for k, v in label_map.items()}
+            )
 
 
     # TODO(rloganiv): If there is any more shared code between tokenizers,
