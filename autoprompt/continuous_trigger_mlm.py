@@ -323,8 +323,8 @@ def main(args):
     params = [{'params': [model.relation_embeds]}]
     if args.finetune_mode == 'partial': 
         params.append({
-            'params': model.lm_head.parameters()#,
-            # 'lr': args.finetune_lr if args.finetune_lr else args.lr
+            'params': model.lm_head.parameters(),
+            'lr': args.finetune_lr if args.finetune_lr else args.lr
         })
     elif args.finetune_mode == 'all':
         params.append({
