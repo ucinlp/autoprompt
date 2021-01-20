@@ -20,7 +20,7 @@ from autoprompt.preprocessors import PREPROCESSORS
 logger = logging.getLogger(__name__)
 
 
-class ExactMatchEvaluator:
+class GenerativeEvaluator:
     """Used for generative evaluation."""
     def __init__(
             self,
@@ -33,15 +33,22 @@ class ExactMatchEvaluator:
         self._tokenizer = tokenizer
         self._decoding_strategy = decoding_strategy
         
-    def __call__(self, model_inputs, labels):
-        predict_mask = model_inputs['predict_mask'].clone()
-        preds = decode(self._model, model_inputs, decoding_strategy=self._decoding_strategy)
-        correct = (preds == labels).all().item()
-        return correct
+    def __call__(self, model_inputs, labels, train=True):
+        if train:
+            predict_mask = model_inputs['predict_mask']
+            loss, logits, *_ = forward_w_triggers(self._model, model_inputs, labels)
+            preds = torch.zeros_like(model_inputs['input_ids'])
+            preds = preds.masked_fill(model_inputs['attention_mask'].bool(), -100)
+            preds[predict_mask] = logits.argmax(dim=-1)[predict_mask]
+        else:
+            loss = torch.tensor(0.0, device=labels.device)
+            preds = decode(self._model, model_inputs, decoding_strategy=self._decoding_strategy)
+        correct = (preds == labels).all(dim=-1).sum()
+        return loss, correct, preds
 
 
-class MultipleChoiceEvaluator:
-    """Used for multiple choice evaluation."""
+class ClassificationEvaluator:
+    """Used for evaluating classifiers (e.g., tasks w/ fixed label pools)."""
     def __init__(
         self,
         model,
@@ -63,7 +70,7 @@ class MultipleChoiceEvaluator:
             )
         self._label_tokens = label_tokens.view(1, -1)
 
-    def __call__(self, model_inputs, labels):
+    def __call__(self, model_inputs, labels, train=True):
 
         # Ensure everything is on the same device
         label_tokens = self._label_tokens.to(labels.device)
@@ -77,7 +84,7 @@ class MultipleChoiceEvaluator:
             dim=-1,
             index=label_tokens.repeat(labels.size(0), 1)
         )
-        predictions = predict_logits.argmax(dim=-1, keepdims=True)
+        preds = predict_logits.argmax(dim=-1, keepdims=True)
 
         # Convert label tokens to their indices in the label map.
         _, label_inds = torch.where(labels.eq(label_tokens))
@@ -88,14 +95,14 @@ class MultipleChoiceEvaluator:
         loss = -predict_logp.gather(-1, label_inds).mean()
 
         # Get evaluation score
-        correct = predictions.eq(label_inds).sum()
+        correct = preds.eq(label_inds).sum()
 
-        return loss, correct
+        return loss, correct, preds
 
 
 EVALUATORS = {
-    'exact-match': ExactMatchEvaluator,
-    'multiple-choice': MultipleChoiceEvaluator,
+    'generative': GenerativeEvaluator,
+    'classification': ClassificationEvaluator,
 }
 
 
@@ -131,8 +138,6 @@ def decode(model, model_inputs, decoding_strategy="iterative"):
     """
     Decode from model.
 
-    WARNING: This modifies the model_inputs tensors.
-
     Parameters
     ==========
     model : transformers.PretrainedModel
@@ -147,9 +152,9 @@ def decode(model, model_inputs, decoding_strategy="iterative"):
     """
     assert decoding_strategy in ['parallel', 'monotonic', 'iterative']
 
-    # Initialize output to ignore label.
+    # initialize output to ignore label.
     output = torch.zeros_like(model_inputs['input_ids'])
-    output.fill_(-100)
+    output = output.masked_fill(model_inputs['attention_mask'].bool(), -100)
 
     if decoding_strategy == 'parallel':
         # Simple argmax over arguments.
@@ -159,21 +164,24 @@ def decode(model, model_inputs, decoding_strategy="iterative"):
         output[predict_mask] = preds[predict_mask]
 
     elif decoding_strategy == 'monotonic':
-        predict_mask = model_inputs['predict_mask']
+        predict_mask = model_inputs['predict_mask'].clone()
+        idx0 = torch.arange(predict_mask.size(0))
         input_ids = model_inputs['input_ids']
-        iterations = predict_mask.sum().item()
+        iterations = predict_mask.sum(dim=-1).max().item()
         for i in range(iterations):
-            # NOTE: The janky double indexing below should be accessing the
-            # first token in the remaining predict mask.
             logits, *_ = forward_w_triggers(model, model_inputs)
-            idx = predict_mask.nonzero()[0,1]
-            pred = logits[:, idx].argmax(dim=-1)
-            input_ids[:, idx] = pred
-            output[:, idx] = pred
-            predict_mask[:, idx] = False
+            row_mask = predict_mask.any(dim=-1)
+            idx1 = torch.argmax(predict_mask.long(), dim=-1)
+            combined_mask = torch.zeros_like(predict_mask)
+            combined_mask[idx0, idx1] = row_mask
+            pred = logits[combined_mask].argmax(dim=-1)
+            input_ids[combined_mask] = pred
+            output[combined_mask] = pred
+            predict_mask[combined_mask] = False
 
     elif decoding_strategy == 'iterative':
-        predict_mask = model_inputs['predict_mask']
+        predict_mask = model_inputs['predict_mask'].clone()
+        idx0 = torch.arange(predict_mask.size(0))
         input_ids = model_inputs['input_ids']
         iterations = predict_mask.sum().item()
         for i in range(iterations):
@@ -183,12 +191,14 @@ def decode(model, model_inputs, decoding_strategy="iterative"):
             logits, *_ = forward_w_triggers(model, model_inputs)
             logits[~predict_mask] = -1e32
             top_scores, preds = torch.max(logits, dim=-1)
-            idx = torch.argmax(top_scores, dim=-1)
-            pred = preds[:, idx]
-            input_ids[:, idx] = pred
-            output[:, idx] = pred
-            predict_mask[:, idx] = False
-
+            row_mask = predict_mask.any(dim=-1)
+            idx1 = torch.argmax(top_scores, dim=-1)
+            combined_mask = torch.zeros_like(predict_mask)
+            combined_mask[idx0, idx1] = row_mask
+            pred = preds[combined_mask]
+            input_ids[combined_mask] = pred
+            output[combined_mask] = pred
+            predict_mask[combined_mask] = False
     else:
         raise ValueError(
             'Something is really wrong with the control flow in this function'
@@ -310,13 +320,16 @@ def main(args):
         model.load_state_dict(state_dict)
 
     # Setup optimizer
-    params = [{'params': [model.relation_embeds]}]
-    if args.finetune_mode == 'partial': 
+    if args.finetune_mode == 'all-but-trigger':
+        params = []
+    else:
+        params = [{'params': [model.relation_embeds]}]
+    if args.finetune_mode == 'partial' or args.finetune_mode == 'all-but-trigger': 
         params.append({
             'params': model.lm_head.parameters(),
             'lr': args.finetune_lr if args.finetune_lr else args.lr
         })
-    elif args.finetune_mode == 'all':
+    elif args.finetune_mode == 'all' or args.finetune_mode == 'all-but-trigger':
         params.append({
             'params': [p for p in model.parameters() if not torch.equal(p, model.relation_embeds)],
             'lr': args.finetune_lr if args.finetune_lr else args.lr
@@ -361,7 +374,7 @@ def main(args):
         for i, (model_inputs, labels) in enumerate(iter_):
             model_inputs = {k: v.to(device) for k, v in model_inputs.items()}
             labels = labels.to(device)
-            loss, correct = evaluator(model_inputs, labels)
+            loss, correct, preds = evaluator(model_inputs, labels, train=True)
             loss /= args.accumulation_steps
             loss.backward()
             if (i % args.accumulation_steps) == (args.accumulation_steps - 1):
@@ -373,6 +386,14 @@ def main(args):
             total_loss += loss.detach() * labels.size(0)
             total_correct += correct.detach()
             denom += labels.size(0)
+
+            if args.debug and args.evaluation_strategy == 'generative':
+                for label, pred, mask in zip(labels, preds, model_inputs['predict_mask']):
+                    logger.info(
+                        'Label: %s - Pred: %s',
+                        tokenizer.decode(label[mask]),
+                        tokenizer.decode(pred[mask])
+                    )
             
             # NOTE: This loss/accuracy is only on the subset  of training data
             # in the main process.
@@ -402,10 +423,20 @@ def main(args):
             for model_inputs, labels in iter_:
                 model_inputs = {k: v.to(device) for k, v in model_inputs.items()}
                 labels = labels.to(device)
-                loss, correct = evaluator(model_inputs, labels)
+                loss, correct, preds = evaluator(model_inputs, labels, train=False)
                 total_loss += loss.detach() * labels.size(0)
                 total_correct += correct.detach()
                 denom += labels.size(0)
+
+                if args.debug and args.evaluation_strategy == 'generative':
+                    for label, pred, mask in zip(labels, preds, model_inputs['predict_mask']):
+                        logger.info(
+                            'Label: %s - Pred: %s',
+                            tokenizer.decode(label[mask]),
+                            tokenizer.decode(pred[mask])
+                        )
+                    
+
         if world_size != -1:
             torch.distributed.reduce(total_loss, 0)
             torch.distributed.reduce(total_correct, 0)
@@ -446,7 +477,7 @@ def main(args):
         for model_inputs, labels in test_loader:
             model_inputs = {k: v.to(device) for k, v in model_inputs.items()}
             labels = labels.to(device)
-            _, correct = evaluator(model_inputs, labels)
+            _, correct, preds = evaluator(model_inputs, labels, train=False)
             total_correct += correct.detach()
             denom += labels.size(0)
     if world_size != -1:
@@ -502,19 +533,20 @@ if __name__ == '__main__':
     parser.add_argument('--evaluation-strategy', type=str, required=True,
                         choices=EVALUATORS.keys(),
                         help='Evaluation strategy. Options: '
-                             'exact-match: For generative tasks,'
-                             'multiple-choice: For prediction tasks with a fixed '
+                             'generative: For generative tasks,'
+                             'classification: For prediction tasks with a fixed '
                              'set of labels.')
     parser.add_argument('--decoding-strategy', type=str, default=None,
                         choices=['parallel', 'monotonic', 'iterative'],
                         help='Decoding strategy for generative tasks. For more '
                              'details refer to the PET paper.')
     parser.add_argument('--finetune-mode', type=str, default='trigger',
-                        choices=['trigger', 'partial', 'all'],
+                        choices=['trigger', 'partial', 'all', 'all-but-trigger'],
                         help='Approach used for finetuning. Options: '
                              'trigger: Only triggers are tuned. '
                              'partial: Top model weights additionally tuned. '
-                             'all: All model weights are tuned.')
+                             'all: All model weights are tuned.'
+                             'all-but-trigger: All model weights apart from trigger weights are tuned. ')
 
     # Hyperparameters
     parser.add_argument('--bsz', type=int, default=32, help='Batch size.')
