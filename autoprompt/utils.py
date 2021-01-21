@@ -418,6 +418,7 @@ class MultipleChoiceDataset(torch.utils.data.IterableDataset):
             limit = max(self._limit, len(instances))
             instances = instances[:limit]
         for instance in instances:
+            instance = instance.copy()  # Non destructive.
             labels = instance.pop('labels')
             if self._train:
                 positive_labels = [label for label, is_positive in labels if is_positive]
