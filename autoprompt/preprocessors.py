@@ -66,6 +66,19 @@ def preprocess_wsc(fname):
             }
 
 
+def preprocess_kilt(fname):
+    with open(fname, 'r') as f:
+        for line in f:
+            data = json.loads(line)
+            input_text = data['input']
+            answer_text = data['output'][0]['answer']
+            if len(answer_text.split()) == 1:
+                yield {
+                    'input': input_text,
+                    'answer': answer_text,
+                }
+
+
 # REMINDER: You need to add whatever preprocessing functions you've written to
 # this dict to make them available to the training scripts.
 PREPROCESSORS = {
@@ -74,4 +87,5 @@ PREPROCESSORS = {
     '.jsonl': preprocess_jsonl,
     'multirc': preprocess_multirc,
     'wsc': preprocess_wsc,
+    'kilt': preprocess_kilt,
 }
