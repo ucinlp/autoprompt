@@ -20,6 +20,15 @@ from autoprompt.preprocessors import PREPROCESSORS
 logger = logging.getLogger(__name__)
 
 
+class MultipleChoiceEvaluator:
+    """Used for multiple choice evaluation."""
+    def __init__(self, **kwargs):
+        pass
+
+    def __call__(self, *args, **kwargs):
+        raise NotImplementedError
+
+
 class GenerativeEvaluator:
     """Used for generative evaluation."""
     def __init__(
@@ -103,6 +112,7 @@ class ClassificationEvaluator:
 EVALUATORS = {
     'generative': GenerativeEvaluator,
     'classification': ClassificationEvaluator,
+    'multiple-choice': MultipleChoiceEvaluator
 }
 
 
@@ -210,7 +220,7 @@ def decode(model, model_inputs, decoding_strategy="iterative"):
 def main(args):
     if args.evaluation_strategy == 'exact-match':
         assert args.decoding_strategy is not None
-    elif args.evaluation_strategy == 'multiple-choice':
+    elif args.evaluation_strategy == 'classification':
         assert args.label_map is not None
 
     utils.set_seed(args.seed)
@@ -229,11 +239,19 @@ def main(args):
                 world_size=world_size,
             )
     is_main_process = args.local_rank in [-1, 0] or world_size == -1
+
     if args.debug:
         logging.basicConfig(level=logging.DEBUG)
     else:
         logging.basicConfig(level=logging.INFO if is_main_process else logging.WARN)
     logger.warning('Rank: %s - World Size: %s', args.local_rank, world_size)
+
+    # Multiple-choice specific setup.
+    if world_size != -1 and args.evaluation_strategy == 'multiple-choice':
+        raise RuntimeError('Multi-GPU training not supported for multiple choice.')
+    if args.evaluation_strategy == 'multiple-choice':
+        logger.warning('Multiple choice uses custom batching. Overriding batch size parameter.')
+        args.bsz = None
 
     config = AutoConfig.from_pretrained(args.model_name)
     tokenizer = AutoTokenizer.from_pretrained(
@@ -255,39 +273,48 @@ def main(args):
         add_padding=args.add_padding,
     )
     collator = utils.Collator(pad_token_id=tokenizer.pad_token_id)
-    train_dataset = utils.load_trigger_dataset(
+    dataset_constructor = utils.DATASET_CONSTRUCTORS[args.evaluation_strategy]
+    train_dataset = dataset_constructor(
         args.train,
         templatizer=templatizer,
         train=True,
         preprocessor_key=args.preprocessor,
         limit=args.limit,
     )
-    if world_size == -1:
+    if args.evaluation_strategy == 'multiple-choice':
+        train_sampler = None
+    elif world_size == -1:
         train_sampler = torch.utils.data.RandomSampler(train_dataset)
     else:
         train_sampler = torch.utils.data.DistributedSampler(train_dataset, shuffle=True)
     train_loader = DataLoader(train_dataset, batch_size=args.bsz, collate_fn=collator, sampler=train_sampler)
-    dev_dataset = utils.load_trigger_dataset(
+
+    dev_dataset = dataset_constructor(
         args.dev,
         templatizer=templatizer,
         preprocessor_key=args.preprocessor,
         limit=args.limit,
     )
-    if world_size == -1:
+    if args.evaluation_strategy == 'multiple-choice':
+        dev_sampler = None
+    elif world_size == -1:
         dev_sampler = torch.utils.data.SequentialSampler(dev_dataset)
     else:
         dev_sampler = torch.utils.data.DistributedSampler(dev_dataset)
     dev_loader = DataLoader(dev_dataset, batch_size=args.bsz, collate_fn=collator, sampler=dev_sampler)
-    test_dataset = utils.load_trigger_dataset(
+
+    test_dataset = dataset_constructor(
         args.test,
         templatizer=templatizer,
         preprocessor_key=args.preprocessor,
     )
-    if world_size == -1:
+    if args.evaluation_strategy == 'multiple-choice':
+        test_sampler = None
+    elif world_size == -1:
         test_sampler = torch.utils.data.SequentialSampler(test_dataset)
     else:
         test_sampler = torch.utils.data.DistributedSampler(test_dataset)
-    test_loader = DataLoader(test_dataset, batch_size=args.bsz, shuffle=True, collate_fn=collator)
+    test_loader = DataLoader(test_dataset, batch_size=args.bsz, collate_fn=collator, sampler=test_sampler)
 
     # Setup model
     model = AutoModelForMaskedLM.from_pretrained(args.model_name, config=config)
@@ -371,6 +398,7 @@ def main(args):
         total_correct = torch.tensor(0.0, device=device)
         denom = torch.tensor(0.0, device=device)
         optimizer.zero_grad()
+        breakpoint()
         for i, (model_inputs, labels) in enumerate(iter_):
             model_inputs = {k: v.to(device) for k, v in model_inputs.items()}
             labels = labels.to(device)

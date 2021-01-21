@@ -241,7 +241,6 @@ class MultiTokenTemplatizer:
                 {k: tokenizer.decode(tokenizer.encode(v, add_special_tokens=False)) for k, v in label_map.items()}
             )
 
-
     # TODO(rloganiv): If there is any more shared code between tokenizers,
     # consider creating a base class.
     @property
@@ -302,12 +301,22 @@ class MultiTokenTemplatizer:
         # replacing the fron with the label tokens. Magic numbers below come
         # from PET WSC settings.
         if self._add_padding:
+            # CHECK BACK ON THIS; PROBABLY REMOVE.
+            # if 'padded_label_size' in kwargs:  # Manually set padding for multiple-choice.
+                # padded_label_size = kwargs['padded_label_size']
+            # else:
             if train:
                 pad_length = random.randint(0, 3)
             else:
                 pad_length = 1
             padded_label_size = label_size + pad_length
             padded_label_tokens = label_tokens.new_zeros(1, padded_label_size)
+            # CHECK BACK ON THIS; PROBABLY REMOVE. For multiple choice training, input is padded w/
+            # ignored mask tokens. I guess this is to avoid cheating by counting word tokens?
+            # if 'ignore_padding' in kwargs:
+                # pad_token_id = -100 if kwargs['ignore_padding'] else self._tokenizer.pad_token_id
+            # else:
+                # pad_token_id = self._tokenizer.pad_token_id
             padded_label_tokens.fill_(self._tokenizer.pad_token_id)
             padded_label_tokens[:,:label_size] = label_tokens
         else:
@@ -344,7 +353,6 @@ class MultiTokenTemplatizer:
         predict_mask = input_ids.eq(self._predict_token_id)
         input_ids[predict_mask] = self._tokenizer.mask_token_id
 
-
         # EXPERIMENTAL: Handle sep mask.
         if 'token_type_ids' in model_inputs:
             sep_mask = input_ids.eq(self._tokenizer.sep_token_id)
@@ -368,19 +376,86 @@ class MultiTokenTemplatizer:
         return model_inputs, labels
 
 
+class MultipleChoiceDataset(torch.utils.data.IterableDataset):
+    """
+    Dataset for multiple choice style problems.
+    
+    Since I am feeling lazy and large inputs aren't really supported anyways, this yields (pos,neg)
+    pairs one at a time during training, and
+    """
+    def __init__(
+        self,
+        instances, 
+        templatizer,
+        limit=None,
+        train=False,
+    ):
+        self._instances = instances
+        self._templatizer = templatizer
+        self._limit = limit
+        self._train = train
+
+    @classmethod
+    def load(
+        cls,
+        fname,
+        templatizer,
+        limit=None,
+        train=False,
+        preprocessor_key=None,
+    ):
+        if preprocessor_key is None:
+            raise ValueError('MultipleChoiceDataset cannot use default preprocessors.')
+        preprocessor = PREPROCESSORS[preprocessor_key]
+        instances = list(preprocessor(fname, train=train))
+        return cls(instances, templatizer, limit, train)
+
+    def __iter__(self):
+        instances = self._instances
+        if self._train:
+            random.shuffle(instances)  # WARNING: Side effects.
+        if self._limit:
+            limit = max(self._limit, len(instances))
+            instances = instances[:limit]
+        for instance in instances:
+            labels = instance.pop('labels')
+            if self._train:
+                positive_labels = [label for label, is_positive in labels if is_positive]
+                positive_label = random.choice(positive_labels)
+                positive_instance = instance.copy()
+                positive_instance['label'] = positive_label
+                positive_output = self._templatizer(positive_instance, train=True)
+
+                negative_labels = [label for label, is_positive in labels if not is_positive]
+                negative_label = random.choice(negative_labels)
+                negative_instance = instance.copy()
+                negative_instance['label'] = negative_label
+                negative_output = self._templatizer(negative_instance, train=True)
+                yield positive_output, negative_output
+
+            else:
+                outputs = []
+                for label, is_positive in labels:
+                    sub_instance = instance.copy()
+                    sub_instance['label'] = label
+                    output = self._templatizer(sub_instance)
+                    outputs.append(output)
+                yield outputs
+
+
 def load_trigger_dataset(
     fname,
     templatizer,
     limit=None,
     train=False,
-    preprocessor_key=None
+    preprocessor_key=None,
 ):
     if preprocessor_key is None:
         preprocessor = PREPROCESSORS[fname.suffix]
     else:
         preprocessor = PREPROCESSORS[preprocessor_key]
     instances = []
-    for x in preprocessor(fname):
+    for x in preprocessor(fname, train=train):
         try:
             model_inputs, label_id = templatizer(x, train=train)
         except ValueError as e:
@@ -443,6 +518,13 @@ def load_classification_dataset(
         limit = min(len(instances), limit)
         instances = random.sample(instances, limit)
     return instances, label_map
+
+
+DATASET_CONSTRUCTORS = {
+    'classification': load_trigger_dataset,
+    'generative': load_trigger_dataset,
+    'multiple-choice': MultipleChoiceDataset.load,
+}
 
 
 def get_word_embeddings(model):
