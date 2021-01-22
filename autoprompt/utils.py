@@ -1,6 +1,8 @@
 import csv
+import collections
 import json
 import logging
+import os
 import random
 
 import numpy as np
@@ -92,11 +94,10 @@ class Collator:
                 padding_value = self._pad_token_id
             else:
                 padding_value = 0
-            # NOTE: We need to squeeze to get rid of fake batch dim.
             sequence = [x[key] for x in model_inputs]
             padded = pad_squeeze_sequence(sequence, batch_first=True, padding_value=padding_value)
             padded_inputs[key] = padded
-        labels = pad_squeeze_sequence(labels, batch_first=True, padding_value=self._pad_token_id)
+        labels = pad_squeeze_sequence(labels, batch_first=True, padding_value=-100)
         return padded_inputs, labels
 
 
@@ -161,6 +162,10 @@ class TriggerTemplatizer:
     @property
     def num_trigger_tokens(self):
         return sum(token == '[T]' for token in self._template.split())
+
+    @property
+    def pad_token_id(self):
+        return self._tokenizer.pad_token_id
 
     def __call__(self, format_kwargs, **kwargs):
         # Format the template string
@@ -246,6 +251,10 @@ class MultiTokenTemplatizer:
     @property
     def num_trigger_tokens(self):
         return sum(token == '[T]' for token in self._template.split())
+
+    @property
+    def pad_token_id(self):
+        return self._tokenizer.pad_token_id
 
     def _maybe_truncate(self, format_kwargs, padded_label_size):
         """
@@ -414,8 +423,8 @@ class MultipleChoiceDataset(torch.utils.data.IterableDataset):
         instances = self._instances
         if self._train:
             random.shuffle(instances)  # WARNING: Side effects.
-        if self._limit:
-            limit = max(self._limit, len(instances))
+        if self._limit is not None:
+            limit = min(self._limit, len(instances))
             instances = instances[:limit]
         for instance in instances:
             instance = instance.copy()  # Non destructive.
@@ -436,12 +445,57 @@ class MultipleChoiceDataset(torch.utils.data.IterableDataset):
 
             else:
                 outputs = []
+                labels.sort(key=lambda x: x[1], reverse=True)
                 for label, is_positive in labels:
                     sub_instance = instance.copy()
                     sub_instance['label'] = label
                     output = self._templatizer(sub_instance)
                     outputs.append(output)
                 yield outputs
+
+
+class GenerativeDataset(torch.utils.data.IterableDataset):
+    """
+    Dataset for generative style problems.
+    """
+    def __init__(
+        self,
+        instances, 
+        templatizer,
+        limit=None,
+        train=False,
+    ):
+        self._instances = instances
+        self._templatizer = templatizer
+        self._limit = limit
+        self._train = train
+
+    @classmethod
+    def load(
+        cls,
+        fname,
+        templatizer,
+        limit=None,
+        train=False,
+        preprocessor_key=None,
+    ):
+        if preprocessor_key is None:
+            raise ValueError('MultipleChoiceDataset cannot use default preprocessors.')
+        preprocessor = PREPROCESSORS[preprocessor_key]
+        instances = list(preprocessor(fname, train=train))
+        return cls(instances, templatizer, limit, train)
+
+    def __iter__(self):
+        instances = self._instances
+        if self._train:
+            random.shuffle(instances)  # WARNING: Side effects.
+        # TODO: This is not right. Will artificially increase dataset size.
+        if self._limit is not None:
+            limit = min(self._limit, len(instances))
+            instances = instances[:limit]
+        for instance in instances:
+            instance = instance.copy()
+            yield self._templatizer(instance, train=self._train)
 
 
 def load_trigger_dataset(
@@ -452,7 +506,7 @@ def load_trigger_dataset(
     preprocessor_key=None,
 ):
     if preprocessor_key is None:
-        preprocessor = PREPROCESSORS[fname.suffix]
+        preprocessor = PREPROCESSORS[fname.split('.')[-1]]
     else:
         preprocessor = PREPROCESSORS[preprocessor_key]
     instances = []
@@ -523,7 +577,7 @@ def load_classification_dataset(
 
 DATASET_CONSTRUCTORS = {
     'classification': load_trigger_dataset,
-    'generative': load_trigger_dataset,
+    'generative': GenerativeDataset.load,
     'multiple-choice': MultipleChoiceDataset.load,
 }
 
@@ -558,4 +612,28 @@ def get_clf_head(model):
                 'Unable to retrieve classifier head for model. You may need to add a special case to '
                 '`utils.get_clf_head`.'
             )
+
+
+DistributedConfig = collections.namedtuple(
+    'DistributedConfig',
+    ['device', 'local_rank', 'world_size', 'is_main_process'],
+)
+
+
+def distributed_setup(local_rank):
+    world_size = os.getenv('WORLD_SIZE', -1)
+    if local_rank == -1:
+        device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+    else:
+        device = torch.device('cuda', local_rank)
+        if world_size != -1:
+            torch.distributed.init_process_group(
+                backend='nccl',
+                init_method='env://',
+                rank=local_rank,
+                world_size=world_size,
+            )
+    is_main_process = local_rank in [-1, 0] or world_size == -1
+    logger.info('Rank: %s - World Size: %s', local_rank, world_size)
+    return DistributedConfig(device, local_rank, world_size, is_main_process)
 

@@ -5,7 +5,6 @@ import csv
 import json
 
 
-
 def _stringify(d):
     return {k: str(v) for k, v in d.items()}
 
@@ -75,15 +74,16 @@ def preprocess_record(fname, **kwargs):
         for line in f:
             data = json.loads(line)
             text = data['passage']['text']
-            entities = set()
+            seen_entities = set()
+            entities = []
 
             for entity in data['passage']['entities']:
                 start = entity['start']
                 end = entity['end']
                 mention = text[start:end+1]
-                entities.add(mention)
-
-            entities = list(entities)
+                if mention not in seen_entities:
+                    entities.append(mention)
+                    seen_entities.add(mention)
 
             text = text.replace('@highlight\n', '- ')
             questions = data['qas']
@@ -137,9 +137,9 @@ def preprocess_copa(fname, train, **kwargs):
 # REMINDER: You need to add whatever preprocessing functions you've written to
 # this dict to make them available to the training scripts.
 PREPROCESSORS = {
-    '.csv': preprocess_csv,
-    '.tsv': preprocess_tsv,
-    '.jsonl': preprocess_jsonl,
+    'csv': preprocess_csv,
+    'tsv': preprocess_tsv,
+    'jsonl': preprocess_jsonl,
     'multirc': preprocess_multirc,
     'wsc': preprocess_wsc,
     'copa': preprocess_copa,
