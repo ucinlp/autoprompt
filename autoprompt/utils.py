@@ -256,14 +256,14 @@ class MultiTokenTemplatizer:
     def pad_token_id(self):
         return self._tokenizer.pad_token_id
 
-    def _maybe_truncate(self, format_kwargs, padded_label_size):
+    def _maybe_truncate(self, format_kwargs, approximate_length):
         """
         If instantiated template would exceed maximum sequence length then
         reduce the input sizes.
         """
         format_kwargs = format_kwargs.copy()
-        budget = self._tokenizer.model_max_length - 2  # Constant for added special tokens
-        budget -= padded_label_size
+        budget = self._tokenizer.model_max_length
+        budget -= approximate_length
         budget -= self.num_trigger_tokens
         while True:
             field_lengths = {k: len(self._tokenizer.encode(v, add_special_tokens=False)) for k, v in format_kwargs.items()}
@@ -338,11 +338,16 @@ class MultiTokenTemplatizer:
             '[P]', 
             ' '.join(['[P]'] * padded_label_size),
         )
+        approximate_length = self._tokenizer(
+            template,
+            add_special_tokens=True,
+            return_length=True
+        )['length']
 
         # Instantiate & tokenize the template
         format_kwargs = self._maybe_truncate(
             format_kwargs,
-            padded_label_size=padded_label_size
+            approximate_length=approximate_length,
         )
         text = template.format(**format_kwargs)
         model_inputs = self._tokenizer(
