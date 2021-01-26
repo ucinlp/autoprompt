@@ -14,239 +14,167 @@ from transformers import AdamW, AutoConfig, AutoTokenizer, AutoModelForMaskedLM
 from tqdm import tqdm
 
 import autoprompt.utils as utils
+from autoprompt.models import ContinuousTriggerMLM
 from autoprompt.preprocessors import PREPROCESSORS
+from autoprompt.evaluators import MLM_EVALUATORS
 
 
 logger = logging.getLogger(__name__)
 
 
-class GenerativeEvaluator:
-    """Used for generative evaluation."""
-    def __init__(
-            self,
-            model,
-            tokenizer,
-            decoding_strategy,
-            **kwargs
-    ):
-        self._model = model
-        self._tokenizer = tokenizer
-        self._decoding_strategy = decoding_strategy
-        
-    def __call__(self, model_inputs, labels, train=True):
-        if train:
-            predict_mask = model_inputs['predict_mask']
-            loss, logits, *_ = forward_w_triggers(self._model, model_inputs, labels)
-            preds = torch.zeros_like(model_inputs['input_ids'])
-            preds = preds.masked_fill(model_inputs['attention_mask'].bool(), -100)
-            preds[predict_mask] = logits.argmax(dim=-1)[predict_mask]
-        else:
-            loss = torch.tensor(0.0, device=labels.device)
-            preds = decode(self._model, model_inputs, decoding_strategy=self._decoding_strategy)
-        correct = (preds == labels).all(dim=-1).sum()
-        return loss, correct, preds
-
-
-class ClassificationEvaluator:
-    """Used for evaluating classifiers (e.g., tasks w/ fixed label pools)."""
-    def __init__(
-        self,
-        model,
-        tokenizer,
-        label_map,
-        **kwargs
-    ):
-        self._model = model
-        self._tokenizer = tokenizer
-        self._label_map = label_map
-        label_tokens = self._tokenizer(
-            list(label_map.values()),
-            add_special_tokens=False,
-            return_tensors='pt',
-        )['input_ids']
-        if label_tokens.size(1) != 1:
-            raise ValueError(
-                'Multi-token labels not supported for multiple choice evaluation'
-            )
-        self._label_tokens = label_tokens.view(1, -1)
-
-    def __call__(self, model_inputs, labels, train=True):
-
-        # Ensure everything is on the same device
-        label_tokens = self._label_tokens.to(labels.device)
-
-        # Get predictions
-        predict_mask = model_inputs['predict_mask']
-        labels = labels[predict_mask].unsqueeze(-1)
-        logits, *_ = forward_w_triggers(self._model, model_inputs)
-        predict_logits = torch.gather(
-            logits[predict_mask],
-            dim=-1,
-            index=label_tokens.repeat(labels.size(0), 1)
-        )
-        preds = predict_logits.argmax(dim=-1, keepdims=True)
-
-        # Convert label tokens to their indices in the label map.
-        _, label_inds = torch.where(labels.eq(label_tokens))
-        label_inds = label_inds.unsqueeze(-1)
-
-        # Get loss
-        predict_logp = F.log_softmax(predict_logits, dim=-1)
-        loss = -predict_logp.gather(-1, label_inds).mean()
-
-        # Get evaluation score
-        correct = preds.eq(label_inds).sum()
-
-        return loss, correct, preds
-
-
-EVALUATORS = {
-    'generative': GenerativeEvaluator,
-    'classification': ClassificationEvaluator,
-}
-
-
-def forward_w_triggers(model, model_inputs, labels=None):
-    """
-    Run model forward w/ preprocessing for continuous triggers.
-
-    Parameters
-    ==========
-    model : transformers.PretrainedModel
-        The model to use for predictions.
-    model_inputs : Dict[str, torch.LongTensor]
-        The model inputs.
-    labels : torch.LongTensor
-        (optional) Tensor of labels. Loss will be returned if provided.
-    """
-    # Ensure destructive pop operations are only limited to this function.
-    model_inputs = model_inputs.copy()
-    trigger_mask = model_inputs.pop('trigger_mask')
-    predict_mask = model_inputs.pop('predict_mask')
-    input_ids = model_inputs.pop('input_ids')
-
-    # Get embeddings of input sequence
-    batch_size = input_ids.size(0)
-    inputs_embeds = model.embeds(input_ids)
-    inputs_embeds[trigger_mask] = model.relation_embeds.repeat((batch_size, 1))
-    model_inputs['inputs_embeds'] = inputs_embeds
-    
-    return model(**model_inputs, labels=labels)
-
-
-def decode(model, model_inputs, decoding_strategy="iterative"):
-    """
-    Decode from model.
-
-    Parameters
-    ==========
-    model : transformers.PretrainedModel
-        The model to use for predictions.
-    model_inputs : Dict[str, torch.LongTensor]
-        The model inputs.
-    decoding_strategy : str
-        The decoding strategy. One of: parallel, monotonic, iterative.
-        * parallel: all predictions made at the same time.
-        * monotonic: predictions decoded from left to right.
-        * iterative: predictions decoded in order of highest probability.
-    """
-    assert decoding_strategy in ['parallel', 'monotonic', 'iterative']
-
-    # initialize output to ignore label.
-    output = torch.zeros_like(model_inputs['input_ids'])
-    output = output.masked_fill(model_inputs['attention_mask'].bool(), -100)
-
-    if decoding_strategy == 'parallel':
-        # Simple argmax over arguments.
-        predict_mask = model_inputs['predict_mask']
-        logits, *_ = forward_w_triggers(model, model_inputs)
-        preds = logits.argmax(dim=-1)
-        output[predict_mask] = preds[predict_mask]
-
-    elif decoding_strategy == 'monotonic':
-        predict_mask = model_inputs['predict_mask'].clone()
-        idx0 = torch.arange(predict_mask.size(0))
-        input_ids = model_inputs['input_ids']
-        iterations = predict_mask.sum(dim=-1).max().item()
-        for i in range(iterations):
-            logits, *_ = forward_w_triggers(model, model_inputs)
-            row_mask = predict_mask.any(dim=-1)
-            idx1 = torch.argmax(predict_mask.long(), dim=-1)
-            combined_mask = torch.zeros_like(predict_mask)
-            combined_mask[idx0, idx1] = row_mask
-            pred = logits[combined_mask].argmax(dim=-1)
-            input_ids[combined_mask] = pred
-            output[combined_mask] = pred
-            predict_mask[combined_mask] = False
-
-    elif decoding_strategy == 'iterative':
-        predict_mask = model_inputs['predict_mask'].clone()
-        idx0 = torch.arange(predict_mask.size(0))
-        input_ids = model_inputs['input_ids']
-        iterations = predict_mask.sum().item()
-        for i in range(iterations):
-            # NOTE: We're going to be lazy and make the search for the most
-            # likely prediction easier by setting the logits for any tokens
-            # other than the candidates to a huge negative number.
-            logits, *_ = forward_w_triggers(model, model_inputs)
-            logits[~predict_mask] = -1e32
-            top_scores, preds = torch.max(logits, dim=-1)
-            row_mask = predict_mask.any(dim=-1)
-            idx1 = torch.argmax(top_scores, dim=-1)
-            combined_mask = torch.zeros_like(predict_mask)
-            combined_mask[idx0, idx1] = row_mask
-            pred = preds[combined_mask]
-            input_ids[combined_mask] = pred
-            output[combined_mask] = pred
-            predict_mask[combined_mask] = False
-    else:
-        raise ValueError(
-            'Something is really wrong with the control flow in this function'
-        )
-
-    return output
-
-
-def main(args):
+def check_args(args):
+    """Checks for invalid argument combinations."""
     if args.evaluation_strategy == 'exact-match':
         assert args.decoding_strategy is not None
-    elif args.evaluation_strategy == 'multiple-choice':
+    if args.evaluation_strategy == 'classification':
         assert args.label_map is not None
+    if args.evaluation_strategy == 'multiple-choice':
+        assert args.bsz is None, 'Multiple choice uses custom batching, do not set `--bsz`.'
 
-    utils.set_seed(args.seed)
 
-    # Handle multi-GPU setup
-    world_size = os.getenv('WORLD_SIZE', -1)
-    if args.local_rank == -1:
-        device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
-    else:
-        device = torch.device('cuda', args.local_rank)
-        if world_size != -1:
-            torch.distributed.init_process_group(
-                backend='nccl',
-                init_method='env://',
-                rank=args.local_rank,
-                world_size=world_size,
-            )
-    is_main_process = args.local_rank in [-1, 0] or world_size == -1
-    if args.debug:
-        logging.basicConfig(level=logging.DEBUG)
-    else:
-        logging.basicConfig(level=logging.INFO if is_main_process else logging.WARN)
-    logger.warning('Rank: %s - World Size: %s', args.local_rank, world_size)
+def serialize_args(args):
+    """Serializes arguments to the checkpoint directory."""
+    if not os.path.exists(args.ckpt_dir):
+        logger.info(f'Making directory: {args.ckpt_dir}')
+        os.makedirs(args.ckpt_dir)
+    fname = os.path.join(args.ckpt_dir, 'args.json')
+    with open(fname, 'w') as f:
+        logger.info(f'Serializing CLI arguments to: {fname}')
+        json.dump(vars(args), f)
 
-    config = AutoConfig.from_pretrained(args.model_name)
+
+def load_label_map(label_map):
+    """Loads the label map."""
+    if label_map is not None:
+        return json.loads(args.label_map)
+
+
+def load_transformers(model_name):
+    """Loads transformers config, tokenizer, and model.""" 
+    config = AutoConfig.from_pretrained(model_name)
     tokenizer = AutoTokenizer.from_pretrained(
-        args.model_name,
+        model_name,
         add_prefix_space=True,
         additional_special_tokens=('[T]', '[P]'),
     )
+    model = AutoModelForMaskedLM.from_pretrained(model_name, config=config)
+    return config, tokenizer, model
 
-    # Load & preprocess trigger template and data.
-    if args.label_map is not None:
-        label_map = json.loads(args.label_map)
+
+def get_sampler(
+    dataset,
+    evaluation_strategy,
+    distributed_config,
+    train=False
+):
+    """Sets up the correct sampler for a data loader."""
+    # Sampling is handled by data iterator for multiple choice problems.
+    if evaluation_strategy != 'classification':
+        return
+    # Multi-GPU training
+    if distributed_config.world_size != -1:
+        return torch.utils.data.DistributedSampler(dataset, shuffle=train)
+    # Defaults
+    if train:
+        return torch.utils.data.RandomSampler(dataset)
     else:
-        label_map = None
+        return torch.utils.data.SequentialSampler(dataset)
+
+
+def load_datasets(args, templatizer, distributed_config):
+    """Loads the training, dev and test datasets."""
+    dataset_constructor = utils.DATASET_CONSTRUCTORS[args.evaluation_strategy]
+    collator = utils.Collator(pad_token_id=templatizer.pad_token_id)
+
+    train_dataset = dataset_constructor(
+        args.train,
+        templatizer=templatizer,
+        train=True,
+        preprocessor_key=args.preprocessor,
+        limit=args.limit,
+    )
+    train_sampler = get_sampler(train_dataset, args.evaluation_strategy, distributed_config, train=True)
+    train_loader = DataLoader(train_dataset, batch_size=args.bsz, collate_fn=collator, sampler=train_sampler)
+
+    dev_dataset = dataset_constructor(
+        args.dev,
+        templatizer=templatizer,
+        preprocessor_key=args.preprocessor,
+        limit=args.limit,
+    )
+    dev_sampler = get_sampler(dev_dataset, args.evaluation_strategy, distributed_config, train=False)
+    dev_loader = DataLoader(dev_dataset, batch_size=args.bsz, collate_fn=collator, sampler=dev_sampler)
+
+    test_dataset = dataset_constructor(
+        args.test,
+        templatizer=templatizer,
+        preprocessor_key=args.preprocessor,
+    )
+    test_sampler = get_sampler(dev_dataset, args.evaluation_strategy, distributed_config, train=False)
+    test_loader = DataLoader(test_dataset, batch_size=args.bsz, collate_fn=collator, sampler=test_sampler)
+
+    return train_loader, dev_loader, test_loader
+
+
+def get_initial_trigger_ids(initial_trigger, tokenizer):
+    """Converts a list of trigger tokens to a tensor of trigger token ids."""
+    if initial_trigger is None:
+        return
+    initial_trigger_ids = torch.tensor(
+        tokenizer.convert_tokens_to_ids(args.initial_trigger)
+    )
+    detokenized = tokenizer.convert_ids_to_tokens(initial_trigger_ids)
+    logger.debug(f'Initial trigger (detokenized): {detokenized}')
+    return initial_trigger_ids
+
+
+def get_optimizer(model, args):
+    """Handles setting the optimizer up for different finetuning modes."""
+    params = [{'params': [model.trigger_embeddings]}]
+    if args.finetune_mode == 'partial':
+        params.append({
+            'params': model.lm_head.parameters(),
+            'lr': args.finetune_lr if args.finetune_lr else args.lr
+        })
+    elif args.finetune_mode == 'all':
+        params.append({
+            'params': [p for p in model.parameters() if not torch.equal(p, model.trigger_embeddings)],
+            'lr': args.finetune_lr if args.finetune_lr else args.lr
+        })
+    return AdamW(
+        params,
+        lr=args.lr,
+        weight_decay=1e-2,
+        eps=1e-8
+    )
+
+
+def to_device(data, device):
+    if isinstance(data, dict):
+        return {k: to_device(v, device) for k, v in data.items()}
+    elif isinstance(data, list):
+        return [to_device(x, device) for x in data]
+    elif isinstance(data, torch.Tensor):
+        return data.to(device)
+
+
+def main(args):
+    utils.set_seed(args.seed)
+
+    # Initialization.
+    check_args(args)
+    serialize_args(args)
+    distributed_config = utils.distributed_setup(args.local_rank)
+    if not args.debug:
+        logging.basicConfig(level=logging.INFO if distributed_config.is_main_process else logging.WARN)
+        logger.info('Suppressing subprocess logging. If this is not desired enable debug mode.')
+    if distributed_config.is_main_process:
+        writer = torch.utils.tensorboard.SummaryWriter(log_dir=args.ckpt_dir)
+    config, tokenizer, base_model = load_transformers(args.model_name)
+
+    # Load data.
+    logger.info('Loading data.')
+    label_map = load_label_map(args.label_map)
     templatizer = utils.MultiTokenTemplatizer(
         template=args.template,
         tokenizer=tokenizer,
@@ -254,245 +182,175 @@ def main(args):
         label_map=label_map,
         add_padding=args.add_padding,
     )
-    collator = utils.Collator(pad_token_id=tokenizer.pad_token_id)
-    train_dataset = utils.load_trigger_dataset(
-        args.train,
+    train_loader, dev_loader, test_loader = load_datasets(
+        args,
         templatizer=templatizer,
-        train=True,
-        preprocessor_key=args.preprocessor,
-        limit=args.limit,
+        distributed_config=distributed_config,
     )
-    if world_size == -1:
-        train_sampler = torch.utils.data.RandomSampler(train_dataset)
-    else:
-        train_sampler = torch.utils.data.DistributedSampler(train_dataset, shuffle=True)
-    train_loader = DataLoader(train_dataset, batch_size=args.bsz, collate_fn=collator, sampler=train_sampler)
-    dev_dataset = utils.load_trigger_dataset(
-        args.dev,
-        templatizer=templatizer,
-        preprocessor_key=args.preprocessor,
-        limit=args.limit,
-    )
-    if world_size == -1:
-        dev_sampler = torch.utils.data.SequentialSampler(dev_dataset)
-    else:
-        dev_sampler = torch.utils.data.DistributedSampler(dev_dataset)
-    dev_loader = DataLoader(dev_dataset, batch_size=args.bsz, collate_fn=collator, sampler=dev_sampler)
-    test_dataset = utils.load_trigger_dataset(
-        args.test,
-        templatizer=templatizer,
-        preprocessor_key=args.preprocessor,
-    )
-    if world_size == -1:
-        test_sampler = torch.utils.data.SequentialSampler(test_dataset)
-    else:
-        test_sampler = torch.utils.data.DistributedSampler(test_dataset)
-    test_loader = DataLoader(test_dataset, batch_size=args.bsz, shuffle=True, collate_fn=collator)
 
     # Setup model
-    model = AutoModelForMaskedLM.from_pretrained(args.model_name, config=config)
-    model.embeds = utils.get_word_embeddings(model)
-    model.lm_head = utils.get_lm_head(model)
-    model.relation_embeds = torch.nn.Parameter(
-        torch.randn(
-            templatizer.num_trigger_tokens,
-            model.embeds.weight.size(1),
-            requires_grad=True,
-        ), 
+    logger.info('Initializing model.')
+    initial_trigger_ids = get_initial_trigger_ids(args.initial_trigger, tokenizer)
+    model = ContinuousTriggerMLM(
+        base_model=base_model,
+        num_trigger_tokens=templatizer.num_trigger_tokens,
+        initial_trigger_ids=initial_trigger_ids,
     )
-    if args.initial_trigger is not None:
-        logger.info('Overwriting embedding weights using initial trigger.')
-        initial_trigger_ids = torch.tensor(
-            tokenizer.convert_tokens_to_ids(args.initial_trigger)
-        )
-        if args.debug:
-            detokenized = tokenizer.convert_ids_to_tokens(initial_trigger_ids)
-            logger.debug(f'Initial trigger (detokenized): {detokenized}')
-        initial_trigger_embeds = model.embeds(initial_trigger_ids)
-        model.relation_embeds.data.copy_(initial_trigger_embeds)
-        assert torch.equal(model.relation_embeds.data, initial_trigger_embeds)
-    model.to(device)
+    model.to(distributed_config.device)
 
-    ckpt_path = args.ckpt_dir / 'pytorch_model.bin'
-    if ckpt_path.exists():
+    # Restore existing checkpoint if available.
+    ckpt_path = os.path.join(args.ckpt_dir, 'pytorch_model.bin')
+    if os.path.exists(ckpt_path) and not args.force_overwrite:
         logger.info('Restoring checkpoint.')
-        state_dict = torch.load(ckpt_path, map_location=device)
+        state_dict = torch.load(ckpt_path, map_location=distributed_config.device)
         model.load_state_dict(state_dict)
 
     # Setup optimizer
-    if args.finetune_mode == 'all-but-trigger':
-        params = []
-    else:
-        params = [{'params': [model.relation_embeds]}]
-    if args.finetune_mode == 'partial' or args.finetune_mode == 'all-but-trigger': 
-        params.append({
-            'params': model.lm_head.parameters(),
-            'lr': args.finetune_lr if args.finetune_lr else args.lr
-        })
-    elif args.finetune_mode == 'all' or args.finetune_mode == 'all-but-trigger':
-        params.append({
-            'params': [p for p in model.parameters() if not torch.equal(p, model.relation_embeds)],
-            'lr': args.finetune_lr if args.finetune_lr else args.lr
-        })
-    optimizer = AdamW(
-        params,
-        lr=args.lr,
-        weight_decay=1e-2,
-        #betas=(0.9, 0.999),
-        eps=1e-8
-    )
+    optimizer = get_optimizer(model, args)
 
-    if world_size != -1:
+    if distributed_config.world_size != -1:
         model = torch.nn.parallel.DistributedDataParallel(
             model,
             device_ids=[args.local_rank],
         )
-    evaluator = EVALUATORS[args.evaluation_strategy](
+    evaluator = MLM_EVALUATORS[args.evaluation_strategy](
         model=model,
         tokenizer=tokenizer,
         label_map=label_map,
         decoding_strategy=args.decoding_strategy,
     )
-    if is_main_process:
-        writer = torch.utils.tensorboard.SummaryWriter(log_dir=args.ckpt_dir)
 
     best_accuracy = 0
-    for epoch in range(args.epochs):
-        logger.info('Training...')
-        if not args.disable_dropout:
-            model.train()
-        else:
-            model.eval()
-        if is_main_process and not args.quiet:
-            iter_ = tqdm(train_loader)
-        else:
-            iter_ = train_loader
-        total_loss = torch.tensor(0.0, device=device)
-        total_correct = torch.tensor(0.0, device=device)
-        denom = torch.tensor(0.0, device=device)
-        optimizer.zero_grad()
-        for i, (model_inputs, labels) in enumerate(iter_):
-            model_inputs = {k: v.to(device) for k, v in model_inputs.items()}
-            labels = labels.to(device)
-            loss, correct, preds = evaluator(model_inputs, labels, train=True)
-            loss /= args.accumulation_steps
-            loss.backward()
-            if (i % args.accumulation_steps) == (args.accumulation_steps - 1):
-                logger.debug('Optimizer step.')
-                if args.clip is not None:
-                    torch.nn.utils.clip_grad_norm_(model.parameters(), args.clip)
-                optimizer.step()
-                optimizer.zero_grad()
-            total_loss += loss.detach() * labels.size(0)
-            total_correct += correct.detach()
-            denom += labels.size(0)
-
-            if args.debug and args.evaluation_strategy == 'generative':
-                for label, pred, mask in zip(labels, preds, model_inputs['predict_mask']):
-                    logger.info(
-                        'Label: %s - Pred: %s',
-                        tokenizer.decode(label[mask]),
-                        tokenizer.decode(pred[mask])
+    if not args.skip_train:
+        for epoch in range(args.epochs):
+            logger.info(f'Epoch: {epoch}')
+            logger.info('Training...')
+            if not args.disable_dropout:
+                model.train()
+            else:
+                model.eval()
+            if distributed_config.is_main_process and not args.quiet:
+                iter_ = tqdm(train_loader)
+            else:
+                iter_ = train_loader
+            total_loss = torch.tensor(0.0, device=distributed_config.device)
+            total_correct = torch.tensor(0.0, device=distributed_config.device)
+            denom = torch.tensor(0.0, device=distributed_config.device)
+            optimizer.zero_grad()
+            for i, (model_inputs, labels) in enumerate(iter_):
+                model_inputs = to_device(model_inputs, distributed_config.device)
+                labels = to_device(labels, distributed_config.device)
+                loss, correct, preds = evaluator(model_inputs, labels, train=True)
+                loss /= args.accumulation_steps
+                loss.backward()
+                if (i % args.accumulation_steps) == (args.accumulation_steps - 1):
+                    logger.debug('Optimizer step.')
+                    if args.clip is not None:
+                        torch.nn.utils.clip_grad_norm_(model.parameters(), args.clip)
+                    optimizer.step()
+                    optimizer.zero_grad()
+                # TODO: Metric logging is clumsy/brittle.
+                batch_size = 1.0 if args.evaluation_strategy == 'multiple-choice' else labels.size(0)
+                total_loss += loss.detach() * batch_size
+                total_correct += correct.detach()
+                denom += batch_size
+                
+                # NOTE: This loss/accuracy is only on the subset  of training data
+                # in the main process.
+                if distributed_config.is_main_process and not args.quiet:
+                    iter_.set_description(
+                        f'Loss: {total_loss / (denom + 1e-13): 0.4f}, '
+                        f'Accuracy: {total_correct / (denom + 1e-13): 0.4f}'
                     )
-            
-            # NOTE: This loss/accuracy is only on the subset  of training data
-            # in the main process.
-            if is_main_process and not args.quiet:
-                iter_.set_description(
+            if distributed_config.world_size != -1:
+                torch.distributed.reduce(total_loss, 0)
+                torch.distributed.reduce(total_correct, 0)
+                torch.distributed.reduct(denom, 0)
+            if distributed_config.is_main_process:
+                writer.add_scalar('Loss/train', (total_loss / (denom + 1e-13)).item(), epoch)
+                writer.add_scalar('Accuracy/train', (total_correct / (denom + 1e-13)).item(), epoch)
+
+            if not args.skip_eval:
+                logger.info('Evaluating...')
+                model.eval()
+                total_loss = torch.tensor(0.0, device=distributed_config.device)
+                total_correct = torch.tensor(0.0, device=distributed_config.device)
+                denom = torch.tensor(0.0, device=distributed_config.device)
+                if distributed_config.is_main_process and not args.quiet:
+                    iter_ = tqdm(dev_loader)
+                else:
+                    iter_ = dev_loader
+                with torch.no_grad():
+                    for model_inputs, labels in iter_:
+                        model_inputs = to_device(model_inputs, distributed_config.device)
+                        labels = to_device(labels, distributed_config.device)
+                        loss, correct, preds = evaluator(model_inputs, labels, train=False)
+                        batch_size = 1.0 if args.evaluation_strategy == 'multiple-choice' else labels.size(0)
+                        total_loss += loss.detach() * batch_size
+                        total_correct += correct.detach()
+                        denom += batch_size
+
+                if distributed_config.world_size != -1:
+                    torch.distributed.reduce(total_loss, 0)
+                    torch.distributed.reduce(total_correct, 0)
+                    torch.distributed.reduce(denom, 0)
+                if distributed_config.is_main_process:
+                    writer.add_scalar('Loss/dev', (total_loss / (denom + 1e-13)).item(), epoch)
+                    writer.add_scalar('Accuracy/dev', (total_correct / (denom + 1e-13)).item(), epoch)
+
+                logger.info(
                     f'Loss: {total_loss / (denom + 1e-13): 0.4f}, '
                     f'Accuracy: {total_correct / (denom + 1e-13): 0.4f}'
                 )
-        if world_size != -1:
-            torch.distributed.reduce(total_loss, 0)
-            torch.distributed.reduce(total_correct, 0)
-            torch.distributed.reduct(denom, 0)
-        if is_main_process:
-            writer.add_scalar('Loss/train', (total_loss / (denom + 1e-13)).item(), epoch)
-            writer.add_scalar('Accuracy/train', (total_correct / (denom + 1e-13)).item(), epoch)
+                accuracy = total_correct / (denom + 1e-13)
 
-        logger.info('Evaluating...')
+                if distributed_config.is_main_process:
+                    if accuracy > best_accuracy:
+                        logger.info('Best performance so far.')
+                        best_accuracy = accuracy
+                        if distributed_config.world_size != -1:
+                            state_dict = model.module.state_dict()
+                        else:
+                            state_dict = model.state_dict()
+                        if distributed_config.is_main_process:
+                            torch.save(state_dict, ckpt_path)
+                        tokenizer.save_pretrained(args.ckpt_dir)
+                        config.save_pretrained(args.ckpt_dir)
+
+    if not args.skip_test:
+        logger.info('Testing...')
+        if os.path.exists(ckpt_path) and not args.skip_eval:
+            logger.info('Restoring checkpoint.')
+            state_dict = torch.load(ckpt_path, map_location=distributed_config.device)
+            model.load_state_dict(state_dict)
+        output_fname = os.path.join(args.ckpt_dir, 'predictions')
         model.eval()
-        total_loss = torch.tensor(0.0, device=device)
-        total_correct = torch.tensor(0.0, device=device)
-        denom = torch.tensor(0.0, device=device)
-        if is_main_process and not args.quiet:
-            iter_ = tqdm(dev_loader)
-        else:
-            iter_ = dev_loader
-        with torch.no_grad():
-            for model_inputs, labels in iter_:
-                model_inputs = {k: v.to(device) for k, v in model_inputs.items()}
-                labels = labels.to(device)
-                loss, correct, preds = evaluator(model_inputs, labels, train=False)
-                total_loss += loss.detach() * labels.size(0)
+        total_correct = torch.tensor(0.0, device=distributed_config.device)
+        denom = torch.tensor(0.0, device=distributed_config.device)
+        with torch.no_grad(), open(output_fname, 'w') as f:
+            for model_inputs, labels in test_loader:
+                model_inputs = {k: v.to(distributed_config.device) for k, v in model_inputs.items()}
+                labels = labels.to(distributed_config.device)
+                _, correct, preds = evaluator(model_inputs, labels, train=False)
+                batch_size = 1.0 if args.evaluation_strategy == 'multiple-choice' else labels.size(0)
                 total_correct += correct.detach()
-                denom += labels.size(0)
-
-                if args.debug and args.evaluation_strategy == 'generative':
-                    for label, pred, mask in zip(labels, preds, model_inputs['predict_mask']):
-                        logger.info(
-                            'Label: %s - Pred: %s',
-                            tokenizer.decode(label[mask]),
-                            tokenizer.decode(pred[mask])
-                        )
-                    
-
-        if world_size != -1:
-            torch.distributed.reduce(total_loss, 0)
-            torch.distributed.reduce(total_correct, 0)
+                denom += batch_size
+                # Serialize output
+                for pred in preds:
+                    print(pred, file=f)
+        if distributed_config.world_size != -1:
+            torch.distributed.reduce(correct, 0)
             torch.distributed.reduce(denom, 0)
-        if is_main_process:
-            writer.add_scalar('Loss/dev', (total_loss / (denom + 1e-13)).item(), epoch)
-            writer.add_scalar('Accuracy/dev', (total_correct / (denom + 1e-13)).item(), epoch)
 
-        logger.info(
-            f'Loss: {total_loss / (denom + 1e-13): 0.4f}, '
-            f'Accuracy: {total_correct / (denom + 1e-13): 0.4f}'
-        )
+        if args.tmp:
+            if os.path.exists(ckpt_path):
+                logger.info('Temporary mode enabled, deleting checkpoint.')
+                os.remove(ckpt_path)
+
         accuracy = total_correct / (denom + 1e-13)
-
-        if is_main_process:
-            if accuracy > best_accuracy:
-                logger.info('Best performance so far.')
-                best_accuracy = accuracy
-                if not args.ckpt_dir.exists():
-                    args.ckpt_dir.mkdir(parents=True)
-                if world_size != -1:
-                    state_dict = model.module.state_dict()
-                else:
-                    state_dict = model.state_dict()
-                if is_main_process:
-                    torch.save(state_dict, ckpt_path)
-                tokenizer.save_pretrained(args.ckpt_dir)
-
-    logger.info('Testing...')
-    if ckpt_path.exists():
-        logger.info('Restoring checkpoint.')
-        state_dict = torch.load(ckpt_path, map_location=device)
-        model.load_state_dict(state_dict)
-    model.eval()
-    total_correct = torch.tensor(0.0, device=device)
-    denom = torch.tensor(0.0, device=device)
-    with torch.no_grad():
-        for model_inputs, labels in test_loader:
-            model_inputs = {k: v.to(device) for k, v in model_inputs.items()}
-            labels = labels.to(device)
-            _, correct, preds = evaluator(model_inputs, labels, train=False)
-            total_correct += correct.detach()
-            denom += labels.size(0)
-    if world_size != -1:
-        torch.distributed.reduce(correct, 0)
-        torch.distributed.reduce(denom, 0)
-
-    if args.tmp:
-        logger.info('Temporary mode enabled, deleting checkpoint.')
-        os.remove(ckpt_path)
-
-    accuracy = total_correct / (denom + 1e-13)
-    if is_main_process:
-        writer.add_scalar('Loss/test', (total_loss / (denom + 1e-13)).item(), 0)
-        writer.add_scalar('Accuracy/test', (total_correct / (denom + 1e-13)).item(), 0)
-    logger.info(f'Accuracy: {accuracy : 0.4f}')
+        if distributed_config.is_main_process:
+            writer.add_scalar('Accuracy/test', (total_correct / (denom + 1e-13)).item(), 0)
+        logger.info(f'Accuracy: {accuracy : 0.4f}')
 
 
 if __name__ == '__main__':
@@ -501,13 +359,13 @@ if __name__ == '__main__':
     # Dataset & model paths
     parser.add_argument('--model-name', type=str, required=True,
                         help='Name or path to the underlying MLM.')
-    parser.add_argument('--train', type=Path, required=True,
+    parser.add_argument('--train', type=str, required=True,
                         help='Path to the training dataset.')
-    parser.add_argument('--dev', type=Path, required=True,
+    parser.add_argument('--dev', type=str, required=True,
                         help='Path to the development dataset.')
-    parser.add_argument('--test', type=Path, required=True,
+    parser.add_argument('--test', type=str, required=True,
                         help='Path to the test dataset.')
-    parser.add_argument('--ckpt-dir', type=Path, default=Path('ckpt/'),
+    parser.add_argument('--ckpt-dir', type=str, default='ckpt/',
                         help='Path to save/load model checkpoint.')
 
     # Model/training set up
@@ -531,7 +389,7 @@ if __name__ == '__main__':
                         help='Data preprocessor. If unspecified a default '
                              'preprocessor will be selected based on filetype.')
     parser.add_argument('--evaluation-strategy', type=str, required=True,
-                        choices=EVALUATORS.keys(),
+                        choices=MLM_EVALUATORS.keys(),
                         help='Evaluation strategy. Options: '
                              'generative: For generative tasks,'
                              'classification: For prediction tasks with a fixed '
@@ -548,8 +406,17 @@ if __name__ == '__main__':
                              'all: All model weights are tuned.'
                              'all-but-trigger: All model weights apart from trigger weights are tuned. ')
 
+    # Skips
+    parser.add_argument('--skip-train', action='store_true',
+                        help='Skip training.')
+    parser.add_argument('--skip-eval', action='store_true',
+                        help='Skip evaluation loop during training. Good for cranking through '
+                             'expensive multiple-choice experiments.')
+    parser.add_argument('--skip-test', action='store_true',
+                        help='Skip test.')
+
     # Hyperparameters
-    parser.add_argument('--bsz', type=int, default=32, help='Batch size.')
+    parser.add_argument('--bsz', type=int, default=None, help='Batch size.')
     parser.add_argument('--accumulation-steps', type=int, default=1,
                         help='Number of accumulation steps.')
     parser.add_argument('--epochs', type=int, default=10,

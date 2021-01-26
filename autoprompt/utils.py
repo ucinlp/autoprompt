@@ -1,6 +1,8 @@
 import csv
+import collections
 import json
 import logging
+import os
 import random
 
 import numpy as np
@@ -92,11 +94,10 @@ class Collator:
                 padding_value = self._pad_token_id
             else:
                 padding_value = 0
-            # NOTE: We need to squeeze to get rid of fake batch dim.
             sequence = [x[key] for x in model_inputs]
             padded = pad_squeeze_sequence(sequence, batch_first=True, padding_value=padding_value)
             padded_inputs[key] = padded
-        labels = pad_squeeze_sequence(labels, batch_first=True, padding_value=self._pad_token_id)
+        labels = pad_squeeze_sequence(labels, batch_first=True, padding_value=-100)
         return padded_inputs, labels
 
 
@@ -161,6 +162,10 @@ class TriggerTemplatizer:
     @property
     def num_trigger_tokens(self):
         return sum(token == '[T]' for token in self._template.split())
+
+    @property
+    def pad_token_id(self):
+        return self._tokenizer.pad_token_id
 
     def __call__(self, format_kwargs, **kwargs):
         # Format the template string
@@ -241,21 +246,24 @@ class MultiTokenTemplatizer:
                 {k: tokenizer.decode(tokenizer.encode(v, add_special_tokens=False)) for k, v in label_map.items()}
             )
 
-
     # TODO(rloganiv): If there is any more shared code between tokenizers,
     # consider creating a base class.
     @property
     def num_trigger_tokens(self):
         return sum(token == '[T]' for token in self._template.split())
 
-    def _maybe_truncate(self, format_kwargs, padded_label_size):
+    @property
+    def pad_token_id(self):
+        return self._tokenizer.pad_token_id
+
+    def _maybe_truncate(self, format_kwargs, approximate_length):
         """
         If instantiated template would exceed maximum sequence length then
         reduce the input sizes.
         """
         format_kwargs = format_kwargs.copy()
-        budget = self._tokenizer.model_max_length - 2  # Constant for added special tokens
-        budget -= padded_label_size
+        budget = self._tokenizer.model_max_length
+        budget -= approximate_length
         budget -= self.num_trigger_tokens
         while True:
             field_lengths = {k: len(self._tokenizer.encode(v, add_special_tokens=False)) for k, v in format_kwargs.items()}
@@ -302,12 +310,22 @@ class MultiTokenTemplatizer:
         # replacing the fron with the label tokens. Magic numbers below come
         # from PET WSC settings.
         if self._add_padding:
+            # CHECK BACK ON THIS; PROBABLY REMOVE.
+            # if 'padded_label_size' in kwargs:  # Manually set padding for multiple-choice.
+                # padded_label_size = kwargs['padded_label_size']
+            # else:
             if train:
                 pad_length = random.randint(0, 3)
             else:
                 pad_length = 1
             padded_label_size = label_size + pad_length
             padded_label_tokens = label_tokens.new_zeros(1, padded_label_size)
+            # CHECK BACK ON THIS; PROBABLY REMOVE. For multiple choice training, input is padded w/
+            # ignored mask tokens. I guess this is to avoid cheating by counting word tokens?
+            # if 'ignore_padding' in kwargs:
+                # pad_token_id = -100 if kwargs['ignore_padding'] else self._tokenizer.pad_token_id
+            # else:
+                # pad_token_id = self._tokenizer.pad_token_id
             padded_label_tokens.fill_(self._tokenizer.pad_token_id)
             padded_label_tokens[:,:label_size] = label_tokens
         else:
@@ -320,11 +338,16 @@ class MultiTokenTemplatizer:
             '[P]', 
             ' '.join(['[P]'] * padded_label_size),
         )
+        approximate_length = self._tokenizer(
+            template,
+            add_special_tokens=True,
+            return_length=True
+        )['length']
 
         # Instantiate & tokenize the template
         format_kwargs = self._maybe_truncate(
             format_kwargs,
-            padded_label_size=padded_label_size
+            approximate_length=approximate_length,
         )
         text = template.format(**format_kwargs)
         model_inputs = self._tokenizer(
@@ -343,7 +366,6 @@ class MultiTokenTemplatizer:
         input_ids[trigger_mask] = self._tokenizer.mask_token_id
         predict_mask = input_ids.eq(self._predict_token_id)
         input_ids[predict_mask] = self._tokenizer.mask_token_id
-
 
         # EXPERIMENTAL: Handle sep mask.
         if 'token_type_ids' in model_inputs:
@@ -368,19 +390,132 @@ class MultiTokenTemplatizer:
         return model_inputs, labels
 
 
+class MultipleChoiceDataset(torch.utils.data.IterableDataset):
+    """
+    Dataset for multiple choice style problems.
+    
+    Since I am feeling lazy and large inputs aren't really supported anyways, this yields (pos,neg)
+    pairs one at a time during training, and
+    """
+    def __init__(
+        self,
+        instances, 
+        templatizer,
+        limit=None,
+        train=False,
+    ):
+        self._instances = instances
+        self._templatizer = templatizer
+        self._limit = limit
+        self._train = train
+
+    @classmethod
+    def load(
+        cls,
+        fname,
+        templatizer,
+        limit=None,
+        train=False,
+        preprocessor_key=None,
+    ):
+        if preprocessor_key is None:
+            raise ValueError('MultipleChoiceDataset cannot use default preprocessors.')
+        preprocessor = PREPROCESSORS[preprocessor_key]
+        instances = list(preprocessor(fname, train=train))
+        return cls(instances, templatizer, limit, train)
+
+    def __iter__(self):
+        instances = self._instances
+        if self._train:
+            random.shuffle(instances)  # WARNING: Side effects.
+        if self._limit is not None:
+            limit = min(self._limit, len(instances))
+            instances = instances[:limit]
+        for instance in instances:
+            instance = instance.copy()  # Non destructive.
+            labels = instance.pop('labels')
+            labels.sort(key=lambda x: x[1], reverse=True)
+            if self._train:
+                positive_labels = [label for label, is_positive in labels if is_positive]
+                positive_label = random.choice(positive_labels)
+                positive_instance = instance.copy()
+                positive_instance['label'] = positive_label
+                positive_output = self._templatizer(positive_instance, train=True)
+
+                negative_labels = [label for label, is_positive in labels if not is_positive]
+                negative_label = random.choice(negative_labels)
+                negative_instance = instance.copy()
+                negative_instance['label'] = negative_label
+                negative_output = self._templatizer(negative_instance, train=True)
+                yield positive_output, negative_output
+
+            else:
+                outputs = []
+                for label, is_positive in labels:
+                    sub_instance = instance.copy()
+                    sub_instance['label'] = label
+                    output = self._templatizer(sub_instance)
+                    outputs.append(output)
+                yield outputs
+
+
+class GenerativeDataset(torch.utils.data.IterableDataset):
+    """
+    Dataset for generative style problems.
+    """
+    def __init__(
+        self,
+        instances, 
+        templatizer,
+        limit=None,
+        train=False,
+    ):
+        self._instances = instances
+        self._templatizer = templatizer
+        self._limit = limit
+        self._train = train
+
+    @classmethod
+    def load(
+        cls,
+        fname,
+        templatizer,
+        limit=None,
+        train=False,
+        preprocessor_key=None,
+    ):
+        if preprocessor_key is None:
+            raise ValueError('MultipleChoiceDataset cannot use default preprocessors.')
+        preprocessor = PREPROCESSORS[preprocessor_key]
+        instances = list(preprocessor(fname, train=train))
+        return cls(instances, templatizer, limit, train)
+
+    def __iter__(self):
+        instances = self._instances
+        if self._train:
+            random.shuffle(instances)  # WARNING: Side effects.
+        # TODO: This is not right. Will artificially increase dataset size.
+        if self._limit is not None:
+            limit = min(self._limit, len(instances))
+            instances = instances[:limit]
+        for instance in instances:
+            instance = instance.copy()
+            yield self._templatizer(instance, train=self._train)
+
+
 def load_trigger_dataset(
     fname,
     templatizer,
     limit=None,
     train=False,
-    preprocessor_key=None
+    preprocessor_key=None,
 ):
     if preprocessor_key is None:
-        preprocessor = PREPROCESSORS[fname.suffix]
+        preprocessor = PREPROCESSORS[fname.split('.')[-1]]
     else:
         preprocessor = PREPROCESSORS[preprocessor_key]
     instances = []
-    for x in preprocessor(fname):
+    for x in preprocessor(fname, train=train):
         try:
             model_inputs, label_id = templatizer(x, train=train)
         except ValueError as e:
@@ -445,6 +580,13 @@ def load_classification_dataset(
     return instances, label_map
 
 
+DATASET_CONSTRUCTORS = {
+    'classification': load_trigger_dataset,
+    'generative': GenerativeDataset.load,
+    'multiple-choice': MultipleChoiceDataset.load,
+}
+
+
 def get_word_embeddings(model):
     for module in model.modules():
         if hasattr(module, 'word_embeddings'):
@@ -475,4 +617,28 @@ def get_clf_head(model):
                 'Unable to retrieve classifier head for model. You may need to add a special case to '
                 '`utils.get_clf_head`.'
             )
+
+
+DistributedConfig = collections.namedtuple(
+    'DistributedConfig',
+    ['device', 'local_rank', 'world_size', 'is_main_process'],
+)
+
+
+def distributed_setup(local_rank):
+    world_size = os.getenv('WORLD_SIZE', -1)
+    if local_rank == -1:
+        device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+    else:
+        device = torch.device('cuda', local_rank)
+        if world_size != -1:
+            torch.distributed.init_process_group(
+                backend='nccl',
+                init_method='env://',
+                rank=local_rank,
+                world_size=world_size,
+            )
+    is_main_process = local_rank in [-1, 0] or world_size == -1
+    logger.info('Rank: %s - World Size: %s', local_rank, world_size)
+    return DistributedConfig(device, local_rank, world_size, is_main_process)
 
