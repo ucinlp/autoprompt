@@ -434,6 +434,7 @@ class MultipleChoiceDataset(torch.utils.data.IterableDataset):
         for instance in instances:
             instance = instance.copy()  # Non destructive.
             labels = instance.pop('labels')
+            labels.sort(key=lambda x: x[1], reverse=True)
             if self._train:
                 positive_labels = [label for label, is_positive in labels if is_positive]
                 positive_label = random.choice(positive_labels)
@@ -450,7 +451,6 @@ class MultipleChoiceDataset(torch.utils.data.IterableDataset):
 
             else:
                 outputs = []
-                labels.sort(key=lambda x: x[1], reverse=True)
                 for label, is_positive in labels:
                     sub_instance = instance.copy()
                     sub_instance['label'] = label

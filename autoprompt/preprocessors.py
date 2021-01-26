@@ -114,16 +114,21 @@ def preprocess_copa(fname, train, **kwargs):
             # Map question to PET conjunction.
             conjunction = 'so' if data['question'] == 'effect' else 'because'
 
+            # Sort labels so that true is always first
+            labels = [
+                (data['choice1'].lower()[:-1], bool(data['label']==0)),
+                (data['choice2'].lower()[:-1], bool(data['label']==1))
+            ]
+            labels.sort(key=lambda x: x[1], reverse=True)
+
+
             # Output original and flipped arguments.
             original = {
-                'premise': data['premise'],
-                'choice1': data['choice1'],
-                'choice2': data['choice2'],
+                'premise': data['premise'][:-1].lower(),
+                'choice1': data['choice1'][:-1].lower(),
+                'choice2': data['choice2'][:-1].lower(),
                 'conjunction': conjunction,
-                'labels': [
-                    (data['choice1'], bool(data['label']==0)),
-                    (data['choice2'], bool(data['label']==1)),
-                 ],
+                'labels': labels,
             }
             yield original
 

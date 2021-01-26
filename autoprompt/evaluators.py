@@ -23,19 +23,13 @@ class MultipleChoiceEvaluator:
         self._model = model
         self._tokenizer = tokenizer
         self._decoding_strategy = decoding_strategy
-        logger.warning(
-            'Because evalation can be on multiple labels while training is on pairs of labels, '
-            'MultipleChoiceEvaluator does not output loss during evaluation. Also, evaluation '
-            'metric is somewhat misleading for cases with multiple correct choices as only the '
-            'first choice is considered correct.'
-        )
 
     def __call__(self, model_inputs, labels, train=True):
         if train:
             _, logits, *_ = self._model(model_inputs, labels)
             logits = logits.transpose(1, -1)  # Class probs need to be dim 1 for CE
             log_p = -F.cross_entropy(logits, labels, reduction='none')
-            log_p = log_p.sum(dim=-1)
+            log_p = log_p.mean(dim=-1)
             loss = 1 - log_p[0] + log_p[1]
             loss[loss < 0] = 0.0
             correct = log_p[0] > log_p[1]

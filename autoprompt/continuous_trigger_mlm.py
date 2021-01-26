@@ -130,16 +130,13 @@ def get_initial_trigger_ids(initial_trigger, tokenizer):
 
 def get_optimizer(model, args):
     """Handles setting the optimizer up for different finetuning modes."""
-    if args.finetune_mode == 'all-but-trigger':
-        params = []
-    else:
-        params = [{'params': [model.trigger_embeddings]}]
-    if args.finetune_mode == 'partial' or args.finetune_mode == 'all-but-trigger': 
+    params = [{'params': [model.trigger_embeddings]}]
+    if args.finetune_mode == 'partial':
         params.append({
             'params': model.lm_head.parameters(),
             'lr': args.finetune_lr if args.finetune_lr else args.lr
         })
-    elif args.finetune_mode == 'all' or args.finetune_mode == 'all-but-trigger':
+    elif args.finetune_mode == 'all':
         params.append({
             'params': [p for p in model.parameters() if not torch.equal(p, model.trigger_embeddings)],
             'lr': args.finetune_lr if args.finetune_lr else args.lr
@@ -335,8 +332,9 @@ def main(args):
                 model_inputs = {k: v.to(distributed_config.device) for k, v in model_inputs.items()}
                 labels = labels.to(distributed_config.device)
                 _, correct, preds = evaluator(model_inputs, labels, train=False)
+                batch_size = 1.0 if args.evaluation_strategy == 'multiple-choice' else labels.size(0)
                 total_correct += correct.detach()
-                denom += labels.size(0)
+                denom += batch_size
                 # Serialize output
                 for pred in preds:
                     print(pred, file=f)
@@ -351,7 +349,6 @@ def main(args):
 
         accuracy = total_correct / (denom + 1e-13)
         if distributed_config.is_main_process:
-            writer.add_scalar('Loss/test', (total_loss / (denom + 1e-13)).item(), 0)
             writer.add_scalar('Accuracy/test', (total_correct / (denom + 1e-13)).item(), 0)
         logger.info(f'Accuracy: {accuracy : 0.4f}')
 

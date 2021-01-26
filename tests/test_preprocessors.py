@@ -43,25 +43,25 @@ class TestCOPA(TestCase):
         output = list(autoprompt.preprocessors.preprocess_copa(fname, train=True))
         self.assertEqual(len(output), 2)
         expected_0 = {
-            'premise': 'The chandelier shattered on the floor.',
-            'choice1': 'The chandelier dropped from the ceiling.',
-            'choice2': 'The chandelier\'s lights flickered on and off.',
+            'premise': 'the chandelier shattered on the floor',
+            'choice1': 'the chandelier\'s lights flickered on and off',
+            'choice2': 'the chandelier dropped from the ceiling',
             'conjunction': 'because',
             'labels': [
-                ('The chandelier dropped from the ceiling.', True),
-                ('The chandelier\'s lights flickered on and off.', False),
+                ('the chandelier dropped from the ceiling', True),
+                ('the chandelier\'s lights flickered on and off', False),
             ]
         }
         self.assertDictEqual(expected_0, output[0])
 
         expected_1 = {
-            'premise': 'The chandelier shattered on the floor.',
-            'choice1': 'The chandelier\'s lights flickered on and off.',
-            'choice2': 'The chandelier dropped from the ceiling.',
+            'premise': 'the chandelier shattered on the floor',
+            'choice1': 'the chandelier dropped from the ceiling',
+            'choice2': 'the chandelier\'s lights flickered on and off',
             'conjunction': 'because',
             'labels': [
-                ('The chandelier dropped from the ceiling.', True),
-                ('The chandelier\'s lights flickered on and off.', False),
+                ('the chandelier dropped from the ceiling', True),
+                ('the chandelier\'s lights flickered on and off', False),
             ]
         }
         self.assertDictEqual(expected_1, output[1])
@@ -71,13 +71,13 @@ class TestCOPA(TestCase):
         output = list(autoprompt.preprocessors.preprocess_copa(fname, train=False))
         self.assertEqual(len(output), 1)
         expected_0 = {
-            'premise': 'The chandelier shattered on the floor.',
-            'choice1': 'The chandelier dropped from the ceiling.',
-            'choice2': 'The chandelier\'s lights flickered on and off.',
+            'premise': 'the chandelier shattered on the floor',
+            'choice1': 'the chandelier\'s lights flickered on and off',
+            'choice2': 'the chandelier dropped from the ceiling',
             'conjunction': 'because',
             'labels': [
-                ('The chandelier dropped from the ceiling.', True),
-                ('The chandelier\'s lights flickered on and off.', False),
+                ('the chandelier dropped from the ceiling', True),
+                ('the chandelier\'s lights flickered on and off', False),
             ]
         }
         self.assertDictEqual(expected_0, output[0])
