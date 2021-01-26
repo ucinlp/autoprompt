@@ -139,6 +139,19 @@ def preprocess_copa(fname, train, **kwargs):
                 yield flipped
 
 
+def preprocess_kilt(fname):
+    with open(fname, 'r') as f:
+        for line in f:
+            data = json.loads(line)
+            input_text = data['input']
+            answer_text = data['output'][0]['answer']
+            if len(answer_text.split()) == 1:
+                yield {
+                    'input': input_text,
+                    'answer': answer_text,
+                }
+
+
 # REMINDER: You need to add whatever preprocessing functions you've written to
 # this dict to make them available to the training scripts.
 PREPROCESSORS = {
@@ -149,5 +162,6 @@ PREPROCESSORS = {
     'wsc': preprocess_wsc,
     'copa': preprocess_copa,
     'record': preprocess_record,
+    'kilt': preprocess_kilt,
 }
 

@@ -213,6 +213,8 @@ def main(args):
                 accuracy = correct / (total + 1e-13)
                 scaler.scale(loss).backward()
                 if i % args.accumulation_steps == 0:
+                    if args.clip is not None:
+                        torch.nn.utils.clip_grad_norm_(model.parameters(), args.clip)
                     scaler.step(optimizer)
                     scaler.update()
                     optimizer.zero_grad()
@@ -314,6 +316,7 @@ if __name__ == '__main__':
     parser.add_argument('--skip-train', action='store_true')
     parser.add_argument('--tmp', action='store_true')
     parser.add_argument('--local_rank', type=int, default=-1)
+    parser.add_argument('--clip', type=float, default=None)
     args = parser.parse_args()
 
     main(args)
