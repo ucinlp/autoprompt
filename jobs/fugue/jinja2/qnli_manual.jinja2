@@ -1,0 +1,95 @@
+{% for template in [
+    '{question} | [P] , {sentence}',
+    '"{question}" | [P] , "{sentence}"',
+    '{question} </s> [P] , {sentence}',
+    '"{question}" </s> [P] , "{sentence}"',
+] -%}
+{% set template_idx = loop.index %}
+{% for label_map in [
+    '{"entailment": "yes", "not_entailment": "no"}',
+] -%}
+{% set label_idx = loop.index %}
+---
+out: qnli-manual_model_roberta-large_template_{{template_idx}}_label-map_{{label_idx}}
+script: autoprompt/continuous_trigger_mlm.py
+args:
+    - '--model-name'
+    - 'roberta-large'
+    - '--train'
+    - 'data/LittleGLUE/QNLI/train.jsonl'
+    - '--dev'
+    - 'data/LittleGLUE/QNLI/dev.jsonl'
+    - '--test'
+    - 'data/LittleGLUE/QNLI/dev_all.jsonl'
+    - '--ckpt-dir'
+    - 'ckpt/qnli-manual_model_roberta-large_template_{{template_idx}}_label-map_{{label_idx}}'
+    - '--evaluation-strategy'
+    - 'classification'
+    - '--finetune-mode'
+    - 'all'
+    - '--template'
+    - '{{template}}'
+    - '--label-map'
+    - '{{label_map}}'
+    - '--epochs'
+    - '30'
+    - '--bsz'
+    - '2'
+    - '--clip'
+    - '1.0'
+    - '--quiet'
+    - '--tmp'
+    - '-f'
+    - '--skip-train'
+    - '--skip-eval'
+...
+{% endfor %}
+{%- endfor %}
+{# ================================ #}
+{% for template in [
+    '{question} | [P] , {sentence}',
+    '"{question}" | [P] , "{sentence}"',
+    '{question} [SEP] [P] , {sentence}',
+    '"{question}" [SEP] [P] , "{sentence}"',
+] -%}
+{% set template_idx = loop.index %}
+{% for label_map in [
+    '{"entailment": "yes", "not_entailment": "no"}',
+] -%}
+{% set label_idx = loop.index %}
+---
+out: qnli-manual_model_albert-xxlarge-v2_template_{{template_idx}}_label-map_{{label_idx}}
+script: autoprompt/continuous_trigger_mlm.py
+args:
+    - '--model-name'
+    - 'albert-xxlarge-v2'
+    - '--train'
+    - 'data/LittleGLUE/QNLI/train.jsonl'
+    - '--dev'
+    - 'data/LittleGLUE/QNLI/dev.jsonl'
+    - '--test'
+    - 'data/LittleGLUE/QNLI/dev_all.jsonl'
+    - '--ckpt-dir'
+    - 'ckpt/qnli-manual_model_albert-xxlarge-v2_template_{{template_idx}}_label-map_{{label_idx}}'
+    - '--evaluation-strategy'
+    - 'classification'
+    - '--finetune-mode'
+    - 'all'
+    - '--template'
+    - '{{template}}'
+    - '--label-map'
+    - '{{label_map}}'
+    - '--epochs'
+    - '30'
+    - '--bsz'
+    - '2'
+    - '--clip'
+    - '1.0'
+    - '--quiet'
+    - '--tmp'
+    - '-f'
+    - '--skip-train'
+    - '--skip-eval'
+...
+{% endfor %}
+{%- endfor %}

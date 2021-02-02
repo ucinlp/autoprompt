@@ -1,0 +1,60 @@
+{% for seed in [1,2,3,4,5] -%}
+{% for template, initial_trigger in [
+    ("{sentence} [T] [T] '*{pronoun}*' [T] [T] [P] [T]", ['▁the', '▁pronoun', '▁refers', '▁to', '.']),
+    ("{sentence} [T] [T] [T] [T] [T] [T] [T] '*{pronoun}*' [T] [T] [P] [T]", ['▁in', '▁the', '▁previous', '▁sentence', ',', '▁the', '▁pronoun', '▁refers', '▁to', '.']  ),
+] -%}
+{% set i = loop.index %}
+{% for warm_start in [True, False] -%}
+{% for finetune_mode in ['trigger', 'partial', 'all'] -%}
+---
+out: cinf_model_albert-xxlarge-v2_seed_{{seed}}_template_{{i}}_warm-start_{{warm_start}}_finetune-mode_{{finetune_mode}}
+script: autoprompt/continuous_trigger_mlm.py
+args:
+    - '--model-name'
+    - 'albert-xxlarge-v2'
+    - '--train'
+    - 'data/FewGLUE/WSC/train.jsonl'
+    - '--dev'
+    - 'data/SuperGLUE/WSC/val.jsonl'
+    - '--test'
+    - 'data/SuperGLUE/WSC/val.jsonl'
+    - '--preprocessor'
+    - 'wsc'
+    - '--evaluation-strategy'
+    - 'generative'
+    - '--decoding-strategy'
+    - 'iterative'
+    - '--add-padding'
+    - '--template'
+    - "{{template}}"
+{% if warm_start %}
+    - '--initial-trigger' 
+{% for token in initial_trigger %}
+    - '{{token}}'
+{% endfor %}
+{% endif %}
+    - '--seed'
+    - '{{seed}}'
+    - '--epochs'
+    - '15'
+    - '--bsz'
+    - '2'
+    - '--accumulation-steps'
+    - '8'
+    - '--lr'
+    - '1e-5'
+    - '--clip'
+    - '1.0'
+    - '--finetune-mode'
+    - '{{finetune_mode}}'
+    - '--skip-eval'
+    - '--tmp'
+    - '--quiet'
+    - '-f'
+    - '--ckpt-dir'
+    - 'cinf_model_albert-xxlarge-v2_seed_{{seed}}_template_{{i}}_warm-start_{{warm_start}}_finetune-mode_{{finetune_mode}}'
+...
+{% endfor %}
+{%- endfor %}
+{%- endfor %}
+{%- endfor %}

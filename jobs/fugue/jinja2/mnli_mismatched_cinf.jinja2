@@ -1,0 +1,127 @@
+{% for template, initial_trigger in [
+    ('{sentence2} [T] [T] [P] [T] {sentence1}', ['?', '|', ',']),
+    ('[T] {sentence2} [T] [T] [T] [P] [T] [T] {sentence1} [T]', ['"', '"', '?', '|', ',', '"', '"']),
+    ('{sentence2} [T] </s> [P] [T] {sentence1}', ['?', ',']),
+    ('[T] {sentence2} [T] [T] </s> [P] [T] [T] {sentence1} [T]', ['"', '"', '?', ',', '"', '"']),
+] -%}
+{% set template_idx = loop.index %}
+{% for pet in [True, False] -%}
+{% for label_map in [
+    '{"entailment": "yes", "contradiction": "no", "neutral": "maybe"}',
+] -%}
+{% set label_idx = loop.index %}
+{% for lr in [1e-5, 2e-5, 5e-5] -%}
+{% for accumulation_steps in [1, 2, 4] -%}
+{% for finetune_mode in ['trigger', 'partial', 'all'] -%}
+---
+out: mnli-mismatched-cinf_model_roberta-large_template_{{template_idx}}_initial-trigger_{{pet}}_label-map_{{label_idx}}_lr_{{lr}}_accumulation-steps_{{accumulation_steps}}_finetune-mode_{{finetune_mode}}
+script: autoprompt/continuous_trigger_mlm.py
+args:
+    - '--model-name'
+    - 'roberta-large'
+    - '--train'
+    - 'data/LittleGLUE/MNLI_mismatched/train.jsonl'
+    - '--dev'
+    - 'data/LittleGLUE/MNLI_mismatched/dev.jsonl'
+    - '--test'
+    - 'data/LittleGLUE/MNLI_mismatched/dev_all.jsonl'
+    - '--ckpt-dir'
+    - 'ckpt/mnli-mismatched-cinf_model_roberta-large_template_{{template_idx}}_initial-trigger_{{pet}}_label-map_{{label_idx}}_lr_{{lr}}_accumulation-steps_{{accumulation_steps}}_finetune-mode_{{finetune_mode}}'
+    - '--evaluation-strategy'
+    - 'classification'
+    - '--finetune-mode'
+    - '{{finetune_mode}}'
+    - '--template'
+    - '{{template}}'
+    - '--label-map'
+    - '{{label_map}}'
+    - '--epochs'
+    - '30'
+    - '--bsz'
+    - '2'
+    - '--clip'
+    - '1.0'
+    - '--accumulation-steps'
+    - '{{accumulation_steps}}'
+    - '--lr'
+    - '{{lr}}'
+{% if pet %}
+    - '--initial-trigger' 
+{% for token in initial_trigger %}
+    - '{{token}}'
+{% endfor %}
+{% endif %}
+    - '--quiet'
+    - '--tmp'
+    - '-f'
+...
+{% endfor %}
+{%- endfor %}
+{%- endfor %}
+{%- endfor %}
+{%- endfor %}
+{%- endfor %}
+{# ================================ #}
+{% for template, initial_trigger in [
+    ('{sentence2} [T] [T] [P] [T] {sentence1}', ['?', '|', ',']),
+    ('[T] {sentence2} [T] [T] [T] [P] [T] [T] {sentence1} [T]', ['"', '"', '?', '|', ',', '"', '"']),
+    ('{sentence2} [T] [SEP] [P] [T] {sentence1}', ['?', ',']),
+    ('[T] {sentence2} [T] [T] [SEP] [P] [T] [T] {sentence1} [T]', ['"', '"', '?', ',', '"', '"']),
+] -%}
+{% set template_idx = loop.index %}
+{% for pet in [True, False] -%}
+{% for label_map in [
+    '{"entailment": "yes", "contradiction": "no", "neutral": "maybe"}',
+] -%}
+{% set label_idx = loop.index %}
+{% for lr in [1e-5, 2e-5, 5e-5] -%}
+{% for accumulation_steps in [1, 2, 4] -%}
+{% for finetune_mode in ['trigger', 'partial', 'all'] -%}
+---
+out: mnli-mismatched-cinf_model_albert-xxlarge-v2_template_{{template_idx}}_initial-trigger_{{pet}}_label-map_{{label_idx}}_lr_{{lr}}_accumulation-steps_{{accumulation_steps}}_finetune-mode_{{finetune_mode}}
+script: autoprompt/continuous_trigger_mlm.py
+args:
+    - '--model-name'
+    - 'albert-xxlarge-v2'
+    - '--train'
+    - 'data/LittleGLUE/MNLI_mismatched/train.jsonl'
+    - '--dev'
+    - 'data/LittleGLUE/MNLI_mismatched/dev.jsonl'
+    - '--test'
+    - 'data/LittleGLUE/MNLI_mismatched/dev_all.jsonl'
+    - '--ckpt-dir'
+    - 'ckpt/mnli-mismatched-cinf_model_albert-xxlarge-v2_template_{{template_idx}}_initial-trigger_{{pet}}_label-map_{{label_idx}}_lr_{{lr}}_accumulation-steps_{{accumulation_steps}}_finetune-mode_{{finetune_mode}}'
+    - '--evaluation-strategy'
+    - 'classification'
+    - '--finetune-mode'
+    - '{{finetune_mode}}'
+    - '--template'
+    - '{{template}}'
+    - '--label-map'
+    - '{{label_map}}'
+    - '--epochs'
+    - '30'
+    - '--bsz'
+    - '2'
+    - '--clip'
+    - '1.0'
+    - '--accumulation-steps'
+    - '{{accumulation_steps}}'
+    - '--lr'
+    - '{{lr}}'
+{% if pet %}
+    - '--initial-trigger' 
+{% for token in initial_trigger %}
+    - '{{token}}'
+{% endfor %}
+{% endif %}
+    - '--quiet'
+    - '--tmp'
+    - '-f'
+...
+{% endfor %}
+{%- endfor %}
+{%- endfor %}
+{%- endfor %}
+{%- endfor %}
+{%- endfor %}

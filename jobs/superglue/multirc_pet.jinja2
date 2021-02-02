@@ -1,0 +1,56 @@
+{% for seed in [1,2,3,4,5] -%}
+{% for template in [
+    '{passage} [SEP] Question: {question} Is it {answer} ? [P] .',
+    '{passage} [SEP] Question: {question} Is the correct answer {answer} ? [P] .',
+    '{passage} [SEP] Based on the previous passage, {question} Is "{answer}" the correct answer? [P] .',
+]-%}
+{% set i = loop.index %}
+{% for label_map in [
+    '{"0": "false", "1": "true"}',
+    '{"0": "no", "1": "yes"}',
+] -%}
+{% set j = loop.index %}
+---
+out: pet_model_albert-xxlarge-v2_seed_{{seed}}_template_{{i}}_label-map_{{j}}
+script: autoprompt/continuous_trigger_mlm.py
+args:
+    - '--model-name'
+    - 'albert-xxlarge-v2'
+    - '--train'
+    - 'data/FewGLUE/MultiRC/train.jsonl'
+    - '--dev'
+    - 'data/SuperGLUE/MultiRC/val.jsonl'
+    - '--test'
+    - 'data/SuperGLUE/MultiRC/val.jsonl'
+    - '--preprocessor'
+    - 'multirc'
+    - '--evaluation-strategy'
+    - 'classification'
+    - '--template'
+    - "{{template}}"
+    - '--label-map'
+    - '{{label_map}}'
+    - '--seed'
+    - '{{seed}}'
+    - '--epochs'
+    - '15'
+    - '--bsz'
+    - '2'
+    - '--accumulation-steps'
+    - '8'
+    - '--lr'
+    - '1e-5'
+    - '--clip'
+    - '1.0'
+    - '--finetune-mode'
+    - 'all'
+    - '--skip-eval'
+    - '--tmp'
+    - '--quiet'
+    - '-f'
+    - '--ckpt-dir'
+    - 'ckpt/multirc/cinf_model_albert-xxlarge-v2_seed_{{seed}}_template_{{i}}_label-map_{{j}}'
+...
+{% endfor %}
+{%- endfor %}
+{%- endfor %}

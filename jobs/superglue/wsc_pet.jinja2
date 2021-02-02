@@ -1,0 +1,51 @@
+{% for seed in [1,2,3,4,5] -%}
+{% for template in [
+    "{sentence} The pronoun '*{pronoun}*' refers to [P] .",
+    "{sentence} In the previous sentence, the pronoun '*{pronoun}*' refers to [P] .",
+    "{sentence} In the passage above, what does the pronoun '*{pronoun}*'refer to? Answer: [P].",
+] -%}
+{% set i = loop.index %}
+---
+out: pet_model_albert-xxlarge-v2_seed_{{seed}}_template_{{i}}
+script: autoprompt/continuous_trigger_mlm.py
+args:
+    - '--model-name'
+    - 'albert-xxlarge-v2'
+    - '--train'
+    - 'data/FewGLUE/WSC/train.jsonl'
+    - '--dev'
+    - 'data/SuperGLUE/WSC/val.jsonl'
+    - '--test'
+    - 'data/SuperGLUE/WSC/val.jsonl'
+    - '--preprocessor'
+    - 'wsc'
+    - '--evaluation-strategy'
+    - 'generative'
+    - '--decoding-strategy'
+    - 'iterative'
+    - '--add-padding'
+    - '--template'
+    - "{{template}}"
+    - '--seed'
+    - '{{seed}}'
+    - '--epochs'
+    - '15'
+    - '--bsz'
+    - '2'
+    - '--accumulation-steps'
+    - '8'
+    - '--lr'
+    - '1e-5'
+    - '--clip'
+    - '1.0'
+    - '--finetune-mode'
+    - 'all'
+    - '--skip-eval'
+    - '--tmp'
+    - '--quiet'
+    - '-f'
+    - '--ckpt-dir'
+    - 'ckpt/wsc/pet_model_albert-xxlarge-v2_seed_{{seed}}_template_{{i}}'
+...
+{% endfor %}
+{%- endfor %}

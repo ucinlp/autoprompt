@@ -1,0 +1,991 @@
+---
+out: finetune_model_roberta-large_task_CB_seed_1_limit_10
+script: autoprompt/finetune.py
+args:
+    - '--model-name=roberta-large'
+    - '--train=data/SuperGLUE/CB/train.jsonl'
+    - '--dev=data/SuperGLUE/CB/val.jsonl'
+    - '--test=data/SuperGLUE/CB/val.jsonl'
+    - '--field-a=premise'
+    - '--field-b=hypothesis'
+    - '--num-labels=3'
+    - '--bsz=10'
+    - '-f'
+    - '--max-length=128'
+    - '--epochs=10'
+    - '--lr=2e-5'
+    - '--limit=10'
+    - '--seed=1'
+    - '--bias-correction'
+    - '--ckpt=ckpt/finetune_model_roberta-large_task_CB_seed_1_limit_10'
+    - '--quiet'
+    - '--tmp'
+    - '--warmup'
+...
+---
+out: finetune_model_roberta-large_task_CB_seed_1_limit_50
+script: autoprompt/finetune.py
+args:
+    - '--model-name=roberta-large'
+    - '--train=data/SuperGLUE/CB/train.jsonl'
+    - '--dev=data/SuperGLUE/CB/val.jsonl'
+    - '--test=data/SuperGLUE/CB/val.jsonl'
+    - '--field-a=premise'
+    - '--field-b=hypothesis'
+    - '--num-labels=3'
+    - '--bsz=8'
+    - '--accumulation-steps=3'
+    - '-f'
+    - '--max-length=128'
+    - '--epochs=10'
+    - '--lr=2e-5'
+    - '--limit=50'
+    - '--seed=1'
+    - '--bias-correction'
+    - '--ckpt=ckpt/finetune_model_roberta-large_task_CB_seed_1_limit_50'
+    - '--quiet'
+    - '--tmp'
+    - '--warmup'
+...
+---
+out: finetune_model_roberta-large_task_CB_seed_1_limit_100
+script: autoprompt/finetune.py
+args:
+    - '--model-name=roberta-large'
+    - '--train=data/SuperGLUE/CB/train.jsonl'
+    - '--dev=data/SuperGLUE/CB/val.jsonl'
+    - '--test=data/SuperGLUE/CB/val.jsonl'
+    - '--field-a=premise'
+    - '--field-b=hypothesis'
+    - '--num-labels=3'
+    - '--bsz=8'
+    - '--accumulation-steps=3'
+    - '-f'
+    - '--max-length=128'
+    - '--epochs=10'
+    - '--lr=2e-5'
+    - '--limit=100'
+    - '--seed=1'
+    - '--bias-correction'
+    - '--ckpt=ckpt/finetune_model_roberta-large_task_CB_seed_1_limit_100'
+    - '--quiet'
+    - '--tmp'
+    - '--warmup'
+...
+---
+out: finetune_model_roberta-large_task_CB_seed_1_limit_1000
+script: autoprompt/finetune.py
+args:
+    - '--model-name=roberta-large'
+    - '--train=data/SuperGLUE/CB/train.jsonl'
+    - '--dev=data/SuperGLUE/CB/val.jsonl'
+    - '--test=data/SuperGLUE/CB/val.jsonl'
+    - '--field-a=premise'
+    - '--field-b=hypothesis'
+    - '--num-labels=3'
+    - '--bsz=8'
+    - '--accumulation-steps=3'
+    - '-f'
+    - '--max-length=128'
+    - '--epochs=10'
+    - '--lr=2e-5'
+    - '--limit=1000'
+    - '--seed=1'
+    - '--bias-correction'
+    - '--ckpt=ckpt/finetune_model_roberta-large_task_CB_seed_1_limit_1000'
+    - '--quiet'
+    - '--tmp'
+    - '--warmup'
+...
+---
+out: finetune_model_roberta-large_task_CB_seed_420_limit_10
+script: autoprompt/finetune.py
+args:
+    - '--model-name=roberta-large'
+    - '--train=data/SuperGLUE/CB/train.jsonl'
+    - '--dev=data/SuperGLUE/CB/val.jsonl'
+    - '--test=data/SuperGLUE/CB/val.jsonl'
+    - '--field-a=premise'
+    - '--field-b=hypothesis'
+    - '--num-labels=3'
+    - '--bsz=10'
+    - '-f'
+    - '--max-length=128'
+    - '--epochs=10'
+    - '--lr=2e-5'
+    - '--limit=10'
+    - '--seed=420'
+    - '--bias-correction'
+    - '--ckpt=ckpt/finetune_model_roberta-large_task_CB_seed_420_limit_10'
+    - '--quiet'
+    - '--tmp'
+    - '--warmup'
+...
+---
+out: finetune_model_roberta-large_task_CB_seed_420_limit_50
+script: autoprompt/finetune.py
+args:
+    - '--model-name=roberta-large'
+    - '--train=data/SuperGLUE/CB/train.jsonl'
+    - '--dev=data/SuperGLUE/CB/val.jsonl'
+    - '--test=data/SuperGLUE/CB/val.jsonl'
+    - '--field-a=premise'
+    - '--field-b=hypothesis'
+    - '--num-labels=3'
+    - '--bsz=8'
+    - '--accumulation-steps=3'
+    - '-f'
+    - '--max-length=128'
+    - '--epochs=10'
+    - '--lr=2e-5'
+    - '--limit=50'
+    - '--seed=420'
+    - '--bias-correction'
+    - '--ckpt=ckpt/finetune_model_roberta-large_task_CB_seed_420_limit_50'
+    - '--quiet'
+    - '--tmp'
+    - '--warmup'
+...
+---
+out: finetune_model_roberta-large_task_CB_seed_420_limit_100
+script: autoprompt/finetune.py
+args:
+    - '--model-name=roberta-large'
+    - '--train=data/SuperGLUE/CB/train.jsonl'
+    - '--dev=data/SuperGLUE/CB/val.jsonl'
+    - '--test=data/SuperGLUE/CB/val.jsonl'
+    - '--field-a=premise'
+    - '--field-b=hypothesis'
+    - '--num-labels=3'
+    - '--bsz=8'
+    - '--accumulation-steps=3'
+    - '-f'
+    - '--max-length=128'
+    - '--epochs=10'
+    - '--lr=2e-5'
+    - '--limit=100'
+    - '--seed=420'
+    - '--bias-correction'
+    - '--ckpt=ckpt/finetune_model_roberta-large_task_CB_seed_420_limit_100'
+    - '--quiet'
+    - '--tmp'
+    - '--warmup'
+...
+---
+out: finetune_model_roberta-large_task_CB_seed_420_limit_1000
+script: autoprompt/finetune.py
+args:
+    - '--model-name=roberta-large'
+    - '--train=data/SuperGLUE/CB/train.jsonl'
+    - '--dev=data/SuperGLUE/CB/val.jsonl'
+    - '--test=data/SuperGLUE/CB/val.jsonl'
+    - '--field-a=premise'
+    - '--field-b=hypothesis'
+    - '--num-labels=3'
+    - '--bsz=8'
+    - '--accumulation-steps=3'
+    - '-f'
+    - '--max-length=128'
+    - '--epochs=10'
+    - '--lr=2e-5'
+    - '--limit=1000'
+    - '--seed=420'
+    - '--bias-correction'
+    - '--ckpt=ckpt/finetune_model_roberta-large_task_CB_seed_420_limit_1000'
+    - '--quiet'
+    - '--tmp'
+    - '--warmup'
+...
+---
+out: finetune_model_roberta-large_task_CB_seed_808_limit_10
+script: autoprompt/finetune.py
+args:
+    - '--model-name=roberta-large'
+    - '--train=data/SuperGLUE/CB/train.jsonl'
+    - '--dev=data/SuperGLUE/CB/val.jsonl'
+    - '--test=data/SuperGLUE/CB/val.jsonl'
+    - '--field-a=premise'
+    - '--field-b=hypothesis'
+    - '--num-labels=3'
+    - '--bsz=10'
+    - '-f'
+    - '--max-length=128'
+    - '--epochs=10'
+    - '--lr=2e-5'
+    - '--limit=10'
+    - '--seed=808'
+    - '--bias-correction'
+    - '--ckpt=ckpt/finetune_model_roberta-large_task_CB_seed_808_limit_10'
+    - '--quiet'
+    - '--tmp'
+    - '--warmup'
+...
+---
+out: finetune_model_roberta-large_task_CB_seed_808_limit_50
+script: autoprompt/finetune.py
+args:
+    - '--model-name=roberta-large'
+    - '--train=data/SuperGLUE/CB/train.jsonl'
+    - '--dev=data/SuperGLUE/CB/val.jsonl'
+    - '--test=data/SuperGLUE/CB/val.jsonl'
+    - '--field-a=premise'
+    - '--field-b=hypothesis'
+    - '--num-labels=3'
+    - '--bsz=8'
+    - '--accumulation-steps=3'
+    - '-f'
+    - '--max-length=128'
+    - '--epochs=10'
+    - '--lr=2e-5'
+    - '--limit=50'
+    - '--seed=808'
+    - '--bias-correction'
+    - '--ckpt=ckpt/finetune_model_roberta-large_task_CB_seed_808_limit_50'
+    - '--quiet'
+    - '--tmp'
+    - '--warmup'
+...
+---
+out: finetune_model_roberta-large_task_CB_seed_808_limit_100
+script: autoprompt/finetune.py
+args:
+    - '--model-name=roberta-large'
+    - '--train=data/SuperGLUE/CB/train.jsonl'
+    - '--dev=data/SuperGLUE/CB/val.jsonl'
+    - '--test=data/SuperGLUE/CB/val.jsonl'
+    - '--field-a=premise'
+    - '--field-b=hypothesis'
+    - '--num-labels=3'
+    - '--bsz=8'
+    - '--accumulation-steps=3'
+    - '-f'
+    - '--max-length=128'
+    - '--epochs=10'
+    - '--lr=2e-5'
+    - '--limit=100'
+    - '--seed=808'
+    - '--bias-correction'
+    - '--ckpt=ckpt/finetune_model_roberta-large_task_CB_seed_808_limit_100'
+    - '--quiet'
+    - '--tmp'
+    - '--warmup'
+...
+---
+out: finetune_model_roberta-large_task_CB_seed_808_limit_1000
+script: autoprompt/finetune.py
+args:
+    - '--model-name=roberta-large'
+    - '--train=data/SuperGLUE/CB/train.jsonl'
+    - '--dev=data/SuperGLUE/CB/val.jsonl'
+    - '--test=data/SuperGLUE/CB/val.jsonl'
+    - '--field-a=premise'
+    - '--field-b=hypothesis'
+    - '--num-labels=3'
+    - '--bsz=8'
+    - '--accumulation-steps=3'
+    - '-f'
+    - '--max-length=128'
+    - '--epochs=10'
+    - '--lr=2e-5'
+    - '--limit=1000'
+    - '--seed=808'
+    - '--bias-correction'
+    - '--ckpt=ckpt/finetune_model_roberta-large_task_CB_seed_808_limit_1000'
+    - '--quiet'
+    - '--tmp'
+    - '--warmup'
+...
+---
+out: finetune_model_roberta-large_task_CB_seed_1234_limit_10
+script: autoprompt/finetune.py
+args:
+    - '--model-name=roberta-large'
+    - '--train=data/SuperGLUE/CB/train.jsonl'
+    - '--dev=data/SuperGLUE/CB/val.jsonl'
+    - '--test=data/SuperGLUE/CB/val.jsonl'
+    - '--field-a=premise'
+    - '--field-b=hypothesis'
+    - '--num-labels=3'
+    - '--bsz=10'
+    - '-f'
+    - '--max-length=128'
+    - '--epochs=10'
+    - '--lr=2e-5'
+    - '--limit=10'
+    - '--seed=1234'
+    - '--bias-correction'
+    - '--ckpt=ckpt/finetune_model_roberta-large_task_CB_seed_1234_limit_10'
+    - '--quiet'
+    - '--tmp'
+    - '--warmup'
+...
+---
+out: finetune_model_roberta-large_task_CB_seed_1234_limit_50
+script: autoprompt/finetune.py
+args:
+    - '--model-name=roberta-large'
+    - '--train=data/SuperGLUE/CB/train.jsonl'
+    - '--dev=data/SuperGLUE/CB/val.jsonl'
+    - '--test=data/SuperGLUE/CB/val.jsonl'
+    - '--field-a=premise'
+    - '--field-b=hypothesis'
+    - '--num-labels=3'
+    - '--bsz=8'
+    - '--accumulation-steps=3'
+    - '-f'
+    - '--max-length=128'
+    - '--epochs=10'
+    - '--lr=2e-5'
+    - '--limit=50'
+    - '--seed=1234'
+    - '--bias-correction'
+    - '--ckpt=ckpt/finetune_model_roberta-large_task_CB_seed_1234_limit_50'
+    - '--quiet'
+    - '--tmp'
+    - '--warmup'
+...
+---
+out: finetune_model_roberta-large_task_CB_seed_1234_limit_100
+script: autoprompt/finetune.py
+args:
+    - '--model-name=roberta-large'
+    - '--train=data/SuperGLUE/CB/train.jsonl'
+    - '--dev=data/SuperGLUE/CB/val.jsonl'
+    - '--test=data/SuperGLUE/CB/val.jsonl'
+    - '--field-a=premise'
+    - '--field-b=hypothesis'
+    - '--num-labels=3'
+    - '--bsz=8'
+    - '--accumulation-steps=3'
+    - '-f'
+    - '--max-length=128'
+    - '--epochs=10'
+    - '--lr=2e-5'
+    - '--limit=100'
+    - '--seed=1234'
+    - '--bias-correction'
+    - '--ckpt=ckpt/finetune_model_roberta-large_task_CB_seed_1234_limit_100'
+    - '--quiet'
+    - '--tmp'
+    - '--warmup'
+...
+---
+out: finetune_model_roberta-large_task_CB_seed_1234_limit_1000
+script: autoprompt/finetune.py
+args:
+    - '--model-name=roberta-large'
+    - '--train=data/SuperGLUE/CB/train.jsonl'
+    - '--dev=data/SuperGLUE/CB/val.jsonl'
+    - '--test=data/SuperGLUE/CB/val.jsonl'
+    - '--field-a=premise'
+    - '--field-b=hypothesis'
+    - '--num-labels=3'
+    - '--bsz=8'
+    - '--accumulation-steps=3'
+    - '-f'
+    - '--max-length=128'
+    - '--epochs=10'
+    - '--lr=2e-5'
+    - '--limit=1000'
+    - '--seed=1234'
+    - '--bias-correction'
+    - '--ckpt=ckpt/finetune_model_roberta-large_task_CB_seed_1234_limit_1000'
+    - '--quiet'
+    - '--tmp'
+    - '--warmup'
+...
+---
+out: finetune_model_roberta-large_task_CB_seed_1337_limit_10
+script: autoprompt/finetune.py
+args:
+    - '--model-name=roberta-large'
+    - '--train=data/SuperGLUE/CB/train.jsonl'
+    - '--dev=data/SuperGLUE/CB/val.jsonl'
+    - '--test=data/SuperGLUE/CB/val.jsonl'
+    - '--field-a=premise'
+    - '--field-b=hypothesis'
+    - '--num-labels=3'
+    - '--bsz=10'
+    - '-f'
+    - '--max-length=128'
+    - '--epochs=10'
+    - '--lr=2e-5'
+    - '--limit=10'
+    - '--seed=1337'
+    - '--bias-correction'
+    - '--ckpt=ckpt/finetune_model_roberta-large_task_CB_seed_1337_limit_10'
+    - '--quiet'
+    - '--tmp'
+    - '--warmup'
+...
+---
+out: finetune_model_roberta-large_task_CB_seed_1337_limit_50
+script: autoprompt/finetune.py
+args:
+    - '--model-name=roberta-large'
+    - '--train=data/SuperGLUE/CB/train.jsonl'
+    - '--dev=data/SuperGLUE/CB/val.jsonl'
+    - '--test=data/SuperGLUE/CB/val.jsonl'
+    - '--field-a=premise'
+    - '--field-b=hypothesis'
+    - '--num-labels=3'
+    - '--bsz=8'
+    - '--accumulation-steps=3'
+    - '-f'
+    - '--max-length=128'
+    - '--epochs=10'
+    - '--lr=2e-5'
+    - '--limit=50'
+    - '--seed=1337'
+    - '--bias-correction'
+    - '--ckpt=ckpt/finetune_model_roberta-large_task_CB_seed_1337_limit_50'
+    - '--quiet'
+    - '--tmp'
+    - '--warmup'
+...
+---
+out: finetune_model_roberta-large_task_CB_seed_1337_limit_100
+script: autoprompt/finetune.py
+args:
+    - '--model-name=roberta-large'
+    - '--train=data/SuperGLUE/CB/train.jsonl'
+    - '--dev=data/SuperGLUE/CB/val.jsonl'
+    - '--test=data/SuperGLUE/CB/val.jsonl'
+    - '--field-a=premise'
+    - '--field-b=hypothesis'
+    - '--num-labels=3'
+    - '--bsz=8'
+    - '--accumulation-steps=3'
+    - '-f'
+    - '--max-length=128'
+    - '--epochs=10'
+    - '--lr=2e-5'
+    - '--limit=100'
+    - '--seed=1337'
+    - '--bias-correction'
+    - '--ckpt=ckpt/finetune_model_roberta-large_task_CB_seed_1337_limit_100'
+    - '--quiet'
+    - '--tmp'
+    - '--warmup'
+...
+---
+out: finetune_model_roberta-large_task_CB_seed_1337_limit_1000
+script: autoprompt/finetune.py
+args:
+    - '--model-name=roberta-large'
+    - '--train=data/SuperGLUE/CB/train.jsonl'
+    - '--dev=data/SuperGLUE/CB/val.jsonl'
+    - '--test=data/SuperGLUE/CB/val.jsonl'
+    - '--field-a=premise'
+    - '--field-b=hypothesis'
+    - '--num-labels=3'
+    - '--bsz=8'
+    - '--accumulation-steps=3'
+    - '-f'
+    - '--max-length=128'
+    - '--epochs=10'
+    - '--lr=2e-5'
+    - '--limit=1000'
+    - '--seed=1337'
+    - '--bias-correction'
+    - '--ckpt=ckpt/finetune_model_roberta-large_task_CB_seed_1337_limit_1000'
+    - '--quiet'
+    - '--tmp'
+    - '--warmup'
+...
+---
+out: finetune_model_roberta-large_task_RTE_seed_1_limit_10
+script: autoprompt/finetune.py
+args:
+    - '--model-name=roberta-large'
+    - '--train=data/SuperGLUE/RTE/train.jsonl'
+    - '--dev=data/SuperGLUE/RTE/val.jsonl'
+    - '--test=data/SuperGLUE/RTE/val.jsonl'
+    - '--field-a=premise'
+    - '--field-b=hypothesis'
+    - '--num-labels=2'
+    - '--bsz=10'
+    - '-f'
+    - '--max-length=128'
+    - '--epochs=10'
+    - '--lr=2e-5'
+    - '--limit=10'
+    - '--seed=1'
+    - '--bias-correction'
+    - '--ckpt=ckpt/finetune_model_roberta-large_task_RTE_seed_1_limit_10'
+    - '--quiet'
+    - '--tmp'
+    - '--warmup'
+...
+---
+out: finetune_model_roberta-large_task_RTE_seed_1_limit_50
+script: autoprompt/finetune.py
+args:
+    - '--model-name=roberta-large'
+    - '--train=data/SuperGLUE/RTE/train.jsonl'
+    - '--dev=data/SuperGLUE/RTE/val.jsonl'
+    - '--test=data/SuperGLUE/RTE/val.jsonl'
+    - '--field-a=premise'
+    - '--field-b=hypothesis'
+    - '--num-labels=2'
+    - '--bsz=8'
+    - '--accumulation-steps=3'
+    - '-f'
+    - '--max-length=128'
+    - '--epochs=10'
+    - '--lr=2e-5'
+    - '--limit=50'
+    - '--seed=1'
+    - '--bias-correction'
+    - '--ckpt=ckpt/finetune_model_roberta-large_task_RTE_seed_1_limit_50'
+    - '--quiet'
+    - '--tmp'
+    - '--warmup'
+...
+---
+out: finetune_model_roberta-large_task_RTE_seed_1_limit_100
+script: autoprompt/finetune.py
+args:
+    - '--model-name=roberta-large'
+    - '--train=data/SuperGLUE/RTE/train.jsonl'
+    - '--dev=data/SuperGLUE/RTE/val.jsonl'
+    - '--test=data/SuperGLUE/RTE/val.jsonl'
+    - '--field-a=premise'
+    - '--field-b=hypothesis'
+    - '--num-labels=2'
+    - '--bsz=8'
+    - '--accumulation-steps=3'
+    - '-f'
+    - '--max-length=128'
+    - '--epochs=10'
+    - '--lr=2e-5'
+    - '--limit=100'
+    - '--seed=1'
+    - '--bias-correction'
+    - '--ckpt=ckpt/finetune_model_roberta-large_task_RTE_seed_1_limit_100'
+    - '--quiet'
+    - '--tmp'
+    - '--warmup'
+...
+---
+out: finetune_model_roberta-large_task_RTE_seed_1_limit_1000
+script: autoprompt/finetune.py
+args:
+    - '--model-name=roberta-large'
+    - '--train=data/SuperGLUE/RTE/train.jsonl'
+    - '--dev=data/SuperGLUE/RTE/val.jsonl'
+    - '--test=data/SuperGLUE/RTE/val.jsonl'
+    - '--field-a=premise'
+    - '--field-b=hypothesis'
+    - '--num-labels=2'
+    - '--bsz=8'
+    - '--accumulation-steps=3'
+    - '-f'
+    - '--max-length=128'
+    - '--epochs=10'
+    - '--lr=2e-5'
+    - '--limit=1000'
+    - '--seed=1'
+    - '--bias-correction'
+    - '--ckpt=ckpt/finetune_model_roberta-large_task_RTE_seed_1_limit_1000'
+    - '--quiet'
+    - '--tmp'
+    - '--warmup'
+...
+---
+out: finetune_model_roberta-large_task_RTE_seed_420_limit_10
+script: autoprompt/finetune.py
+args:
+    - '--model-name=roberta-large'
+    - '--train=data/SuperGLUE/RTE/train.jsonl'
+    - '--dev=data/SuperGLUE/RTE/val.jsonl'
+    - '--test=data/SuperGLUE/RTE/val.jsonl'
+    - '--field-a=premise'
+    - '--field-b=hypothesis'
+    - '--num-labels=2'
+    - '--bsz=10'
+    - '-f'
+    - '--max-length=128'
+    - '--epochs=10'
+    - '--lr=2e-5'
+    - '--limit=10'
+    - '--seed=420'
+    - '--bias-correction'
+    - '--ckpt=ckpt/finetune_model_roberta-large_task_RTE_seed_420_limit_10'
+    - '--quiet'
+    - '--tmp'
+    - '--warmup'
+...
+---
+out: finetune_model_roberta-large_task_RTE_seed_420_limit_50
+script: autoprompt/finetune.py
+args:
+    - '--model-name=roberta-large'
+    - '--train=data/SuperGLUE/RTE/train.jsonl'
+    - '--dev=data/SuperGLUE/RTE/val.jsonl'
+    - '--test=data/SuperGLUE/RTE/val.jsonl'
+    - '--field-a=premise'
+    - '--field-b=hypothesis'
+    - '--num-labels=2'
+    - '--bsz=8'
+    - '--accumulation-steps=3'
+    - '-f'
+    - '--max-length=128'
+    - '--epochs=10'
+    - '--lr=2e-5'
+    - '--limit=50'
+    - '--seed=420'
+    - '--bias-correction'
+    - '--ckpt=ckpt/finetune_model_roberta-large_task_RTE_seed_420_limit_50'
+    - '--quiet'
+    - '--tmp'
+    - '--warmup'
+...
+---
+out: finetune_model_roberta-large_task_RTE_seed_420_limit_100
+script: autoprompt/finetune.py
+args:
+    - '--model-name=roberta-large'
+    - '--train=data/SuperGLUE/RTE/train.jsonl'
+    - '--dev=data/SuperGLUE/RTE/val.jsonl'
+    - '--test=data/SuperGLUE/RTE/val.jsonl'
+    - '--field-a=premise'
+    - '--field-b=hypothesis'
+    - '--num-labels=2'
+    - '--bsz=8'
+    - '--accumulation-steps=3'
+    - '-f'
+    - '--max-length=128'
+    - '--epochs=10'
+    - '--lr=2e-5'
+    - '--limit=100'
+    - '--seed=420'
+    - '--bias-correction'
+    - '--ckpt=ckpt/finetune_model_roberta-large_task_RTE_seed_420_limit_100'
+    - '--quiet'
+    - '--tmp'
+    - '--warmup'
+...
+---
+out: finetune_model_roberta-large_task_RTE_seed_420_limit_1000
+script: autoprompt/finetune.py
+args:
+    - '--model-name=roberta-large'
+    - '--train=data/SuperGLUE/RTE/train.jsonl'
+    - '--dev=data/SuperGLUE/RTE/val.jsonl'
+    - '--test=data/SuperGLUE/RTE/val.jsonl'
+    - '--field-a=premise'
+    - '--field-b=hypothesis'
+    - '--num-labels=2'
+    - '--bsz=8'
+    - '--accumulation-steps=3'
+    - '-f'
+    - '--max-length=128'
+    - '--epochs=10'
+    - '--lr=2e-5'
+    - '--limit=1000'
+    - '--seed=420'
+    - '--bias-correction'
+    - '--ckpt=ckpt/finetune_model_roberta-large_task_RTE_seed_420_limit_1000'
+    - '--quiet'
+    - '--tmp'
+    - '--warmup'
+...
+---
+out: finetune_model_roberta-large_task_RTE_seed_808_limit_10
+script: autoprompt/finetune.py
+args:
+    - '--model-name=roberta-large'
+    - '--train=data/SuperGLUE/RTE/train.jsonl'
+    - '--dev=data/SuperGLUE/RTE/val.jsonl'
+    - '--test=data/SuperGLUE/RTE/val.jsonl'
+    - '--field-a=premise'
+    - '--field-b=hypothesis'
+    - '--num-labels=2'
+    - '--bsz=10'
+    - '-f'
+    - '--max-length=128'
+    - '--epochs=10'
+    - '--lr=2e-5'
+    - '--limit=10'
+    - '--seed=808'
+    - '--bias-correction'
+    - '--ckpt=ckpt/finetune_model_roberta-large_task_RTE_seed_808_limit_10'
+    - '--quiet'
+    - '--tmp'
+    - '--warmup'
+...
+---
+out: finetune_model_roberta-large_task_RTE_seed_808_limit_50
+script: autoprompt/finetune.py
+args:
+    - '--model-name=roberta-large'
+    - '--train=data/SuperGLUE/RTE/train.jsonl'
+    - '--dev=data/SuperGLUE/RTE/val.jsonl'
+    - '--test=data/SuperGLUE/RTE/val.jsonl'
+    - '--field-a=premise'
+    - '--field-b=hypothesis'
+    - '--num-labels=2'
+    - '--bsz=8'
+    - '--accumulation-steps=3'
+    - '-f'
+    - '--max-length=128'
+    - '--epochs=10'
+    - '--lr=2e-5'
+    - '--limit=50'
+    - '--seed=808'
+    - '--bias-correction'
+    - '--ckpt=ckpt/finetune_model_roberta-large_task_RTE_seed_808_limit_50'
+    - '--quiet'
+    - '--tmp'
+    - '--warmup'
+...
+---
+out: finetune_model_roberta-large_task_RTE_seed_808_limit_100
+script: autoprompt/finetune.py
+args:
+    - '--model-name=roberta-large'
+    - '--train=data/SuperGLUE/RTE/train.jsonl'
+    - '--dev=data/SuperGLUE/RTE/val.jsonl'
+    - '--test=data/SuperGLUE/RTE/val.jsonl'
+    - '--field-a=premise'
+    - '--field-b=hypothesis'
+    - '--num-labels=2'
+    - '--bsz=8'
+    - '--accumulation-steps=3'
+    - '-f'
+    - '--max-length=128'
+    - '--epochs=10'
+    - '--lr=2e-5'
+    - '--limit=100'
+    - '--seed=808'
+    - '--bias-correction'
+    - '--ckpt=ckpt/finetune_model_roberta-large_task_RTE_seed_808_limit_100'
+    - '--quiet'
+    - '--tmp'
+    - '--warmup'
+...
+---
+out: finetune_model_roberta-large_task_RTE_seed_808_limit_1000
+script: autoprompt/finetune.py
+args:
+    - '--model-name=roberta-large'
+    - '--train=data/SuperGLUE/RTE/train.jsonl'
+    - '--dev=data/SuperGLUE/RTE/val.jsonl'
+    - '--test=data/SuperGLUE/RTE/val.jsonl'
+    - '--field-a=premise'
+    - '--field-b=hypothesis'
+    - '--num-labels=2'
+    - '--bsz=8'
+    - '--accumulation-steps=3'
+    - '-f'
+    - '--max-length=128'
+    - '--epochs=10'
+    - '--lr=2e-5'
+    - '--limit=1000'
+    - '--seed=808'
+    - '--bias-correction'
+    - '--ckpt=ckpt/finetune_model_roberta-large_task_RTE_seed_808_limit_1000'
+    - '--quiet'
+    - '--tmp'
+    - '--warmup'
+...
+---
+out: finetune_model_roberta-large_task_RTE_seed_1234_limit_10
+script: autoprompt/finetune.py
+args:
+    - '--model-name=roberta-large'
+    - '--train=data/SuperGLUE/RTE/train.jsonl'
+    - '--dev=data/SuperGLUE/RTE/val.jsonl'
+    - '--test=data/SuperGLUE/RTE/val.jsonl'
+    - '--field-a=premise'
+    - '--field-b=hypothesis'
+    - '--num-labels=2'
+    - '--bsz=10'
+    - '-f'
+    - '--max-length=128'
+    - '--epochs=10'
+    - '--lr=2e-5'
+    - '--limit=10'
+    - '--seed=1234'
+    - '--bias-correction'
+    - '--ckpt=ckpt/finetune_model_roberta-large_task_RTE_seed_1234_limit_10'
+    - '--quiet'
+    - '--tmp'
+    - '--warmup'
+...
+---
+out: finetune_model_roberta-large_task_RTE_seed_1234_limit_50
+script: autoprompt/finetune.py
+args:
+    - '--model-name=roberta-large'
+    - '--train=data/SuperGLUE/RTE/train.jsonl'
+    - '--dev=data/SuperGLUE/RTE/val.jsonl'
+    - '--test=data/SuperGLUE/RTE/val.jsonl'
+    - '--field-a=premise'
+    - '--field-b=hypothesis'
+    - '--num-labels=2'
+    - '--bsz=8'
+    - '--accumulation-steps=3'
+    - '-f'
+    - '--max-length=128'
+    - '--epochs=10'
+    - '--lr=2e-5'
+    - '--limit=50'
+    - '--seed=1234'
+    - '--bias-correction'
+    - '--ckpt=ckpt/finetune_model_roberta-large_task_RTE_seed_1234_limit_50'
+    - '--quiet'
+    - '--tmp'
+    - '--warmup'
+...
+---
+out: finetune_model_roberta-large_task_RTE_seed_1234_limit_100
+script: autoprompt/finetune.py
+args:
+    - '--model-name=roberta-large'
+    - '--train=data/SuperGLUE/RTE/train.jsonl'
+    - '--dev=data/SuperGLUE/RTE/val.jsonl'
+    - '--test=data/SuperGLUE/RTE/val.jsonl'
+    - '--field-a=premise'
+    - '--field-b=hypothesis'
+    - '--num-labels=2'
+    - '--bsz=8'
+    - '--accumulation-steps=3'
+    - '-f'
+    - '--max-length=128'
+    - '--epochs=10'
+    - '--lr=2e-5'
+    - '--limit=100'
+    - '--seed=1234'
+    - '--bias-correction'
+    - '--ckpt=ckpt/finetune_model_roberta-large_task_RTE_seed_1234_limit_100'
+    - '--quiet'
+    - '--tmp'
+    - '--warmup'
+...
+---
+out: finetune_model_roberta-large_task_RTE_seed_1234_limit_1000
+script: autoprompt/finetune.py
+args:
+    - '--model-name=roberta-large'
+    - '--train=data/SuperGLUE/RTE/train.jsonl'
+    - '--dev=data/SuperGLUE/RTE/val.jsonl'
+    - '--test=data/SuperGLUE/RTE/val.jsonl'
+    - '--field-a=premise'
+    - '--field-b=hypothesis'
+    - '--num-labels=2'
+    - '--bsz=8'
+    - '--accumulation-steps=3'
+    - '-f'
+    - '--max-length=128'
+    - '--epochs=10'
+    - '--lr=2e-5'
+    - '--limit=1000'
+    - '--seed=1234'
+    - '--bias-correction'
+    - '--ckpt=ckpt/finetune_model_roberta-large_task_RTE_seed_1234_limit_1000'
+    - '--quiet'
+    - '--tmp'
+    - '--warmup'
+...
+---
+out: finetune_model_roberta-large_task_RTE_seed_1337_limit_10
+script: autoprompt/finetune.py
+args:
+    - '--model-name=roberta-large'
+    - '--train=data/SuperGLUE/RTE/train.jsonl'
+    - '--dev=data/SuperGLUE/RTE/val.jsonl'
+    - '--test=data/SuperGLUE/RTE/val.jsonl'
+    - '--field-a=premise'
+    - '--field-b=hypothesis'
+    - '--num-labels=2'
+    - '--bsz=10'
+    - '-f'
+    - '--max-length=128'
+    - '--epochs=10'
+    - '--lr=2e-5'
+    - '--limit=10'
+    - '--seed=1337'
+    - '--bias-correction'
+    - '--ckpt=ckpt/finetune_model_roberta-large_task_RTE_seed_1337_limit_10'
+    - '--quiet'
+    - '--tmp'
+    - '--warmup'
+...
+---
+out: finetune_model_roberta-large_task_RTE_seed_1337_limit_50
+script: autoprompt/finetune.py
+args:
+    - '--model-name=roberta-large'
+    - '--train=data/SuperGLUE/RTE/train.jsonl'
+    - '--dev=data/SuperGLUE/RTE/val.jsonl'
+    - '--test=data/SuperGLUE/RTE/val.jsonl'
+    - '--field-a=premise'
+    - '--field-b=hypothesis'
+    - '--num-labels=2'
+    - '--bsz=8'
+    - '--accumulation-steps=3'
+    - '-f'
+    - '--max-length=128'
+    - '--epochs=10'
+    - '--lr=2e-5'
+    - '--limit=50'
+    - '--seed=1337'
+    - '--bias-correction'
+    - '--ckpt=ckpt/finetune_model_roberta-large_task_RTE_seed_1337_limit_50'
+    - '--quiet'
+    - '--tmp'
+    - '--warmup'
+...
+---
+out: finetune_model_roberta-large_task_RTE_seed_1337_limit_100
+script: autoprompt/finetune.py
+args:
+    - '--model-name=roberta-large'
+    - '--train=data/SuperGLUE/RTE/train.jsonl'
+    - '--dev=data/SuperGLUE/RTE/val.jsonl'
+    - '--test=data/SuperGLUE/RTE/val.jsonl'
+    - '--field-a=premise'
+    - '--field-b=hypothesis'
+    - '--num-labels=2'
+    - '--bsz=8'
+    - '--accumulation-steps=3'
+    - '-f'
+    - '--max-length=128'
+    - '--epochs=10'
+    - '--lr=2e-5'
+    - '--limit=100'
+    - '--seed=1337'
+    - '--bias-correction'
+    - '--ckpt=ckpt/finetune_model_roberta-large_task_RTE_seed_1337_limit_100'
+    - '--quiet'
+    - '--tmp'
+    - '--warmup'
+...
+---
+out: finetune_model_roberta-large_task_RTE_seed_1337_limit_1000
+script: autoprompt/finetune.py
+args:
+    - '--model-name=roberta-large'
+    - '--train=data/SuperGLUE/RTE/train.jsonl'
+    - '--dev=data/SuperGLUE/RTE/val.jsonl'
+    - '--test=data/SuperGLUE/RTE/val.jsonl'
+    - '--field-a=premise'
+    - '--field-b=hypothesis'
+    - '--num-labels=2'
+    - '--bsz=8'
+    - '--accumulation-steps=3'
+    - '-f'
+    - '--max-length=128'
+    - '--epochs=10'
+    - '--lr=2e-5'
+    - '--limit=1000'
+    - '--seed=1337'
+    - '--bias-correction'
+    - '--ckpt=ckpt/finetune_model_roberta-large_task_RTE_seed_1337_limit_1000'
+    - '--quiet'
+    - '--tmp'
+    - '--warmup'
+...
+

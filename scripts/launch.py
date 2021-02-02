@@ -18,6 +18,7 @@ def load_job_queue(fname):
     with open(fname, 'r') as f:
         jobs = yaml.load_all(f)
         for job in jobs:
+            logger.info(job)
             q.put(job)
     return q
 
@@ -26,7 +27,6 @@ def main(args):
     logger.info('Loading jobs from: %s', args.input)
     q = load_job_queue(args.input)
 
-    assert args.logdir.is_dir()
     if not args.logdir.exists():
         logger.info('Creating directory: %s', args.logdir)
         args.logdir.mkdir(parents=True)

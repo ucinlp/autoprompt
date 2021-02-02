@@ -1,0 +1,123 @@
+{% for template, initial_trigger in [
+    ('[T] {sentence1} [T] [T] {sentence2} [T] [T] [T] [T] [T] {word} [T] [T] [P] [T] ', ['"', 'Ġ"/', '"', '".', 'ĠSimilar', 'Ġsense', 'Ġof', 'Ġ"', '"', '?', 'Ġ.']),
+    ('{sentence1} {sentence2} [T] {word} [T] [T] [T] [T] [T] [T] [T] [T] [P]', ['Does', 'Ġhave', 'Ġthe', 'Ġsame', 'Ġmeaning', 'Ġin', 'Ġboth', 'Ġsentences', '?']),
+] -%}
+{% set template_idx = loop.index %}
+{% for pet in [True, False] -%}
+{% for label_map in [
+    '{"True": "Yes", "False": "No"}',
+] -%}
+{% set label_idx = loop.index %}
+{% for lr in [1e-5, 2e-5, 5e-5] -%}
+{% for accumulation_steps in [1, 2, 4] -%}
+{% for finetune_mode in ['trigger', 'partial', 'all'] -%}
+---
+out: wic-cinf_model_roberta-large_template_{{template_idx}}_initial-trigger_{{pet}}_label-map_{{label_idx}}_lr_{{lr}}_accumulation-steps_{{accumulation_steps}}_finetune-mode_{{finetune_mode}}
+script: autoprompt/continuous_trigger_mlm.py
+args:
+    - '--model-name'
+    - 'roberta-large'
+    - '--train'
+    - 'data/SuperFUGUE/WiC/train.jsonl'
+    - '--dev'
+    - 'data/SuperFUGUE/WiC/dev.jsonl'
+    - '--test'
+    - 'data/SuperFUGUE/WiC/dev_all.jsonl'
+    - '--ckpt-dir'
+    - 'ckpt/wic-cinf_model_roberta-large_template_{{template_idx}}_initial-trigger_{{pet}}_label-map_{{label_idx}}_lr_{{lr}}_accumulation-steps_{{accumulation_steps}}_finetune-mode_{{finetune_mode}}'
+    - '--evaluation-strategy'
+    - 'classification'
+    - '--finetune-mode'
+    - '{{finetune_mode}}'
+    - '--template'
+    - '{{template}}'
+    - '--label-map'
+    - '{{label_map}}'
+    - '--epochs'
+    - '30'
+    - '--bsz'
+    - '2'
+    - '--clip'
+    - '1.0'
+    - '--accumulation-steps'
+    - '{{accumulation_steps}}'
+    - '--lr'
+    - '{{lr}}'
+{% if pet %}
+    - '--initial-trigger' 
+{% for token in initial_trigger %}
+    - '{{token}}'
+{% endfor %}
+{% endif %}
+    - '--quiet'
+    - '--tmp'
+    - '-f'
+...
+{% endfor %}
+{%- endfor %}
+{%- endfor %}
+{%- endfor %}
+{%- endfor %}
+{%- endfor %}
+{# ================================ #}
+{% for template, initial_trigger in [
+    ('{sentence1} {sentence2} [T] {word} [T] [T] [T] [T] [T] [T] [T] [T] [P]', ['▁does', '▁have', '▁the', '▁same', '▁meaning', '▁in', '▁both', '▁sentences', '?']),
+] -%}
+{% set template_idx = loop.index %}
+{% for pet in [True, False] -%}
+{% for label_map in [
+    '{"True": "Yes", "False": "No"}',
+] -%}
+{% set label_idx = loop.index %}
+{% for lr in [1e-5, 2e-5, 5e-5] -%}
+{% for accumulation_steps in [1, 2, 4] -%}
+{% for finetune_mode in ['trigger', 'partial', 'all'] -%}
+{% set out = "model_albert-xxlarge-v2_template_{{template_idx}}_initial-trigger_{{pet}}_label-map_{{label_idx}}_lr_{{lr}}_accumulation-steps_{{accumulation_steps}}_finetune-mode_{{finetune_mode}}" -%}
+---
+out: wic-cinf_model_albert-xxlarge-v2_template_{{template_idx}}_initial-trigger_{{pet}}_label-map_{{label_idx}}_lr_{{lr}}_accumulation-steps_{{accumulation_steps}}_finetune-mode_{{finetune_mode}}
+script: autoprompt/continuous_trigger_mlm.py
+args:
+    - '--model-name'
+    - 'albert-xxlarge-v2'
+    - '--train'
+    - 'data/SuperFUGUE/WiC/train.jsonl'
+    - '--dev'
+    - 'data/SuperFUGUE/WiC/dev.jsonl'
+    - '--test'
+    - 'data/SuperFUGUE/WiC/dev_all.jsonl'
+    - '--ckpt-dir'
+    - 'ckpt/wic-cinf_model_albert-xxlarge-v2_template_{{template_idx}}_initial-trigger_{{pet}}_label-map_{{label_idx}}_lr_{{lr}}_accumulation-steps_{{accumulation_steps}}_finetune-mode_{{finetune_mode}}'
+    - '--evaluation-strategy'
+    - 'classification'
+    - '--finetune-mode'
+    - '{{finetune_mode}}'
+    - '--template'
+    - '{{template}}'
+    - '--label-map'
+    - '{{label_map}}'
+    - '--epochs'
+    - '30'
+    - '--bsz'
+    - '2'
+    - '--clip'
+    - '1.0'
+    - '--accumulation-steps'
+    - '{{accumulation_steps}}'
+    - '--lr'
+    - '{{lr}}'
+{% if pet %}
+    - '--initial-trigger' 
+{% for token in initial_trigger %}
+    - '{{token}}'
+{% endfor %}
+{% endif %}
+    - '--quiet'
+    - '--tmp'
+    - '-f'
+...
+{% endfor %}
+{%- endfor %}
+{%- endfor %}
+{%- endfor %}
+{%- endfor %}
+{%- endfor %}

@@ -110,7 +110,7 @@ def load_datasets(args, templatizer, distributed_config):
         templatizer=templatizer,
         preprocessor_key=args.preprocessor,
     )
-    test_sampler = get_sampler(dev_dataset, args.evaluation_strategy, distributed_config, train=False)
+    test_sampler = get_sampler(test_dataset, args.evaluation_strategy, distributed_config, train=False)
     test_loader = DataLoader(test_dataset, batch_size=args.bsz, collate_fn=collator, sampler=test_sampler)
 
     return train_loader, dev_loader, test_loader

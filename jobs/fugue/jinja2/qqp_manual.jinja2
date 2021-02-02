@@ -1,0 +1,93 @@
+{% for template in [
+    '{question1} [P] , {question2}',
+    '{question1} and {question2} have [P] meanings.',
+] -%}
+{% set template_idx = loop.index %}
+{% for label_map in [
+    '{"0": "No", "1": "Yes"}',
+    '{"0": "similar", "1": "different"}'
+] -%}
+{% set label_idx = loop.index %}
+---
+out: qqp-manual_model_roberta-large_template_{{template_idx}}_label-map_{{label_idx}}
+script: autoprompt/continuous_trigger_mlm.py
+args:
+    - '--model-name'
+    - 'roberta-large'
+    - '--train'
+    - 'data/LittleGLUE/QQP/train.jsonl'
+    - '--dev'
+    - 'data/LittleGLUE/QQP/dev.jsonl'
+    - '--test'
+    - 'data/LittleGLUE/QQP/dev_all.jsonl'
+    - '--ckpt-dir'
+    - 'ckpt/qqp-manual_model_roberta-large_template_{{template_idx}}_label-map_{{label_idx}}'
+    - '--evaluation-strategy'
+    - 'classification'
+    - '--finetune-mode'
+    - 'all'
+    - '--template'
+    - '{{template}}'
+    - '--label-map'
+    - '{{label_map}}'
+    - '--epochs'
+    - '30'
+    - '--bsz'
+    - '2'
+    - '--clip'
+    - '1.0'
+    - '--quiet'
+    - '--tmp'
+    - '-f'
+    - '--skip-train'
+    - '--skip-eval'
+...
+{% endfor %}
+{%- endfor %}
+{# ================================ #}
+{% for template in [
+    '{question1} [P] , {question2}',
+    '{question1} and {question2} have [P] meanings.',
+] -%}
+{% set template_idx = loop.index %}
+{% for label_map in [
+    '{"0": "No", "1": "Yes"}',
+    '{"0": "similar", "1": "different"}'
+] -%}
+{% set label_idx = loop.index %}
+---
+out: qqp-manual_model_albert-xxlarge-v2_template_{{template_idx}}_label-map_{{label_idx}}
+script: autoprompt/continuous_trigger_mlm.py
+args:
+    - '--model-name'
+    - 'albert-xxlarge-v2'
+    - '--train'
+    - 'data/LittleGLUE/QQP/train.jsonl'
+    - '--dev'
+    - 'data/LittleGLUE/QQP/dev.jsonl'
+    - '--test'
+    - 'data/LittleGLUE/QQP/dev_all.jsonl'
+    - '--ckpt-dir'
+    - 'ckpt/qqp-manual_model_albert-xxlarge-v2_template_{{template_idx}}_label-map_{{label_idx}}'
+    - '--evaluation-strategy'
+    - 'classification'
+    - '--finetune-mode'
+    - 'all'
+    - '--template'
+    - '{{template}}'
+    - '--label-map'
+    - '{{label_map}}'
+    - '--epochs'
+    - '30'
+    - '--bsz'
+    - '2'
+    - '--clip'
+    - '1.0'
+    - '--quiet'
+    - '--tmp'
+    - '-f'
+    - '--skip-train'
+    - '--skip-eval'
+...
+{% endfor %}
+{%- endfor %}

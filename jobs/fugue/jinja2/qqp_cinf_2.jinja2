@@ -1,0 +1,117 @@
+{% for template, initial_trigger in [
+    ('{question1} [P] [T] {question2}', [',']),
+    ('{question1} [T] {question2} [T] [P] [T] [T]', ['Ġand', 'Ġhave', 'Ġmeanings', '.'])
+] -%}
+{% set template_idx = loop.index %}
+{% for pet in [True, False] -%}
+{% for label_map in [
+    '{"0": "No", "1": "Yes"}',
+    '{"0": "similar", "1": "different"}'
+] -%}
+{% set label_idx = loop.index %}
+{% for accumulation_steps in [1, 2, 4] -%}
+---
+out: qqp-cinf_model_roberta-large_template_{{template_idx}}_initial-trigger_{{pet}}_label-map_{{label_idx}}_lr_1e-3_accumulation-steps_{{accumulation_steps}}_finetune-mode_trigger
+script: autoprompt/continuous_trigger_mlm.py
+args:
+    - '--model-name'
+    - 'roberta-large'
+    - '--train'
+    - 'data/LittleGLUE/QQP/train.jsonl'
+    - '--dev'
+    - 'data/LittleGLUE/QQP/dev.jsonl'
+    - '--test'
+    - 'data/LittleGLUE/QQP/dev_all.jsonl'
+    - '--ckpt-dir'
+    - 'ckpt/qqp-cinf_model_roberta-large_template_{{template_idx}}_initial-trigger_{{pet}}_label-map_{{label_idx}}_lr_1e-3_accumulation-steps_{{accumulation_steps}}_finetune-mode_trigger'
+    - '--evaluation-strategy'
+    - 'classification'
+    - '--finetune-mode'
+    - 'trigger'
+    - '--template'
+    - '{{template}}'
+    - '--label-map'
+    - '{{label_map}}'
+    - '--epochs'
+    - '30'
+    - '--bsz'
+    - '2'
+    - '--clip'
+    - '1.0'
+    - '--accumulation-steps'
+    - '{{accumulation_steps}}'
+    - '--lr'
+    - '1e-3'
+{% if pet %}
+    - '--initial-trigger' 
+{% for token in initial_trigger %}
+    - '{{token}}'
+{% endfor %}
+{% endif %}
+    - '--quiet'
+    - '--tmp'
+    - '-f'
+...
+{% endfor %}
+{%- endfor %}
+{%- endfor %}
+{%- endfor %}
+{# ================================ #}
+{% for template, initial_trigger in [
+    ('{question1} [P] [T] {question2}', [',']),
+    ('{question1} [T] {question2} [T] [P] [T] [T] [T]', ['Ġand', 'Ġhave', 'Ġmeaning', 's', '.'])
+] -%}
+{% set template_idx = loop.index %}
+{% for pet in [True, False] -%}
+{% for label_map in [
+    '{"0": "No", "1": "Yes"}',
+    '{"0": "similar", "1": "different"}'
+] -%}
+{% set label_idx = loop.index %}
+{% for accumulation_steps in [1, 2, 4] -%}
+---
+out: qqp-cinf_model_albert-xxlarge-v2_template_{{template_idx}}_initial-trigger_{{pet}}_label-map_{{label_idx}}_lr_1e-3_accumulation-steps_{{accumulation_steps}}_finetune-mode_trigger
+script: autoprompt/continuous_trigger_mlm.py
+args:
+    - '--model-name'
+    - 'albert-xxlarge-v2'
+    - '--train'
+    - 'data/LittleGLUE/QQP/train.jsonl'
+    - '--dev'
+    - 'data/LittleGLUE/QQP/dev.jsonl'
+    - '--test'
+    - 'data/LittleGLUE/QQP/dev_all.jsonl'
+    - '--ckpt-dir'
+    - 'ckpt/qqp-cinf_model_albert-xxlarge-v2_template_{{template_idx}}_initial-trigger_{{pet}}_label-map_{{label_idx}}_lr_1e-3_accumulation-steps_{{accumulation_steps}}_finetune-mode_trigger'
+    - '--evaluation-strategy'
+    - 'classification'
+    - '--finetune-mode'
+    - 'trigger'
+    - '--template'
+    - '{{template}}'
+    - '--label-map'
+    - '{{label_map}}'
+    - '--epochs'
+    - '30'
+    - '--bsz'
+    - '2'
+    - '--clip'
+    - '1.0'
+    - '--accumulation-steps'
+    - '{{accumulation_steps}}'
+    - '--lr'
+    - '1e-3'
+{% if pet %}
+    - '--initial-trigger' 
+{% for token in initial_trigger %}
+    - '{{token}}'
+{% endfor %}
+{% endif %}
+    - '--quiet'
+    - '--tmp'
+    - '-f'
+...
+{% endfor %}
+{%- endfor %}
+{%- endfor %}
+{%- endfor %}

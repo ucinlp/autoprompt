@@ -1,0 +1,87 @@
+{% for template in [
+    '"{sentence1}"/"{sentence2}". Similar sense of "{word}"? [P] . ',
+    '{sentence1} {sentence2} Does {word} Have the same meaning in both sentences? [P]',
+] -%}
+{% set template_idx = loop.index %}
+{% for label_map in [
+    '{"True": "Yes", "False": "No"}',
+] -%}
+{% set label_idx = loop.index %}
+---
+out: wic-manual_model_roberta-large_template_{{template_idx}}_initial-trigger_label-map_{{label_idx}}
+script: autoprompt/continuous_trigger_mlm.py
+args:
+    - '--model-name'
+    - 'roberta-large'
+    - '--train'
+    - 'data/SuperFUGUE/WiC/train.jsonl'
+    - '--dev'
+    - 'data/SuperFUGUE/WiC/dev.jsonl'
+    - '--test'
+    - 'data/SuperFUGUE/WiC/dev_all.jsonl'
+    - '--ckpt-dir'
+    - 'ckpt/wic-manual_model_roberta-large_template_{{template_idx}}_initial-trigger_label-map_{{label_idx}}
+    - '--evaluation-strategy'
+    - 'classification'
+    - '--finetune-mode'
+    - 'trigger'
+    - '--template'
+    - '{{template}}'
+    - '--label-map'
+    - '{{label_map}}'
+    - '--epochs'
+    - '30'
+    - '--bsz'
+    - '2'
+    - '--quiet'
+    - '--tmp'
+    - '-f'
+    - '--skip-train'
+    - '--skip-eval'
+...
+{% endfor %}
+{%- endfor %}
+{# ================================ #}
+{% for template in [
+    '"{sentence1}"/"{sentence2}". Similar sense of "{word}"? [P] . ',
+    '{sentence1} {sentence2} Does {word} Have the same meaning in both sentences? [P]',
+] -%}
+{% set template_idx = loop.index %}
+{% for label_map in [
+    '{"True": "Yes", "False": "No"}',
+] -%}
+{% set label_idx = loop.index %}
+---
+out: wic-manual_model_albert-xxlarge-v2_template_{{template_idx}}_initial-trigger_label-map_{{label_idx}}
+script: autoprompt/continuous_trigger_mlm.py
+args:
+    - '--model-name'
+    - 'albert-xxlarge-v2'
+    - '--train'
+    - 'data/SuperFUGUE/WiC/train.jsonl'
+    - '--dev'
+    - 'data/SuperFUGUE/WiC/dev.jsonl'
+    - '--test'
+    - 'data/SuperFUGUE/WiC/dev_all.jsonl'
+    - '--ckpt-dir'
+    - 'ckpt/wic-manual_model_albert-xxlarge-v2_template_{{template_idx}}_initial-trigger_label-map_{{label_idx}}
+    - '--evaluation-strategy'
+    - 'classification'
+    - '--finetune-mode'
+    - 'trigger'
+    - '--template'
+    - '{{template}}'
+    - '--label-map'
+    - '{{label_map}}'
+    - '--epochs'
+    - '30'
+    - '--bsz'
+    - '2'
+    - '--quiet'
+    - '--tmp'
+    - '-f'
+    - '--skip-train'
+    - '--skip-eval'
+...
+{% endfor %}
+{%- endfor %}
