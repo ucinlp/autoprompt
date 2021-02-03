@@ -24,7 +24,7 @@ class MultipleChoiceEvaluator:
         self._tokenizer = tokenizer
         self._decoding_strategy = decoding_strategy
 
-    def __call__(self, model_inputs, labels, train=True):
+    def __call__(self, model_inputs, labels, train=True, evaluation_metric='accuracy'):
         if train:
             _, logits, *_ = self._model(model_inputs, labels)
             logits = logits.transpose(1, -1)  # Class probs need to be dim 1 for CE
@@ -32,13 +32,13 @@ class MultipleChoiceEvaluator:
             log_p = log_p.mean(dim=-1)
             loss = 1 - log_p[0] + log_p[1]
             loss[loss < 0] = 0.0
-            correct = log_p[0] > log_p[1]
+            correct = {'accuracy': log_p[0] > log_p[1]} # TODO: do we need a metric other than accuracy?
             predictions = None  # Too lazy to support ATM
         else:
             loss = torch.tensor(0.0, device=labels.device)
             prediction_idx = self._decode(model_inputs, labels)
             logger.debug(f'Prediction idx: {prediction_idx}')
-            correct = (prediction_idx == 0).sum()
+            correct = {'accuracy': (prediction_idx == 0).sum()}
             predicted_instance = labels[prediction_idx]
             prediction_mask = model_inputs['predict_mask'][prediction_idx]
             predicted_label_ids = predicted_instance[prediction_mask]
@@ -112,7 +112,7 @@ class GenerativeEvaluator:
         self._tokenizer = tokenizer
         self._decoding_strategy = decoding_strategy
         
-    def __call__(self, model_inputs, labels, train=True):
+    def __call__(self, model_inputs, labels, train=True, evaluation_metric='accuracy'):
         predict_mask = model_inputs['predict_mask']
         if train:
             loss, logits, *_ = self._model(model_inputs, labels)
@@ -121,7 +121,7 @@ class GenerativeEvaluator:
         else:
             loss = torch.tensor(0.0, device=labels.device)
             prediction_ids = self._decode(model_inputs)
-        correct = (prediction_ids == labels).all(dim=-1).sum()
+        correct = {'accuracy': (prediction_ids == labels).all(dim=-1).sum()} # TODO: do we need a metric other than accuracy?
 
         # Debug printing of predictions.
         predictions = []
@@ -230,7 +230,7 @@ class ClassificationEvaluator:
         self._label_tokens = label_tokens.view(1, -1)
         self._label_keys = list(label_map.keys())
 
-    def __call__(self, model_inputs, labels, train=True):
+    def __call__(self, model_inputs, labels, train=True, evaluation_metric='accuracy'):
 
         # Ensure everything is on the same device
         label_tokens = self._label_tokens.to(labels.device)
@@ -260,7 +260,14 @@ class ClassificationEvaluator:
         loss = -predict_logp.gather(-1, label_inds).mean()
 
         # Get evaluation score
-        correct = preds.eq(label_inds).sum()
+        if evaluation_metric == 'accuracy':
+            correct = {'accuracy': preds.eq(label_inds).sum()}
+        else:
+            tp = torch.sum((label_inds == 1) & (preds == 1))
+            fp = torch.sum((label_inds == 0) & (preds == 1))
+            tn = torch.sum((label_inds == 0) & (preds == 0))
+            fn = torch.sum((label_inds == 1) & (preds == 0))
+            correct = {"TP": tp, "FP": fp, "TN": tn, "FN": fn}
 
         return loss, correct, predictions
 

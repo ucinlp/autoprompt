@@ -220,7 +220,7 @@ def main(args):
         decoding_strategy=args.decoding_strategy,
     )
 
-    best_accuracy = 0
+    best_metric = 0
     if not args.skip_train:
         for epoch in range(args.epochs):
             logger.info(f'Epoch: {epoch}')
@@ -234,13 +234,20 @@ def main(args):
             else:
                 iter_ = train_loader
             total_loss = torch.tensor(0.0, device=distributed_config.device)
-            total_correct = torch.tensor(0.0, device=distributed_config.device)
+            if args.evaluation_metric == 'accuracy':
+                total_correct = {'accuracy': torch.tensor(0.0, device=distributed_config.device)}
+            else:
+                total_correct = {'TP': torch.tensor(0.0, device=distributed_config.device),
+                                 'FP': torch.tensor(0.0, device=distributed_config.device),
+                                 'TN': torch.tensor(0.0, device=distributed_config.device),
+                                 'FN': torch.tensor(0.0, device=distributed_config.device)}
             denom = torch.tensor(0.0, device=distributed_config.device)
             optimizer.zero_grad()
             for i, (model_inputs, labels) in enumerate(iter_):
                 model_inputs = to_device(model_inputs, distributed_config.device)
                 labels = to_device(labels, distributed_config.device)
-                loss, correct, preds = evaluator(model_inputs, labels, train=True)
+                loss, correct, preds = evaluator(model_inputs, labels, train=True, 
+                                        evaluation_metric=args.evaluation_metric)
                 loss /= args.accumulation_steps
                 loss.backward()
                 if (i % args.accumulation_steps) == (args.accumulation_steps - 1):
@@ -252,29 +259,72 @@ def main(args):
                 # TODO: Metric logging is clumsy/brittle.
                 batch_size = 1.0 if args.evaluation_strategy == 'multiple-choice' else labels.size(0)
                 total_loss += loss.detach() * batch_size
-                total_correct += correct.detach()
+                for metric in correct:
+                    total_correct[metric] += correct[metric].detach()
                 denom += batch_size
                 
                 # NOTE: This loss/accuracy is only on the subset  of training data
                 # in the main process.
                 if distributed_config.is_main_process and not args.quiet:
-                    iter_.set_description(
-                        f'Loss: {total_loss / (denom + 1e-13): 0.4f}, '
-                        f'Accuracy: {total_correct / (denom + 1e-13): 0.4f}'
-                    )
+                    if args.evaluation_metric == 'accuracy':
+                        iter_.set_description(
+                            f'Loss: {total_loss / (denom + 1e-13): 0.4f}, '
+                            f"Accuracy: {total_correct['accuracy'] / (denom + 1e-13): 0.4f}"
+                        )
+                    elif args.evaluation_metric == 'MCC':
+                        mcc_numerator = (total_correct['TP'] * total_correct['TN'] - 
+                                        total_correct['FP'] * total_correct['FN'])
+                        mcc_denominator = torch.sqrt((total_correct['TP'] + total_correct['FP']) *
+                                                     (total_correct['TP'] + total_correct['FN']) *
+                                                     (total_correct['TN'] + total_correct['FP']) *
+                                                     (total_correct['TN'] + total_correct['FN']))
+                        iter_.set_description(
+                            f'Loss: {total_loss / (denom + 1e-13): 0.4f}, '
+                            f"MCC: {mcc_numerator / mcc_denominator: 0.4f}"    
+                        )
+                    elif args.evaluation_metric == 'F1':
+                        precision = total_correct['TP'] / (total_correct['TP'] + total_correct['FP'])
+                        recall = total_correct['TP'] / (total_correct['TP'] + total_correct['FN'])
+                        f1 = (2 * precision * recall) / (precision + recall)
+                        iter_.set_description(
+                            f'Loss: {total_loss / (denom + 1e-13): 0.4f}, '
+                            f"F1 score: {f1: 0.4f}"    
+                        )
+
             if distributed_config.world_size != -1:
                 torch.distributed.reduce(total_loss, 0)
-                torch.distributed.reduce(total_correct, 0)
+                for metric in total_correct:
+                    torch.distributed.reduce(total_correct[metric], 0)
                 torch.distributed.reduct(denom, 0)
             if distributed_config.is_main_process:
                 writer.add_scalar('Loss/train', (total_loss / (denom + 1e-13)).item(), epoch)
-                writer.add_scalar('Accuracy/train', (total_correct / (denom + 1e-13)).item(), epoch)
+                if args.evaluation_metric == 'accuracy':
+                    writer.add_scalar('Accuracy/train', (total_correct['accuracy'] / (denom + 1e-13)).item(), epoch)
+                elif args.evaluation_metric == 'MCC':
+                    mcc_numerator = (total_correct['TP'] * total_correct['TN'] - 
+                                    total_correct['FP'] * total_correct['FN'])
+                    mcc_denominator = torch.sqrt((total_correct['TP'] + total_correct['FP']) *
+                                                    (total_correct['TP'] + total_correct['FN']) *
+                                                    (total_correct['TN'] + total_correct['FP']) *
+                                                    (total_correct['TN'] + total_correct['FN']))
+                    writer.add_scalar('MCC/train', (mcc_numerator / mcc_denominator).item(), epoch)
+                elif args.evaluation_metric == 'F1':
+                    precision = total_correct['TP'] / (total_correct['TP'] + total_correct['FP'])
+                    recall = total_correct['TP'] / (total_correct['TP'] + total_correct['FN'])
+                    f1 = (2 * precision * recall) / (precision + recall)
+                    writer.add_scalar('F1 score/train', f1.item(), epoch)
 
             if not args.skip_eval:
                 logger.info('Evaluating...')
                 model.eval()
                 total_loss = torch.tensor(0.0, device=distributed_config.device)
-                total_correct = torch.tensor(0.0, device=distributed_config.device)
+                if args.evaluation_metric == 'accuracy':
+                    total_correct = {'accuracy': torch.tensor(0.0, device=distributed_config.device)}
+                else:
+                    total_correct = {'TP': torch.tensor(0.0, device=distributed_config.device),
+                                     'FP': torch.tensor(0.0, device=distributed_config.device),
+                                     'TN': torch.tensor(0.0, device=distributed_config.device),
+                                     'FN': torch.tensor(0.0, device=distributed_config.device)}
                 denom = torch.tensor(0.0, device=distributed_config.device)
                 if distributed_config.is_main_process and not args.quiet:
                     iter_ = tqdm(dev_loader)
@@ -284,30 +334,70 @@ def main(args):
                     for model_inputs, labels in iter_:
                         model_inputs = to_device(model_inputs, distributed_config.device)
                         labels = to_device(labels, distributed_config.device)
-                        loss, correct, preds = evaluator(model_inputs, labels, train=False)
+                        loss, correct, preds = evaluator(model_inputs, labels, 
+                            train=False, evaluation_metric=args.evaluation_metric)
                         batch_size = 1.0 if args.evaluation_strategy == 'multiple-choice' else labels.size(0)
                         total_loss += loss.detach() * batch_size
-                        total_correct += correct.detach()
+                        for metric in correct:
+                            total_correct[metric] += correct[metric].detach()
                         denom += batch_size
 
                 if distributed_config.world_size != -1:
                     torch.distributed.reduce(total_loss, 0)
-                    torch.distributed.reduce(total_correct, 0)
+                    for metric in total_correct:
+                        torch.distributed.reduce(total_correct[metric], 0)
                     torch.distributed.reduce(denom, 0)
                 if distributed_config.is_main_process:
                     writer.add_scalar('Loss/dev', (total_loss / (denom + 1e-13)).item(), epoch)
-                    writer.add_scalar('Accuracy/dev', (total_correct / (denom + 1e-13)).item(), epoch)
+                    if args.evaluation_metric == 'accuracy':
+                        writer.add_scalar('Accuracy/dev', (total_correct['accuracy'] / (denom + 1e-13)).item(), epoch)
+                    elif args.evaluation_metric == 'MCC':
+                        mcc_numerator = (total_correct['TP'] * total_correct['TN'] - 
+                                        total_correct['FP'] * total_correct['FN'])
+                        mcc_denominator = torch.sqrt((total_correct['TP'] + total_correct['FP']) *
+                                                     (total_correct['TP'] + total_correct['FN']) *
+                                                     (total_correct['TN'] + total_correct['FP']) *
+                                                     (total_correct['TN'] + total_correct['FN']))
+                        writer.add_scalar('MCC/dev', (mcc_numerator / mcc_denominator).item(), epoch)
+                    elif args.evaluation_metric == 'F1':
+                        precision = total_correct['TP'] / (total_correct['TP'] + total_correct['FP'])
+                        recall = total_correct['TP'] / (total_correct['TP'] + total_correct['FN'])
+                        f1 = (2 * precision * recall) / (precision + recall)
+                        writer.add_scalar('F1 score/dev', f1.item(), epoch)
+                    
 
-                logger.info(
-                    f'Loss: {total_loss / (denom + 1e-13): 0.4f}, '
-                    f'Accuracy: {total_correct / (denom + 1e-13): 0.4f}'
-                )
-                accuracy = total_correct / (denom + 1e-13)
-
+                if args.evaluation_metric == 'accuracy':
+                    logger.info(
+                        f'Loss: {total_loss / (denom + 1e-13): 0.4f}, '
+                        f"Accuracy: {total_correct['accuracy'] / (denom + 1e-13): 0.4f}"
+                    )
+                    metric = total_correct['accuracy'] / (denom + 1e-13)
+                elif args.evaluation_metric == 'MCC':
+                    mcc_numerator = (total_correct['TP'] * total_correct['TN'] - 
+                                    total_correct['FP'] * total_correct['FN'])
+                    mcc_denominator = torch.sqrt((total_correct['TP'] + total_correct['FP']) *
+                                                    (total_correct['TP'] + total_correct['FN']) *
+                                                    (total_correct['TN'] + total_correct['FP']) *
+                                                    (total_correct['TN'] + total_correct['FN']))
+                    logger.info(
+                        f'Loss: {total_loss / (denom + 1e-13): 0.4f}, '
+                        f"MCC: {mcc_numerator / mcc_denominator: 0.4f}"
+                    )
+                    metric = mcc_numerator / mcc_denominator
+                elif args.evaluation_metric == 'F1':
+                    precision = total_correct['TP'] / (total_correct['TP'] + total_correct['FP'])
+                    recall = total_correct['TP'] / (total_correct['TP'] + total_correct['FN'])
+                    f1 = (2 * precision * recall) / (precision + recall)
+                    logger.info(
+                        f'Loss: {total_loss / (denom + 1e-13): 0.4f}, '
+                        f"F1 score: {f1: 0.4f}"
+                    )
+                    metric = f1
+                
                 if distributed_config.is_main_process:
-                    if accuracy > best_accuracy:
+                    if metric > best_metric:
                         logger.info('Best performance so far.')
-                        best_accuracy = accuracy
+                        best_metric = metric
                         if distributed_config.world_size != -1:
                             state_dict = model.module.state_dict()
                         else:
@@ -325,32 +415,62 @@ def main(args):
             model.load_state_dict(state_dict)
         output_fname = os.path.join(args.ckpt_dir, 'predictions')
         model.eval()
-        total_correct = torch.tensor(0.0, device=distributed_config.device)
+        if args.evaluation_metric == 'accuracy':
+            total_correct = {'accuracy': torch.tensor(0.0, device=distributed_config.device)}
+        else:
+            total_correct = {'TP': torch.tensor(0.0, device=distributed_config.device),
+                             'FP': torch.tensor(0.0, device=distributed_config.device),
+                             'TN': torch.tensor(0.0, device=distributed_config.device),
+                             'FN': torch.tensor(0.0, device=distributed_config.device)}
         denom = torch.tensor(0.0, device=distributed_config.device)
         with torch.no_grad(), open(output_fname, 'w') as f:
             for model_inputs, labels in test_loader:
                 model_inputs = {k: v.to(distributed_config.device) for k, v in model_inputs.items()}
                 labels = labels.to(distributed_config.device)
-                _, correct, preds = evaluator(model_inputs, labels, train=False)
+                _, correct, preds = evaluator(model_inputs, labels, train=False, 
+                                        evaluation_metric=args.evaluation_metric)
                 batch_size = 1.0 if args.evaluation_strategy == 'multiple-choice' else labels.size(0)
-                total_correct += correct.detach()
+                for metric in correct:
+                    total_correct[metric] += correct[metric].detach()
                 denom += batch_size
                 # Serialize output
                 for pred in preds:
                     print(pred, file=f)
         if distributed_config.world_size != -1:
-            torch.distributed.reduce(correct, 0)
+            for metric in total_correct:
+                torch.distributed.reduce(correct[metric], 0)
             torch.distributed.reduce(denom, 0)
 
         if args.tmp:
             if os.path.exists(ckpt_path):
                 logger.info('Temporary mode enabled, deleting checkpoint.')
                 os.remove(ckpt_path)
+        
+        if args.evaluation_metric == 'accuracy':
+            accuracy = total_correct['accuracy'] / (denom + 1e-13)
+            if distributed_config.is_main_process:
+                writer.add_scalar('Accuracy/test', (total_correct['accuracy'] / (denom + 1e-13)).item(), 0)
+            logger.info(f'Accuracy: {accuracy : 0.4f}')
+        elif args.evaluation_metric == 'MCC':
+            mcc_numerator = (total_correct['TP'] * total_correct['TN'] - 
+                            total_correct['FP'] * total_correct['FN'])
+            mcc_denominator = torch.sqrt((total_correct['TP'] + total_correct['FP']) *
+                                            (total_correct['TP'] + total_correct['FN']) *
+                                            (total_correct['TN'] + total_correct['FP']) *
+                                            (total_correct['TN'] + total_correct['FN']))
+            mcc = mcc_numerator / mcc_denominator
+            if distributed_config.is_main_process:
+                writer.add_scalar('MCC/test', mcc.item(), 0)
+            logger.info(f'MCC: {mcc : 0.4f}')
+        elif args.evaluation_metric == 'F1':
+            precision = total_correct['TP'] / (total_correct['TP'] + total_correct['FP'])
+            recall = total_correct['TP'] / (total_correct['TP'] + total_correct['FN'])
+            f1 = (2 * precision * recall) / (precision + recall)
+            if distributed_config.is_main_process:
+                writer.add_scalar('F1 score/test', f1.item(), 0)
+            logger.info(f'F1 score: {f1 : 0.4f}')
+        
 
-        accuracy = total_correct / (denom + 1e-13)
-        if distributed_config.is_main_process:
-            writer.add_scalar('Accuracy/test', (total_correct / (denom + 1e-13)).item(), 0)
-        logger.info(f'Accuracy: {accuracy : 0.4f}')
 
 
 if __name__ == '__main__':
@@ -405,6 +525,10 @@ if __name__ == '__main__':
                              'partial: Top model weights additionally tuned. '
                              'all: All model weights are tuned.'
                              'all-but-trigger: All model weights apart from trigger weights are tuned. ')
+    parser.add_argument('--evaluation-metric', type=str, default='accuracy',
+                        choices=['accuracy', 'MCC', 'F1'],
+                        help='Evaluation metric to use: accuracy, Matthews correlation'
+                             'coefficient or F1 score.')
 
     # Skips
     parser.add_argument('--skip-train', action='store_true',
