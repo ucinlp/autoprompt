@@ -1,0 +1,122 @@
+{% for template, initial_trigger in [
+    ('{choice1} [T] {choice2} [T] {premise} [T] {conjunction} [P] [T]', ['Ġor', '?', ',', 'Ġ.']),
+    ('[T] {choice1} [T] [T] [T] {choice2} [T] [T] {premise} [T] {conjunction} [P] [T]', ['"', '"', 'Ġor', '"', '"', '?', ',', 'Ġ.']),
+] -%}
+{% set template_idx = loop.index %}
+{% for pet in [True, False] -%}
+{% for finetune_lr in [1e-5, 2e-5, 5e-5] -%}
+{% for lr in [1e-5, 2e-5, 5e-5, 1e-4, 5e-4, 1e-3, 5e-3, 1e-2] -%}
+{% for accumulation_steps in [1, 2, 4] -%}
+{% for finetune_mode in ['trigger', 'partial', 'all'] -%}
+---
+out: /checkpoint/ibalazevic/results/SuperFUGUE/copa-cinf_model_roberta-large_template_{{template_idx}}_initial-trigger_{{pet}}_lr_{{lr}}_finetune-lr_{{finetune_lr}}_accumulation-steps_{{accumulation_steps}}_finetune-mode_{{finetune_mode}}
+script: autoprompt/continuous_trigger_mlm.py
+args:
+    - '--model-name'
+    - 'roberta-large'
+    - '--train'
+    - 'data/SuperFUGUE/COPA/train.jsonl'
+    - '--dev'
+    - 'data/SuperFUGUE/COPA/dev.jsonl'
+    - '--test'
+    - 'data/SuperFUGUE/COPA/dev_all.jsonl'
+    - '--ckpt-dir'
+    - '/checkpoint/ibalazevic/results/SuperFUGUE/copa-cinf_model_roberta-large_template_{{template_idx}}_initial-trigger_{{pet}}_lr_{{lr}}_finetune-lr_{{finetune_lr}}_accumulation-steps_{{accumulation_steps}}_finetune-mode_{{finetune_mode}}'
+    - '--evaluation-strategy'
+    - 'multiple-choice'
+    - '--decoding-strategy'
+    - 'iterative'
+    - '--finetune-mode'
+    - '{{finetune_mode}}'
+    - '--template'
+    - '{{template}}'
+    - '--epochs'
+    - '30'
+    - '--clip'
+    - '1.0'
+    - '--preprocessor'
+    - 'copa'
+    - '--accumulation-steps'
+    - '{{accumulation_steps}}'
+    - '--lr'
+    - '{{lr}}'
+    - '--finetune-lr'
+    - '{{finetune_lr}}'
+{% if pet %}
+    - '--initial-trigger' 
+{% for token in initial_trigger %}
+    - '{{token}}'
+{% endfor %}
+{% endif %}
+    - '--quiet'
+    - '--tmp'
+    - '-f'
+...
+{% endfor %}
+{%- endfor %}
+{%- endfor %}
+{%- endfor %}
+{%- endfor %}
+{%- endfor %}
+{# ================================ #}
+{% for template, initial_trigger in [
+    ('{choice1} [T] {choice2} [T] {premise} [T] {conjunction} [P] [T]', ['▁or', '?', ',', '.']),
+    ('[T] {choice1} [T] [T] [T] {choice2} [T] [T] {premise} [T] {conjunction} [P] [T]', ['"', '"', '▁or', '"', '"', '?', ',', '.']),
+] -%}
+{% set template_idx = loop.index %}
+{% for pet in [True, False] -%}
+{% for finetune_lr in [1e-5, 2e-5, 5e-5] -%}
+{% for lr in [1e-5, 2e-5, 5e-5, 1e-4, 5e-4, 1e-3, 5e-3, 1e-2] -%}
+{% for accumulation_steps in [1, 2, 4] -%}
+{% for finetune_mode in ['trigger', 'partial', 'all'] -%}
+{% set out = "model_albert-xxlarge-v2_template_{{template_idx}}_initial-trigger_{{pet}}_lr_{{lr}}_finetune-lr_{{finetune_lr}}_accumulation-steps_{{accumulation_steps}}_finetune-mode_{{finetune_mode}}" -%}
+---
+out: /checkpoint/ibalazevic/results/SuperFUGUE/copa-cinf_model_albert-xxlarge-v2_template_{{template_idx}}_initial-trigger_{{pet}}_lr_{{lr}}_finetune-lr_{{finetune_lr}}_accumulation-steps_{{accumulation_steps}}_finetune-mode_{{finetune_mode}}
+script: autoprompt/continuous_trigger_mlm.py
+args:
+    - '--model-name'
+    - 'albert-xxlarge-v2'
+    - '--train'
+    - 'data/SuperFUGUE/COPA/train.jsonl'
+    - '--dev'
+    - 'data/SuperFUGUE/COPA/dev.jsonl'
+    - '--test'
+    - 'data/SuperFUGUE/COPA/dev_all.jsonl'
+    - '--ckpt-dir'
+    - '/checkpoint/ibalazevic/results/SuperFUGUE/copa-cinf_model_albert-xxlarge-v2_template_{{template_idx}}_initial-trigger_{{pet}}_lr_{{lr}}_finetune-lr_{{finetune_lr}}_accumulation-steps_{{accumulation_steps}}_finetune-mode_{{finetune_mode}}'
+    - '--evaluation-strategy'
+    - 'multiple-choice'
+    - '--decoding-strategy'
+    - 'iterative'
+    - '--finetune-mode'
+    - '{{finetune_mode}}'
+    - '--template'
+    - '{{template}}'
+    - '--epochs'
+    - '30'
+    - '--clip'
+    - '1.0'
+    - '--preprocessor'
+    - 'copa'
+    - '--accumulation-steps'
+    - '{{accumulation_steps}}'
+    - '--lr'
+    - '{{lr}}'
+    - '--finetune-lr'
+    - '{{finetune_lr}}'
+{% if pet %}
+    - '--initial-trigger' 
+{% for token in initial_trigger %}
+    - '{{token}}'
+{% endfor %}
+{% endif %}
+    - '--quiet'
+    - '--tmp'
+    - '-f'
+...
+{% endfor %}
+{%- endfor %}
+{%- endfor %}
+{%- endfor %}
+{%- endfor %}
+{%- endfor %}
