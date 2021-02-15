@@ -1,0 +1,85 @@
+{% for template in [
+    '{choice1} or {choice2}? {premise}, {conjunction} [P] .',
+    '"{choice1}" or "{choice2}"? {premise}, {conjunction} [P] .',
+] -%}
+{% set template_idx = loop.index %}
+---
+out: /checkpoint/ibalazevic/results/SuperFUGUE/copa-manual_model_roberta-large_template_{{template_idx}}
+script: autoprompt/continuous_trigger_mlm.py
+args:
+    - '--model-name'
+    - 'roberta-large'
+    - '--train'
+    - 'data/SuperFUGUE/COPA/train.jsonl'
+    - '--dev'
+    - 'data/SuperFUGUE/COPA/dev.jsonl'
+    - '--test'
+    - 'data/SuperFUGUE/COPA/dev_all.jsonl'
+    - '--ckpt-dir'
+    - '/checkpoint/ibalazevic/results/SuperFUGUE/copa-manual_model_roberta-large_template_{{template_idx}}'
+    - '--evaluation-strategy'
+    - 'multiple-choice'
+    - '--decoding-strategy'
+    - 'iterative'
+    - '--finetune-mode'
+    - 'all'
+    - '--template'
+    - '{{template}}'
+    - '--epochs'
+    - '30'
+    - '--clip'
+    - '1.0'
+    - '--preprocessor'
+    - 'copa'
+    - '--accumulation-steps'
+    - '1'
+    - '--quiet'
+    - '--tmp'
+    - '-f'
+    - '--skip-train'
+    - '--skip-eval'
+...
+{% endfor %}
+{# ================================ #}
+{% for template in [
+    '{choice1} or {choice2}? {premise}, {conjunction} [P] .',
+    '"{choice1}" or "{choice2}"? {premise}, {conjunction} [P] .',
+] -%}
+{% set template_idx = loop.index %}
+---
+out: /checkpoint/ibalazevic/results/SuperFUGUE/copa-manual_model_albert-xxlarge-v2_template_{{template_idx}}
+script: autoprompt/continuous_trigger_mlm.py
+args:
+    - '--model-name'
+    - 'albert-xxlarge-v2'
+    - '--train'
+    - 'data/SuperFUGUE/COPA/train.jsonl'
+    - '--dev'
+    - 'data/SuperFUGUE/COPA/dev.jsonl'
+    - '--test'
+    - 'data/SuperFUGUE/COPA/dev_all.jsonl'
+    - '--ckpt-dir'
+    - '/checkpoint/ibalazevic/results/SuperFUGUE/copa-manual_model_albert-xxlarge-v2_template_{{template_idx}}'
+    - '--evaluation-strategy'
+    - 'multiple-choice'
+    - '--decoding-strategy'
+    - 'iterative'
+    - '--finetune-mode'
+    - 'all'
+    - '--template'
+    - '{{template}}'
+    - '--epochs'
+    - '30'
+    - '--clip'
+    - '1.0'
+    - '--preprocessor'
+    - 'copa'
+    - '--accumulation-steps'
+    - '1'
+    - '--quiet'
+    - '--tmp'
+    - '-f'
+    - '--skip-train'
+    - '--skip-eval'
+...
+{% endfor %}
