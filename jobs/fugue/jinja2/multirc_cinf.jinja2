@@ -1,32 +1,32 @@
 {% for template, initial_trigger in [
-    ('{hypothesis} [T] [T] [P] [T] {premise}', ['?', '|', ',']),
-    ('[T] {hypothesis} [T] [T] [T] [P] [T] [T] {premise} [T]', ['"', '"', '?', '|', ',', '"', '"']),
-    ('{hypothesis} [T] </s> [P] [T] {premise}', ['?', ',']),
-    ('[T] {hypothesis} [T] [T] </s> [P] [T] [T] {premise} [T]', ['"', '"', '?', ',', '"', '"']),
+    ('{passage} [SEP] [T] [T] {question} [T] [T] {answer} ? [P].', ['Question', ':', 'ĠIs', 'Ġit']),
 ] -%}
 {% set template_idx = loop.index %}
 {% for pet in [True, False] -%}
 {% for label_map in [
-    '{"entailment": "yes", "contradiction": "no", "neutral": "maybe"}',
+    '{"0": "false", "1": "true"}',
+    '{"0": "no", "1": "yes"}',
 ] -%}
 {% set label_idx = loop.index %}
 {% for lr in [1e-5, 2e-5, 5e-5] -%}
 {% for accumulation_steps in [1, 2, 4] -%}
 {% for finetune_mode in ['trigger', 'partial', 'all'] -%}
 ---
-out: cb-cinf_model_roberta-large_template_{{template_idx}}_initial-trigger_{{pet}}_label-map_{{label_idx}}_lr_{{lr}}_accumulation-steps_{{accumulation_steps}}_finetune-mode_{{finetune_mode}}
+out: multirc-cinf_model_roberta-large_template_{{template_idx}}_initial-trigger_{{pet}}_label-map_{{label_idx}}_lr_{{lr}}_accumulation-steps_{{accumulation_steps}}_finetune-mode_{{finetune_mode}}
 script: autoprompt/continuous_trigger_mlm.py
 args:
     - '--model-name'
     - 'roberta-large'
     - '--train'
-    - 'data/SuperFUGUE/CB/train.jsonl'
+    - 'data/SuperFUGUE/MultiRC/train.jsonl'
     - '--dev'
-    - 'data/SuperFUGUE/CB/dev.jsonl'
+    - 'data/SuperFUGUE/MultiRC/dev.jsonl'
     - '--test'
-    - 'data/SuperFUGUE/CB/dev_all.jsonl'
+    - 'data/SuperFUGUE/MultiRC/dev_all.jsonl'
+    - '--preprocessor'
+    - 'multirc'
     - '--ckpt-dir'
-    - 'ckpt/cb-cinf_model_roberta-large_template_{{template_idx}}_initial-trigger_{{pet}}_label-map_{{label_idx}}_lr_{{lr}}_accumulation-steps_{{accumulation_steps}}_finetune-mode_{{finetune_mode}}'
+    - 'ckpt/multirc-cinf_model_roberta-large_template_{{template_idx}}_initial-trigger_{{pet}}_label-map_{{label_idx}}_lr_{{lr}}_accumulation-steps_{{accumulation_steps}}_finetune-mode_{{finetune_mode}}'
     - '--evaluation-strategy'
     - 'classification'
     - '--finetune-mode'
@@ -65,34 +65,34 @@ args:
 {%- endfor %}
 {# ================================ #}
 {% for template, initial_trigger in [
-    ('{hypothesis} [T] [T] [P] [T] {premise}', ['?', '|', ',']),
-    ('[T] {hypothesis} [T] [T] [T] [P] [T] [T] {premise} [T]', ['"', '"', '?', '|', ',', '"', '"']),
-    ('{hypothesis} [T] [SEP] [P] [T] {premise}', ['?', ',']),
-    ('[T] {hypothesis} [T] [T] [SEP] [P] [T] [T] {premise} [T]', ['"', '"', '?', ',', '"', '"']),
+    ('{passage} [SEP] [T] [T] {question} [T] [T] {answer} ? [P].', ['▁question', ':', '▁is', '▁it']),
 ] -%}
 {% set template_idx = loop.index %}
 {% for pet in [True, False] -%}
 {% for label_map in [
-    '{"entailment": "yes", "contradiction": "no", "neutral": "maybe"}',
+    '{"0": "false", "1": "true"}',
+    '{"0": "no", "1": "yes"}',
 ] -%}
 {% set label_idx = loop.index %}
 {% for lr in [1e-5, 2e-5, 5e-5] -%}
 {% for accumulation_steps in [1, 2, 4] -%}
 {% for finetune_mode in ['trigger', 'partial', 'all'] -%}
 ---
-out: cb-cinf_model_albert-xxlarge-v2_template_{{template_idx}}_initial-trigger_{{pet}}_label-map_{{label_idx}}_lr_{{lr}}_accumulation-steps_{{accumulation_steps}}_finetune-mode_{{finetune_mode}}
+out: multirc-cinf_model_albert-xxlarge-v2_template_{{template_idx}}_initial-trigger_{{pet}}_label-map_{{label_idx}}_lr_{{lr}}_accumulation-steps_{{accumulation_steps}}_finetune-mode_{{finetune_mode}}
 script: autoprompt/continuous_trigger_mlm.py
 args:
     - '--model-name'
     - 'albert-xxlarge-v2'
     - '--train'
-    - 'data/SuperFUGUE/CB/train.jsonl'
+    - 'data/SuperFUGUE/MultiRC/train.jsonl'
     - '--dev'
-    - 'data/SuperFUGUE/CB/dev.jsonl'
+    - 'data/SuperFUGUE/MultiRC/dev.jsonl'
     - '--test'
-    - 'data/SuperFUGUE/CB/dev_all.jsonl'
+    - 'data/SuperFUGUE/MultiRC/dev_all.jsonl'
+    - '--preprocessor'
+    - 'multirc'
     - '--ckpt-dir'
-    - 'ckpt/cb-cinf_model_albert-xxlarge-v2_template_{{template_idx}}_initial-trigger_{{pet}}_label-map_{{label_idx}}_lr_{{lr}}_accumulation-steps_{{accumulation_steps}}_finetune-mode_{{finetune_mode}}'
+    - 'ckpt/multirc-cinf_model_albert-xxlarge-v2_template_{{template_idx}}_initial-trigger_{{pet}}_label-map_{{label_idx}}_lr_{{lr}}_accumulation-steps_{{accumulation_steps}}_finetune-mode_{{finetune_mode}}'
     - '--evaluation-strategy'
     - 'classification'
     - '--finetune-mode'

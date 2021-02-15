@@ -48,6 +48,8 @@ args:
     - '{{token}}'
 {% endfor %}
 {% endif %}
+    - '--evaluation-metric'
+    - 'F1'
     - '--quiet'
     - '--tmp'
     - '-f'
@@ -107,6 +109,8 @@ args:
     - '{{token}}'
 {% endfor %}
 {% endif %}
+    - '--evaluation-metric'
+    - 'F1'
     - '--quiet'
     - '--tmp'
     - '-f'
