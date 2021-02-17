@@ -249,7 +249,7 @@ class ClassificationEvaluator:
         # Convert label tokens to their indices in the label map.
         _, label_inds = torch.where(labels.eq(label_tokens))
         if not train:
-            predictions = [self._label_keys[i] for i in label_inds.tolist()]
+            predictions = [self._label_keys[i] for i in preds.squeeze(1).tolist()]
             logger.debug(predictions)
         else:
             predictions = None  # TODO: Maybe not be lazy? Th

@@ -3,7 +3,7 @@
 #SBATCH --output=/extra/ucinlp0/rlogan/fugue_cola_manual.txt
 #SBATCH --time=1000:00
 #SBATCH --partition=ava_s.p
-#SBATCH --nodelist=ava-s3
+#SBATCH --nodelist=ava-s0
 #SBATCH --cpus-per-task=8
 #SBATCH --gpus=8
 #SBATCH --mem=400GB

@@ -1,35 +1,34 @@
 {% for template, initial_trigger in [
-    ('{question1} [P] [T] {question2}', [',']),
-    ('{question1} [T] {question2} [T] [P] [T] [T]', ['Ġand', 'Ġhave', 'Ġmeanings', '.'])
+    ('{passage} [SEP] [T] [T] {question} [T] [T] {answer} ? [P].', ['Question', ':', 'ĠIs', 'Ġit']),
 ] -%}
 {% set template_idx = loop.index %}
 {% for pet in [True, False] -%}
 {% for label_map in [
-    '{"0": "No", "1": "Yes"}',
-    '{"0": "similar", "1": "different"}'
+    '{"0": "false", "1": "true"}',
+    '{"0": "no", "1": "yes"}',
 ] -%}
 {% set label_idx = loop.index %}
-{% for lr in [1e-5, 2e-5, 5e-5] -%}
 {% for accumulation_steps in [1, 2, 4] -%}
-{% for finetune_mode in ['trigger', 'partial', 'all'] -%}
 ---
-out: qqp-cinf_model_roberta-large_template_{{template_idx}}_initial-trigger_{{pet}}_label-map_{{label_idx}}_lr_{{lr}}_accumulation-steps_{{accumulation_steps}}_finetune-mode_{{finetune_mode}}
+out: multirc-cinf_model_roberta-large_template_{{template_idx}}_initial-trigger_{{pet}}_label-map_{{label_idx}}_lr_1e-3_accumulation-steps_{{accumulation_steps}}_finetune-mode_trigger
 script: autoprompt/continuous_trigger_mlm.py
 args:
     - '--model-name'
     - 'roberta-large'
     - '--train'
-    - 'data/LittleGLUE/QQP/train.jsonl'
+    - 'data/SuperFUGUE/MultiRC/train.jsonl'
     - '--dev'
-    - 'data/LittleGLUE/QQP/dev.jsonl'
+    - 'data/SuperFUGUE/MultiRC/dev.jsonl'
     - '--test'
-    - 'data/LittleGLUE/QQP/dev_all.jsonl'
+    - 'data/SuperFUGUE/MultiRC/dev_all.jsonl'
+    - '--preprocessor'
+    - 'multirc'
     - '--ckpt-dir'
-    - 'ckpt/qqp-cinf_model_roberta-large_template_{{template_idx}}_initial-trigger_{{pet}}_label-map_{{label_idx}}_lr_{{lr}}_accumulation-steps_{{accumulation_steps}}_finetune-mode_{{finetune_mode}}'
+    - 'ckpt/multirc-cinf_model_roberta-large_template_{{template_idx}}_initial-trigger_{{pet}}_label-map_{{label_idx}}_lr_1e-3_accumulation-steps_{{accumulation_steps}}_finetune-mode_trigger'
     - '--evaluation-strategy'
     - 'classification'
     - '--finetune-mode'
-    - '{{finetune_mode}}'
+    - 'trigger'
     - '--template'
     - '{{template}}'
     - '--label-map'
@@ -43,7 +42,7 @@ args:
     - '--accumulation-steps'
     - '{{accumulation_steps}}'
     - '--lr'
-    - '{{lr}}'
+    - '1e-3'
 {% if pet %}
     - '--initial-trigger' 
 {% for token in initial_trigger %}
@@ -57,44 +56,41 @@ args:
     - '-f'
 ...
 {% endfor %}
-{%- endfor %}
-{%- endfor %}
 {%- endfor %}
 {%- endfor %}
 {%- endfor %}
 {# ================================ #}
 {% for template, initial_trigger in [
-    ('{question1} [P] [T] {question2}', [',']),
-    ('{question1} [T] {question2} [T] [P] [T] [T] [T]', ['Ġand', 'Ġhave', 'Ġmeaning', 's', '.'])
+    ('{passage} [SEP] [T] [T] {question} [T] [T] {answer} ? [P].', ['▁question', ':', '▁is', '▁it']),
 ] -%}
 {% set template_idx = loop.index %}
 {% for pet in [True, False] -%}
 {% for label_map in [
-    '{"0": "No", "1": "Yes"}',
-    '{"0": "similar", "1": "different"}'
+    '{"0": "false", "1": "true"}',
+    '{"0": "no", "1": "yes"}',
 ] -%}
 {% set label_idx = loop.index %}
-{% for lr in [1e-5, 2e-5, 5e-5] -%}
 {% for accumulation_steps in [1, 2, 4] -%}
-{% for finetune_mode in ['trigger', 'partial', 'all'] -%}
 ---
-out: qqp-cinf_model_albert-xxlarge-v2_template_{{template_idx}}_initial-trigger_{{pet}}_label-map_{{label_idx}}_lr_{{lr}}_accumulation-steps_{{accumulation_steps}}_finetune-mode_{{finetune_mode}}
+out: multirc-cinf_model_albert-xxlarge-v2_template_{{template_idx}}_initial-trigger_{{pet}}_label-map_{{label_idx}}_lr_1e-3_accumulation-steps_{{accumulation_steps}}_finetune-mode_trigger
 script: autoprompt/continuous_trigger_mlm.py
 args:
     - '--model-name'
     - 'albert-xxlarge-v2'
     - '--train'
-    - 'data/LittleGLUE/QQP/train.jsonl'
+    - 'data/SuperFUGUE/MultiRC/train.jsonl'
     - '--dev'
-    - 'data/LittleGLUE/QQP/dev.jsonl'
+    - 'data/SuperFUGUE/MultiRC/dev.jsonl'
     - '--test'
-    - 'data/LittleGLUE/QQP/dev_all.jsonl'
+    - 'data/SuperFUGUE/MultiRC/dev_all.jsonl'
+    - '--preprocessor'
+    - 'multirc'
     - '--ckpt-dir'
-    - 'ckpt/qqp-cinf_model_albert-xxlarge-v2_template_{{template_idx}}_initial-trigger_{{pet}}_label-map_{{label_idx}}_lr_{{lr}}_accumulation-steps_{{accumulation_steps}}_finetune-mode_{{finetune_mode}}'
+    - 'ckpt/multirc-cinf_model_albert-xxlarge-v2_template_{{template_idx}}_initial-trigger_{{pet}}_label-map_{{label_idx}}_lr_1e-3_accumulation-steps_{{accumulation_steps}}_finetune-mode_trigger'
     - '--evaluation-strategy'
     - 'classification'
     - '--finetune-mode'
-    - '{{finetune_mode}}'
+    - 'trigger'
     - '--template'
     - '{{template}}'
     - '--label-map'
@@ -108,7 +104,7 @@ args:
     - '--accumulation-steps'
     - '{{accumulation_steps}}'
     - '--lr'
-    - '{{lr}}'
+    - '1e-3'
 {% if pet %}
     - '--initial-trigger' 
 {% for token in initial_trigger %}
@@ -122,8 +118,6 @@ args:
     - '-f'
 ...
 {% endfor %}
-{%- endfor %}
-{%- endfor %}
 {%- endfor %}
 {%- endfor %}
 {%- endfor %}

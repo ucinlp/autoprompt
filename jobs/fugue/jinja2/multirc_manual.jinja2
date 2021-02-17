@@ -1,32 +1,32 @@
 {% for template in [
-    '{sentence2}?| [P] , {sentence1}',
-    '"{sentence2}"?| [P], "{sentence1}"',
-    '{sentence2}? </s> [P] , {sentence1}',
-    '"{sentence2}"? </s> [P] , "{sentence1}"',
+    '{passage} [SEP] Question: {question} Is it {answer} ? [P].',
 ] -%}
 {% set template_idx = loop.index %}
 {% for label_map in [
-    '{"entailment": "yes", "contradiction": "no", "neutral": "maybe"}',
+    '{"0": "false", "1": "true"}',
+    '{"0": "no", "1": "yes"}',
 ] -%}
 {% set label_idx = loop.index %}
 ---
-out: cb-manual_model_roberta-large_template_{{template_idx}}_initial-trigger_label-map_{{label_idx}}
+out: multirc-manual_model_roberta-large_template_{{template_idx}}_label-map_{{label_idx}}
 script: autoprompt/continuous_trigger_mlm.py
 args:
     - '--model-name'
     - 'roberta-large'
     - '--train'
-    - 'data/LittleGLUE/CB/train.jsonl'
+    - 'data/SuperFUGUE/MultiRC/train.jsonl'
     - '--dev'
-    - 'data/LittleGLUE/CB/dev.jsonl'
+    - 'data/SuperFUGUE/MultiRC/dev.jsonl'
     - '--test'
-    - 'data/LittleGLUE/CB/dev_all.jsonl'
+    - 'data/SuperFUGUE/MultiRC/dev_all.jsonl'
+    - '--preprocessor'
+    - 'multirc'
     - '--ckpt-dir'
-    - 'ckpt/cb-manual_model_roberta-large_template_{{template_idx}}_initial-trigger_label-map_{{label_idx}}
+    - 'ckpt/multirc-manual_model_roberta-large_template_{{template_idx}}_label-map_{{label_idx}}'
     - '--evaluation-strategy'
     - 'classification'
     - '--finetune-mode'
-    - 'trigger'
+    - 'all'
     - '--template'
     - '{{template}}'
     - '--label-map'
@@ -35,9 +35,13 @@ args:
     - '30'
     - '--bsz'
     - '2'
+    - '--clip'
+    - '1.0'
     - '--quiet'
     - '--tmp'
     - '-f'
+    - '--evaluation-metric'
+    - 'F1'
     - '--skip-train'
     - '--skip-eval'
 ...
@@ -45,34 +49,34 @@ args:
 {%- endfor %}
 {# ================================ #}
 {% for template in [
-    '{sentence2}?| [P] , {sentence1}',
-    '"{sentence2}"?| [P], "{sentence1}"',
-    '{sentence2}? </s> [P] , {sentence1}',
-    '"{sentence2}"? </s> [P] , "{sentence1}"',
+    '{passage} [SEP] Question: {question} Is it {answer} ? [P].',
 ] -%}
 {% set template_idx = loop.index %}
 {% for label_map in [
-    '{"entailment": "yes", "contradiction": "no", "neutral": "maybe"}',
+    '{"0": "false", "1": "true"}',
+    '{"0": "no", "1": "yes"}',
 ] -%}
 {% set label_idx = loop.index %}
 ---
-out: cb-manual_model_albert-xxlarge-v2_template_{{template_idx}}_initial-trigger_label-map_{{label_idx}}
+out: multirc-manual_model_albert-xxlarge-v2_template_{{template_idx}}_label-map_{{label_idx}}
 script: autoprompt/continuous_trigger_mlm.py
 args:
     - '--model-name'
     - 'albert-xxlarge-v2'
     - '--train'
-    - 'data/LittleGLUE/CB/train.jsonl'
+    - 'data/SuperFUGUE/MultiRC/train.jsonl'
     - '--dev'
-    - 'data/LittleGLUE/CB/dev.jsonl'
+    - 'data/SuperFUGUE/MultiRC/dev.jsonl'
     - '--test'
-    - 'data/LittleGLUE/CB/dev_all.jsonl'
+    - 'data/SuperFUGUE/MultiRC/dev_all.jsonl'
+    - '--preprocessor'
+    - 'multirc'
     - '--ckpt-dir'
-    - 'ckpt/cb-manual_model_albert-xxlarge-v2_template_{{template_idx}}_initial-trigger_label-map_{{label_idx}}
+    - 'ckpt/multirc-manual_model_albert-xxlarge-v2_template_{{template_idx}}_label-map_{{label_idx}}
     - '--evaluation-strategy'
     - 'classification'
     - '--finetune-mode'
-    - 'trigger'
+    - 'all'
     - '--template'
     - '{{template}}'
     - '--label-map'
@@ -81,9 +85,13 @@ args:
     - '30'
     - '--bsz'
     - '2'
+    - '--clip'
+    - '1.0'
     - '--quiet'
     - '--tmp'
     - '-f'
+    - '--evaluation-metric'
+    - 'F1'
     - '--skip-train'
     - '--skip-eval'
 ...
