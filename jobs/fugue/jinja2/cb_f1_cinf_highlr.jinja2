@@ -1,0 +1,139 @@
+{% for template, initial_trigger in [
+    ('{hypothesis} [T] [T] [P] [T] {premise}', ['?', '|', ',']),
+    ('[T] {hypothesis} [T] [T] [T] [P] [T] [T] {premise} [T]', ['"', '"', '?', '|', ',', '"', '"']),
+    ('{hypothesis} [T] </s> [P] [T] {premise}', ['?', ',']),
+    ('[T] {hypothesis} [T] [T] </s> [P] [T] [T] {premise} [T]', ['"', '"', '?', ',', '"', '"']),
+] -%}
+{% set template_idx = loop.index %}
+{% for pet in [True, False] -%}
+{% for label_map in [
+    '{"entailment": "yes", "contradiction": "no", "neutral": "maybe"}',
+] -%}
+{% set label_idx = loop.index %}
+{% for lr in [1e-2, 5e-3, 1e-3, 5e-4, 1e-4] -%}
+{% for finetune_lr in [1e-2, 5e-3, 1e-3, 5e-4, 1e-4] -%}
+{% for accumulation_steps in [1, 2, 4] -%}
+{% for finetune_mode in ['trigger', 'partial'] -%}
+---
+out: /checkpoint/ibalazevic/results/SuperFUGUE/cb-f1-cinf_model_roberta-large_template_{{template_idx}}_initial-trigger_{{pet}}_label-map_{{label_idx}}_lr_{{lr}}_finetune-lr_{{finetune_lr}}_accumulation-steps_{{accumulation_steps}}_finetune-mode_{{finetune_mode}}
+script: autoprompt/continuous_trigger_mlm.py
+args:
+    - '--model-name'
+    - 'roberta-large'
+    - '--train'
+    - 'data/SuperFUGUE/CB/train.jsonl'
+    - '--dev'
+    - 'data/SuperFUGUE/CB/dev.jsonl'
+    - '--test'
+    - 'data/SuperFUGUE/CB/dev_all.jsonl'
+    - '--ckpt-dir'
+    - '/checkpoint/ibalazevic/results/SuperFUGUE/cb-f1-cinf_model_roberta-large_template_{{template_idx}}_initial-trigger_{{pet}}_label-map_{{label_idx}}_lr_{{lr}}_finetune-lr_{{finetune_lr}}_accumulation-steps_{{accumulation_steps}}_finetune-mode_{{finetune_mode}}'
+    - '--evaluation-strategy'
+    - 'classification'
+    - '--evaluation-metric'
+    - 'F1'
+    - '--finetune-mode'
+    - '{{finetune_mode}}'
+    - '--template'
+    - '{{template}}'
+    - '--label-map'
+    - '{{label_map}}'
+    - '--epochs'
+    - '30'
+    - '--bsz'
+    - '2'
+    - '--clip'
+    - '1.0'
+    - '--accumulation-steps'
+    - '{{accumulation_steps}}'
+    - '--lr'
+    - '{{lr}}'
+    - '--finetune-lr'
+    - '{{finetune_lr}}'
+{% if pet %}
+    - '--initial-trigger' 
+{% for token in initial_trigger %}
+    - '{{token}}'
+{% endfor %}
+{% endif %}
+    - '--quiet'
+    - '--tmp'
+    - '-f'
+...
+{% endfor %}
+{%- endfor %}
+{%- endfor %}
+{%- endfor %}
+{%- endfor %}
+{%- endfor %}
+{%- endfor %}
+{# ================================ #}
+{% for template, initial_trigger in [
+    ('{hypothesis} [T] [T] [P] [T] {premise}', ['?', '|', ',']),
+    ('[T] {hypothesis} [T] [T] [T] [P] [T] [T] {premise} [T]', ['"', '"', '?', '|', ',', '"', '"']),
+    ('{hypothesis} [T] [SEP] [P] [T] {premise}', ['?', ',']),
+    ('[T] {hypothesis} [T] [T] [SEP] [P] [T] [T] {premise} [T]', ['"', '"', '?', ',', '"', '"']),
+] -%}
+{% set template_idx = loop.index %}
+{% for pet in [True, False] -%}
+{% for label_map in [
+    '{"entailment": "yes", "contradiction": "no", "neutral": "maybe"}',
+] -%}
+{% set label_idx = loop.index %}
+{% for lr in [1e-2, 5e-3, 1e-3, 5e-4, 1e-4] -%}
+{% for finetune_lr in [1e-2, 5e-3, 1e-3, 5e-4, 1e-4] -%}
+{% for accumulation_steps in [1, 2, 4] -%}
+{% for finetune_mode in ['trigger', 'partial'] -%}
+---
+out: /checkpoint/ibalazevic/results/SuperFUGUE/cb-f1-cinf_model_albert-xxlarge-v2_template_{{template_idx}}_initial-trigger_{{pet}}_label-map_{{label_idx}}_lr_{{lr}}_finetune-lr_{{finetune_lr}}_accumulation-steps_{{accumulation_steps}}_finetune-mode_{{finetune_mode}}
+script: autoprompt/continuous_trigger_mlm.py
+args:
+    - '--model-name'
+    - 'albert-xxlarge-v2'
+    - '--train'
+    - 'data/SuperFUGUE/CB/train.jsonl'
+    - '--dev'
+    - 'data/SuperFUGUE/CB/dev.jsonl'
+    - '--test'
+    - 'data/SuperFUGUE/CB/dev_all.jsonl'
+    - '--ckpt-dir'
+    - '/checkpoint/ibalazevic/results/SuperFUGUE/cb-f1-cinf_model_albert-xxlarge-v2_template_{{template_idx}}_initial-trigger_{{pet}}_label-map_{{label_idx}}_lr_{{lr}}_finetune-lr_{{finetune_lr}}_accumulation-steps_{{accumulation_steps}}_finetune-mode_{{finetune_mode}}'
+    - '--evaluation-strategy'
+    - 'classification'
+    - '--evaluation-metric'
+    - 'F1'
+    - '--finetune-mode'
+    - '{{finetune_mode}}'
+    - '--template'
+    - '{{template}}'
+    - '--label-map'
+    - '{{label_map}}'
+    - '--epochs'
+    - '30'
+    - '--bsz'
+    - '2'
+    - '--clip'
+    - '1.0'
+    - '--accumulation-steps'
+    - '{{accumulation_steps}}'
+    - '--lr'
+    - '{{lr}}'
+    - '--finetune-lr'
+    - '{{finetune_lr}}'
+{% if pet %}
+    - '--initial-trigger' 
+{% for token in initial_trigger %}
+    - '{{token}}'
+{% endfor %}
+{% endif %}
+    - '--quiet'
+    - '--tmp'
+    - '-f'
+...
+{% endfor %}
+{%- endfor %}
+{%- endfor %}
+{%- endfor %}
+{%- endfor %}
+{%- endfor %}
+{%- endfor %}

@@ -49,6 +49,8 @@ args:
     - '{{token}}'
 {% endfor %}
 {% endif %}
+    - '--evaluation-metric'
+    - 'MCC'
     - '--quiet'
     - '--tmp'
     - '-f'

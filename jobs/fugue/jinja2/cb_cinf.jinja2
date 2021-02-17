@@ -1,8 +1,8 @@
 {% for template, initial_trigger in [
-    ('{sentence2} [T] [T] [P] [T] {sentence1}', ['?', '|', ',']),
-    ('[T] {sentence2} [T] [T] [T] [P] [T] [T] {sentence1} [T]', ['"', '"', '?', '|', ',', '"', '"']),
-    ('{sentence2} [T] </s> [P] [T] {sentence1}', ['?', ',']),
-    ('[T] {sentence2} [T] [T] </s> [P] [T] [T] {sentence1} [T]', ['"', '"', '?', ',', '"', '"']),
+    ('{hypothesis} [T] [T] [P] [T] {premise}', ['?', '|', ',']),
+    ('[T] {hypothesis} [T] [T] [T] [P] [T] [T] {premise} [T]', ['"', '"', '?', '|', ',', '"', '"']),
+    ('{hypothesis} [T] </s> [P] [T] {premise}', ['?', ',']),
+    ('[T] {hypothesis} [T] [T] </s> [P] [T] [T] {premise} [T]', ['"', '"', '?', ',', '"', '"']),
 ] -%}
 {% set template_idx = loop.index %}
 {% for pet in [True, False] -%}
@@ -20,11 +20,11 @@ args:
     - '--model-name'
     - 'roberta-large'
     - '--train'
-    - 'data/LittleGLUE/CB/train.jsonl'
+    - 'data/SuperFUGUE/CB/train.jsonl'
     - '--dev'
-    - 'data/LittleGLUE/CB/dev.jsonl'
+    - 'data/SuperFUGUE/CB/dev.jsonl'
     - '--test'
-    - 'data/LittleGLUE/CB/dev_all.jsonl'
+    - 'data/SuperFUGUE/CB/dev_all.jsonl'
     - '--ckpt-dir'
     - 'ckpt/cb-cinf_model_roberta-large_template_{{template_idx}}_initial-trigger_{{pet}}_label-map_{{label_idx}}_lr_{{lr}}_accumulation-steps_{{accumulation_steps}}_finetune-mode_{{finetune_mode}}'
     - '--evaluation-strategy'
@@ -51,6 +51,8 @@ args:
     - '{{token}}'
 {% endfor %}
 {% endif %}
+    - '--evaluation-metric'
+    - 'F1'
     - '--quiet'
     - '--tmp'
     - '-f'
@@ -63,10 +65,10 @@ args:
 {%- endfor %}
 {# ================================ #}
 {% for template, initial_trigger in [
-    ('{sentence2} [T] [T] [P] [T] {sentence1}', ['?', '|', ',']),
-    ('[T] {sentence2} [T] [T] [T] [P] [T] [T] {sentence1} [T]', ['"', '"', '?', '|', ',', '"', '"']),
-    ('{sentence2} [T] [SEP] [P] [T] {sentence1}', ['?', ',']),
-    ('[T] {sentence2} [T] [T] [SEP] [P] [T] [T] {sentence1} [T]', ['"', '"', '?', ',', '"', '"']),
+    ('{hypothesis} [T] [T] [P] [T] {premise}', ['?', '|', ',']),
+    ('[T] {hypothesis} [T] [T] [T] [P] [T] [T] {premise} [T]', ['"', '"', '?', '|', ',', '"', '"']),
+    ('{hypothesis} [T] [SEP] [P] [T] {premise}', ['?', ',']),
+    ('[T] {hypothesis} [T] [T] [SEP] [P] [T] [T] {premise} [T]', ['"', '"', '?', ',', '"', '"']),
 ] -%}
 {% set template_idx = loop.index %}
 {% for pet in [True, False] -%}
@@ -84,11 +86,11 @@ args:
     - '--model-name'
     - 'albert-xxlarge-v2'
     - '--train'
-    - 'data/LittleGLUE/CB/train.jsonl'
+    - 'data/SuperFUGUE/CB/train.jsonl'
     - '--dev'
-    - 'data/LittleGLUE/CB/dev.jsonl'
+    - 'data/SuperFUGUE/CB/dev.jsonl'
     - '--test'
-    - 'data/LittleGLUE/CB/dev_all.jsonl'
+    - 'data/SuperFUGUE/CB/dev_all.jsonl'
     - '--ckpt-dir'
     - 'ckpt/cb-cinf_model_albert-xxlarge-v2_template_{{template_idx}}_initial-trigger_{{pet}}_label-map_{{label_idx}}_lr_{{lr}}_accumulation-steps_{{accumulation_steps}}_finetune-mode_{{finetune_mode}}'
     - '--evaluation-strategy'
@@ -115,6 +117,8 @@ args:
     - '{{token}}'
 {% endfor %}
 {% endif %}
+    - '--evaluation-metric'
+    - 'F1'
     - '--quiet'
     - '--tmp'
     - '-f'

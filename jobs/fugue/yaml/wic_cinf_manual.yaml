@@ -1,0 +1,129 @@
+---
+out: wic-manual_model_roberta-large_template_1_initial-trigger_label-map_1
+script: autoprompt/continuous_trigger_mlm.py
+args:
+    - '--model-name'
+    - 'roberta-large'
+    - '--train'
+    - 'data/SuperFUGUE/WiC/train.jsonl'
+    - '--dev'
+    - 'data/SuperFUGUE/WiC/dev.jsonl'
+    - '--test'
+    - 'data/SuperFUGUE/WiC/dev_all.jsonl'
+    - '--ckpt-dir'
+    - 'ckpt/wic-manual_model_roberta-large_template_1_initial-trigger_label-map_1
+    - '--evaluation-strategy'
+    - 'classification'
+    - '--finetune-mode'
+    - 'trigger'
+    - '--template'
+    - '"{sentence1}"/"{sentence2}". Similar sense of "{word}"? [P] . '
+    - '--label-map'
+    - '{"True": "Yes", "False": "No"}'
+    - '--epochs'
+    - '30'
+    - '--bsz'
+    - '2'
+    - '--quiet'
+    - '--tmp'
+    - '-f'
+    - '--skip-train'
+    - '--skip-eval'
+...
+---
+out: wic-manual_model_roberta-large_template_2_initial-trigger_label-map_1
+script: autoprompt/continuous_trigger_mlm.py
+args:
+    - '--model-name'
+    - 'roberta-large'
+    - '--train'
+    - 'data/SuperFUGUE/WiC/train.jsonl'
+    - '--dev'
+    - 'data/SuperFUGUE/WiC/dev.jsonl'
+    - '--test'
+    - 'data/SuperFUGUE/WiC/dev_all.jsonl'
+    - '--ckpt-dir'
+    - 'ckpt/wic-manual_model_roberta-large_template_2_initial-trigger_label-map_1
+    - '--evaluation-strategy'
+    - 'classification'
+    - '--finetune-mode'
+    - 'trigger'
+    - '--template'
+    - '{sentence1} {sentence2} Does {word} Have the same meaning in both sentences? [P]'
+    - '--label-map'
+    - '{"True": "Yes", "False": "No"}'
+    - '--epochs'
+    - '30'
+    - '--bsz'
+    - '2'
+    - '--quiet'
+    - '--tmp'
+    - '-f'
+    - '--skip-train'
+    - '--skip-eval'
+...
+---
+out: wic-manual_model_albert-xxlarge-v2_template_1_initial-trigger_label-map_1
+script: autoprompt/continuous_trigger_mlm.py
+args:
+    - '--model-name'
+    - 'albert-xxlarge-v2'
+    - '--train'
+    - 'data/SuperFUGUE/WiC/train.jsonl'
+    - '--dev'
+    - 'data/SuperFUGUE/WiC/dev.jsonl'
+    - '--test'
+    - 'data/SuperFUGUE/WiC/dev_all.jsonl'
+    - '--ckpt-dir'
+    - 'ckpt/wic-manual_model_albert-xxlarge-v2_template_1_initial-trigger_label-map_1
+    - '--evaluation-strategy'
+    - 'classification'
+    - '--finetune-mode'
+    - 'trigger'
+    - '--template'
+    - '"{sentence1}"/"{sentence2}". Similar sense of "{word}"? [P] . '
+    - '--label-map'
+    - '{"True": "Yes", "False": "No"}'
+    - '--epochs'
+    - '30'
+    - '--bsz'
+    - '2'
+    - '--quiet'
+    - '--tmp'
+    - '-f'
+    - '--skip-train'
+    - '--skip-eval'
+...
+---
+out: wic-manual_model_albert-xxlarge-v2_template_2_initial-trigger_label-map_1
+script: autoprompt/continuous_trigger_mlm.py
+args:
+    - '--model-name'
+    - 'albert-xxlarge-v2'
+    - '--train'
+    - 'data/SuperFUGUE/WiC/train.jsonl'
+    - '--dev'
+    - 'data/SuperFUGUE/WiC/dev.jsonl'
+    - '--test'
+    - 'data/SuperFUGUE/WiC/dev_all.jsonl'
+    - '--ckpt-dir'
+    - 'ckpt/wic-manual_model_albert-xxlarge-v2_template_2_initial-trigger_label-map_1
+    - '--evaluation-strategy'
+    - 'classification'
+    - '--finetune-mode'
+    - 'trigger'
+    - '--template'
+    - '{sentence1} {sentence2} Does {word} Have the same meaning in both sentences? [P]'
+    - '--label-map'
+    - '{"True": "Yes", "False": "No"}'
+    - '--epochs'
+    - '30'
+    - '--bsz'
+    - '2'
+    - '--quiet'
+    - '--tmp'
+    - '-f'
+    - '--skip-train'
+    - '--skip-eval'
+...
+

@@ -1,0 +1,127 @@
+{% for template, initial_trigger in [
+    ('{premise} [T] [T] [P] [T] {hypothesis}', ['?', '|', ',']),
+    ('[T] {premise} [T] [T] [T] [P] [T] [T] {hypothesis} [T]', ['"', '"', '?', '|', ',', '"', '"']),
+    ('{premise} [T] </s> [P] [T] {hypothesis}', ['?', ',']),
+    ('[T] {premise} [T] [T] </s> [P] [T] [T] {hypothesis} [T]', ['"', '"', '?', ',', '"', '"']),
+] -%}
+{% set template_idx = loop.index %}
+{% for pet in [True, False] -%}
+{% for label_map in [
+    '{"entailment": "yes", "not_entailment": "no"}',
+] -%}
+{% set label_idx = loop.index %}
+{% for lr in [1e-5, 2e-5, 5e-5] -%}
+{% for accumulation_steps in [1, 2, 4] -%}
+{% for finetune_mode in ['all'] -%}
+---
+out: /checkpoint/ibalazevic/results/SuperFUGUE/rte-inv-cinf_model_roberta-large_template_{{template_idx}}_initial-trigger_{{pet}}_label-map_{{label_idx}}_lr_{{lr}}_accumulation-steps_{{accumulation_steps}}_finetune-mode_{{finetune_mode}}
+script: autoprompt/continuous_trigger_mlm.py
+args:
+    - '--model-name'
+    - 'roberta-large'
+    - '--train'
+    - 'data/SuperFUGUE/RTE/train.jsonl'
+    - '--dev'
+    - 'data/SuperFUGUE/RTE/dev.jsonl'
+    - '--test'
+    - 'data/SuperFUGUE/RTE/dev_all.jsonl'
+    - '--ckpt-dir'
+    - '/checkpoint/ibalazevic/results/SuperFUGUE/rte-inv-cinf_model_roberta-large_template_{{template_idx}}_initial-trigger_{{pet}}_label-map_{{label_idx}}_lr_{{lr}}_accumulation-steps_{{accumulation_steps}}_finetune-mode_{{finetune_mode}}'
+    - '--evaluation-strategy'
+    - 'classification'
+    - '--finetune-mode'
+    - '{{finetune_mode}}'
+    - '--template'
+    - '{{template}}'
+    - '--label-map'
+    - '{{label_map}}'
+    - '--epochs'
+    - '30'
+    - '--bsz'
+    - '2'
+    - '--clip'
+    - '1.0'
+    - '--accumulation-steps'
+    - '{{accumulation_steps}}'
+    - '--lr'
+    - '{{lr}}'
+{% if pet %}
+    - '--initial-trigger' 
+{% for token in initial_trigger %}
+    - '{{token}}'
+{% endfor %}
+{% endif %}
+    - '--quiet'
+    - '--tmp'
+    - '-f'
+...
+{% endfor %}
+{%- endfor %}
+{%- endfor %}
+{%- endfor %}
+{%- endfor %}
+{%- endfor %}
+{# ================================ #}
+{% for template, initial_trigger in [
+    ('{premise} [T] [T] [P] [T] {hypothesis}', ['?', '|', ',']),
+    ('[T] {premise} [T] [T] [T] [P] [T] [T] {hypothesis} [T]', ['"', '"', '?', '|', ',', '"', '"']),
+    ('{premise} [T] [SEP] [P] [T] {hypothesis}', ['?', ',']),
+    ('[T] {premise} [T] [T] [SEP] [P] [T] [T] {hypothesis} [T]', ['"', '"', '?', ',', '"', '"']),
+] -%}
+{% set template_idx = loop.index %}
+{% for pet in [True, False] -%}
+{% for label_map in [
+    '{"entailment": "yes", "not_entailment": "no"}',
+] -%}
+{% set label_idx = loop.index %}
+{% for lr in [1e-5, 2e-5, 5e-5] -%}
+{% for accumulation_steps in [1, 2, 4] -%}
+{% for finetune_mode in ['all'] -%}
+---
+out: /checkpoint/ibalazevic/results/SuperFUGUE/rte-inv-cinf_model_albert-xxlarge-v2_template_{{template_idx}}_initial-trigger_{{pet}}_label-map_{{label_idx}}_lr_{{lr}}_accumulation-steps_{{accumulation_steps}}_finetune-mode_{{finetune_mode}}
+script: autoprompt/continuous_trigger_mlm.py
+args:
+    - '--model-name'
+    - 'albert-xxlarge-v2'
+    - '--train'
+    - 'data/SuperFUGUE/RTE/train.jsonl'
+    - '--dev'
+    - 'data/SuperFUGUE/RTE/dev.jsonl'
+    - '--test'
+    - 'data/SuperFUGUE/RTE/dev_all.jsonl'
+    - '--ckpt-dir'
+    - '/checkpoint/ibalazevic/results/SuperFUGUE/rte-inv-cinf_model_albert-xxlarge-v2_template_{{template_idx}}_initial-trigger_{{pet}}_label-map_{{label_idx}}_lr_{{lr}}_accumulation-steps_{{accumulation_steps}}_finetune-mode_{{finetune_mode}}'
+    - '--evaluation-strategy'
+    - 'classification'
+    - '--finetune-mode'
+    - '{{finetune_mode}}'
+    - '--template'
+    - '{{template}}'
+    - '--label-map'
+    - '{{label_map}}'
+    - '--epochs'
+    - '30'
+    - '--bsz'
+    - '2'
+    - '--clip'
+    - '1.0'
+    - '--accumulation-steps'
+    - '{{accumulation_steps}}'
+    - '--lr'
+    - '{{lr}}'
+{% if pet %}
+    - '--initial-trigger' 
+{% for token in initial_trigger %}
+    - '{{token}}'
+{% endfor %}
+{% endif %}
+    - '--quiet'
+    - '--tmp'
+    - '-f'
+...
+{% endfor %}
+{%- endfor %}
+{%- endfor %}
+{%- endfor %}
+{%- endfor %}
+{%- endfor %}
