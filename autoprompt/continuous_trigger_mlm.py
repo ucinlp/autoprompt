@@ -307,7 +307,7 @@ def main(args):
                                                     (total_correct['TP'] + total_correct['FN']) *
                                                     (total_correct['TN'] + total_correct['FP']) *
                                                     (total_correct['TN'] + total_correct['FN']))
-                    writer.add_scalar('MCC/train', (mcc_numerator / mcc_denominator).item(), epoch)
+                    writer.add_scalar('MCC/train', (mcc_numerator / (mcc_denominator + 1e-13)).item(), epoch)
                 elif args.evaluation_metric == 'F1':
                     precision = total_correct['TP'] / (total_correct['TP'] + total_correct['FP'])
                     recall = total_correct['TP'] / (total_correct['TP'] + total_correct['FN'])
@@ -358,7 +358,7 @@ def main(args):
                                                      (total_correct['TP'] + total_correct['FN']) *
                                                      (total_correct['TN'] + total_correct['FP']) *
                                                      (total_correct['TN'] + total_correct['FN']))
-                        writer.add_scalar('MCC/dev', (mcc_numerator / mcc_denominator).item(), epoch)
+                        writer.add_scalar('MCC/dev', (mcc_numerator / (mcc_denominator + 1e-13)).item(), epoch)
                     elif args.evaluation_metric == 'F1':
                         precision = total_correct['TP'] / (total_correct['TP'] + total_correct['FP'])
                         recall = total_correct['TP'] / (total_correct['TP'] + total_correct['FN'])
@@ -381,9 +381,9 @@ def main(args):
                                                     (total_correct['TN'] + total_correct['FN']))
                     logger.info(
                         f'Loss: {total_loss / (denom + 1e-13): 0.4f}, '
-                        f"MCC: {mcc_numerator / mcc_denominator: 0.4f}"
+                        f"MCC: {mcc_numerator / (mcc_denominator + 1e-13): 0.4f}"
                     )
-                    metric = mcc_numerator / mcc_denominator
+                    metric = mcc_numerator / (mcc_denominator + 1e-13)
                 elif args.evaluation_metric == 'F1':
                     precision = total_correct['TP'] / (total_correct['TP'] + total_correct['FP'])
                     recall = total_correct['TP'] / (total_correct['TP'] + total_correct['FN'])
@@ -458,7 +458,7 @@ def main(args):
                                             (total_correct['TP'] + total_correct['FN']) *
                                             (total_correct['TN'] + total_correct['FP']) *
                                             (total_correct['TN'] + total_correct['FN']))
-            mcc = mcc_numerator / mcc_denominator
+            mcc = mcc_numerator / (mcc_denominator + 1e-13)
             if distributed_config.is_main_process:
                 writer.add_scalar('MCC/test', mcc.item(), 0)
             logger.info(f'MCC: {mcc : 0.4f}')
