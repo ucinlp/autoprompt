@@ -9,7 +9,9 @@ import sys
 
 ACC_REGEX = re.compile('(?<=Accuracy:  ).*')
 F1_REGEX = re.compile('(?<=F1 score:  ).*')
+METRIC_REGEX = re.compile('(?<=Metric:  ).*')
 
+# NOTE: this should be changed to just METRIC_REGEX, but keeping ACC and F1 in for now
 
 def main(args):
     writer = csv.writer(sys.stdout)
@@ -26,6 +28,10 @@ def main(args):
         if match:
             f1 = match.group(0)
             writer.writerow((*fields, f1))
+        match = METRIC_REGEX.search(line)
+        if match:
+            metric = match.group(0)
+            writer.writerow((*fields, metric))
 
 
 
