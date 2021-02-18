@@ -11,16 +11,17 @@ from pathlib import Path
 import torch
 import torch.nn.functional as F
 from torch.utils.data import DataLoader
-from transformers import AutoConfig, AutoTokenizer, WEIGHTS_NAME, CONFIG_NAME
+from transformers import AutoConfig, AutoTokenizer, WEIGHTS_NAME
 from tqdm import tqdm
 
 from autoprompt.popsicle import AutoPopsicle
-import autoprompt.utils as utils
+import autoprompt.data as data
 
 logger = logging.getLogger(__name__)
 
 
 def main(args):
+    # pylint: disable=C0116,E1121,R0912,R0915
     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 
     config = AutoConfig.from_pretrained(args.model_name, num_labels=args.num_labels)
@@ -28,8 +29,8 @@ def main(args):
     model = AutoPopsicle.from_pretrained(args.model_name, config=config)
     model.to(device)
 
-    collator = utils.Collator(pad_token_id=tokenizer.pad_token_id)
-    train_dataset, label_map = utils.load_classification_dataset(
+    collator = data.Collator(pad_token_id=tokenizer.pad_token_id)
+    train_dataset, label_map = data.load_classification_dataset(
         args.train,
         tokenizer,
         args.field_a,
@@ -37,7 +38,7 @@ def main(args):
         args.label_field
     )
     train_loader = DataLoader(train_dataset, batch_size=args.bsz, shuffle=True, collate_fn=collator)
-    dev_dataset, _ = utils.load_classification_dataset(
+    dev_dataset, _ = data.load_classification_dataset(
         args.dev,
         tokenizer,
         args.field_a,
@@ -46,7 +47,7 @@ def main(args):
         label_map
     )
     dev_loader = DataLoader(dev_dataset, batch_size=args.bsz, shuffle=True, collate_fn=collator)
-    test_dataset, _ = utils.load_classification_dataset(
+    test_dataset, _ = data.load_classification_dataset(
         args.test,
         tokenizer,
         args.field_a,
@@ -66,9 +67,9 @@ def main(args):
     best_accuracy = 0
     try:
         for epoch in range(args.epochs):
+            logger.info(f'Epoch: {epoch}')
             logger.info('Training...')
             model.eval()  # Just linear regression - don't want model outputs changing during training.
-            avg_loss = utils.ExponentialMovingAverage()
             pbar = tqdm(train_loader)
             for model_inputs, labels in pbar:
                 model_inputs = {k: v.to(device) for k, v in model_inputs.items()}
@@ -78,8 +79,7 @@ def main(args):
                 loss = F.cross_entropy(logits, labels.squeeze(-1))
                 loss.backward()
                 optimizer.step()
-                avg_loss.update(loss.item())
-                pbar.set_description(f'loss: {avg_loss.get_metric(): 0.4f}')
+                pbar.set_description(f'loss: {loss: 0.4f}')
 
             logger.info('Evaluating...')
             model.eval()

@@ -1,132 +1,22 @@
+"""Continuous triggers for MLM prompting."""
 import argparse
-import json
 import logging
 import os
-from pathlib import Path
-import random
-import shutil
 
-import numpy as np
 import torch
-import torch.nn.functional as F
-from torch.utils.data import DataLoader
-from transformers import AdamW, AutoConfig, AutoTokenizer, AutoModelForMaskedLM
+from transformers import AdamW
 from tqdm import tqdm
 
-import autoprompt.utils as utils
+from autoprompt.evaluators import MLM_EVALUATORS
 from autoprompt.metrics import METRICS
 from autoprompt.models import ContinuousTriggerMLM
 from autoprompt.preprocessors import PREPROCESSORS
-from autoprompt.evaluators import MLM_EVALUATORS
+import autoprompt.data as data
+import autoprompt.templatizers as templatizers
+import autoprompt.utils as utils
 
 
 logger = logging.getLogger(__name__)
-
-
-def check_args(args):
-    """Checks for invalid argument combinations."""
-    if args.evaluation_strategy == 'exact-match':
-        assert args.decoding_strategy is not None
-    if args.evaluation_strategy == 'classification':
-        assert args.label_map is not None
-    if args.evaluation_strategy == 'multiple-choice':
-        assert args.bsz is None, 'Multiple choice uses custom batching, do not set `--bsz`.'
-
-
-def serialize_args(args):
-    """Serializes arguments to the checkpoint directory."""
-    if not os.path.exists(args.ckpt_dir):
-        logger.info(f'Making directory: {args.ckpt_dir}')
-        os.makedirs(args.ckpt_dir)
-    fname = os.path.join(args.ckpt_dir, 'args.json')
-    with open(fname, 'w') as f:
-        logger.info(f'Serializing CLI arguments to: {fname}')
-        json.dump(vars(args), f)
-
-
-def load_label_map(label_map):
-    """Loads the label map."""
-    if label_map is not None:
-        return json.loads(args.label_map)
-
-
-def load_transformers(model_name):
-    """Loads transformers config, tokenizer, and model.""" 
-    config = AutoConfig.from_pretrained(model_name)
-    tokenizer = AutoTokenizer.from_pretrained(
-        model_name,
-        add_prefix_space=True,
-        additional_special_tokens=('[T]', '[P]'),
-    )
-    model = AutoModelForMaskedLM.from_pretrained(model_name, config=config)
-    return config, tokenizer, model
-
-
-def get_sampler(
-    dataset,
-    evaluation_strategy,
-    distributed_config,
-    train=False
-):
-    """Sets up the metrics sampler for a data loader."""
-    # Sampling is handled by data iterator for multiple choice problems.
-    if evaluation_strategy != 'classification':
-        return
-    # Multi-GPU training
-    if distributed_config.world_size != -1:
-        return torch.utils.data.DistributedSampler(dataset, shuffle=train)
-    # Defaults
-    if train:
-        return torch.utils.data.RandomSampler(dataset)
-    else:
-        return torch.utils.data.SequentialSampler(dataset)
-
-
-def load_datasets(args, templatizer, distributed_config):
-    """Loads the training, dev and test datasets."""
-    dataset_constructor = utils.DATASET_CONSTRUCTORS[args.evaluation_strategy]
-    collator = utils.Collator(pad_token_id=templatizer.pad_token_id)
-
-    train_dataset = dataset_constructor(
-        args.train,
-        templatizer=templatizer,
-        train=True,
-        preprocessor_key=args.preprocessor,
-        limit=args.limit,
-    )
-    train_sampler = get_sampler(train_dataset, args.evaluation_strategy, distributed_config, train=True)
-    train_loader = DataLoader(train_dataset, batch_size=args.bsz, collate_fn=collator, sampler=train_sampler)
-
-    dev_dataset = dataset_constructor(
-        args.dev,
-        templatizer=templatizer,
-        preprocessor_key=args.preprocessor,
-        limit=args.limit,
-    )
-    dev_sampler = get_sampler(dev_dataset, args.evaluation_strategy, distributed_config, train=False)
-    dev_loader = DataLoader(dev_dataset, batch_size=args.bsz, collate_fn=collator, sampler=dev_sampler)
-
-    test_dataset = dataset_constructor(
-        args.test,
-        templatizer=templatizer,
-        preprocessor_key=args.preprocessor,
-    )
-    test_sampler = get_sampler(test_dataset, args.evaluation_strategy, distributed_config, train=False)
-    test_loader = DataLoader(test_dataset, batch_size=args.bsz, collate_fn=collator, sampler=test_sampler)
-
-    return train_loader, dev_loader, test_loader
-
-
-def get_initial_trigger_ids(initial_trigger, tokenizer):
-    """Converts a list of trigger tokens to a tensor of trigger token ids."""
-    if initial_trigger is None:
-        return
-    initial_trigger_ids = torch.tensor(
-        tokenizer.convert_tokens_to_ids(args.initial_trigger)
-    )
-    detokenized = tokenizer.convert_ids_to_tokens(initial_trigger_ids)
-    logger.debug(f'Initial trigger (detokenized): {detokenized}')
-    return initial_trigger_ids
 
 
 def get_optimizer(model, args):
@@ -150,40 +40,32 @@ def get_optimizer(model, args):
     )
 
 
-def to_device(data, device):
-    if isinstance(data, dict):
-        return {k: to_device(v, device) for k, v in data.items()}
-    elif isinstance(data, list):
-        return [to_device(x, device) for x in data]
-    elif isinstance(data, torch.Tensor):
-        return data.to(device)
-
-
 def main(args):
+    # pylint: disable=C0116,E1121,R0912,R0915
     utils.set_seed(args.seed)
 
     # Initialization.
-    check_args(args)
-    serialize_args(args)
+    utils.check_args(args)
+    utils.serialize_args(args)
     distributed_config = utils.distributed_setup(args.local_rank)
     if not args.debug:
         logging.basicConfig(level=logging.INFO if distributed_config.is_main_process else logging.WARN)
         logger.info('Suppressing subprocess logging. If this is not desired enable debug mode.')
     if distributed_config.is_main_process:
         writer = torch.utils.tensorboard.SummaryWriter(log_dir=args.ckpt_dir)
-    config, tokenizer, base_model = load_transformers(args.model_name)
+    config, tokenizer, base_model = utils.load_transformers(args.model_name)
 
     # Load data.
     logger.info('Loading data.')
-    label_map = load_label_map(args.label_map)
-    templatizer = utils.MultiTokenTemplatizer(
+    label_map = utils.load_label_map(args.label_map)
+    templatizer = templatizers.MultiTokenTemplatizer(
         template=args.template,
         tokenizer=tokenizer,
         label_field=args.label_field,
         label_map=label_map,
         add_padding=args.add_padding,
     )
-    train_loader, dev_loader, test_loader = load_datasets(
+    train_loader, dev_loader, test_loader = data.load_datasets(
         args,
         templatizer=templatizer,
         distributed_config=distributed_config,
@@ -191,7 +73,7 @@ def main(args):
 
     # Setup model
     logger.info('Initializing model.')
-    initial_trigger_ids = get_initial_trigger_ids(args.initial_trigger, tokenizer)
+    initial_trigger_ids = utils.get_initial_trigger_ids(args.initial_trigger, tokenizer)
     model = ContinuousTriggerMLM(
         base_model=base_model,
         num_trigger_tokens=templatizer.num_trigger_tokens,
@@ -235,15 +117,15 @@ def main(args):
                 iter_ = tqdm(train_loader)
             else:
                 iter_ = train_loader
-            total_loss = torch.tensor(0.0, device=distributed_config.device)
+            total_loss = torch.FloatTensor(0.0, device=distributed_config.device)
             total_metrics = {}
-            denom = torch.tensor(0.0, device=distributed_config.device)
+            denom = torch.FloatTensor(0.0, device=distributed_config.device)
 
             optimizer.zero_grad()
             for i, (model_inputs, labels) in enumerate(iter_):
-                model_inputs = to_device(model_inputs, distributed_config.device)
-                labels = to_device(labels, distributed_config.device)
-                loss, metrics, preds = evaluator(model_inputs, labels, train=True, 
+                model_inputs = utils.to_device(model_inputs, distributed_config.device)
+                labels = utils.to_device(labels, distributed_config.device)
+                loss, metrics, preds = evaluator(model_inputs, labels, train=True,
                                         evaluation_metric=args.evaluation_metric)
                 loss /= args.accumulation_steps
                 loss.backward()
@@ -262,7 +144,7 @@ def main(args):
                     else:
                         total_metrics[metric] = metrics[metric].detach()
                 denom += batch_size
-                
+
                 # NOTE: This loss/accuracy is only on the subset of training data
                 # in the main process.
                 if distributed_config.is_main_process and not args.quiet:
@@ -285,18 +167,18 @@ def main(args):
             if not args.skip_eval:
                 logger.info('Evaluating...')
                 model.eval()
-                total_loss = torch.tensor(0.0, device=distributed_config.device)
+                total_loss = torch.FloatTensor(0.0, device=distributed_config.device)
                 total_metrics = {}
-                denom = torch.tensor(0.0, device=distributed_config.device)
+                denom = torch.FloatTensor(0.0, device=distributed_config.device)
                 if distributed_config.is_main_process and not args.quiet:
                     iter_ = tqdm(dev_loader)
                 else:
                     iter_ = dev_loader
                 with torch.no_grad():
                     for model_inputs, labels in iter_:
-                        model_inputs = to_device(model_inputs, distributed_config.device)
-                        labels = to_device(labels, distributed_config.device)
-                        loss, metrics, preds = evaluator(model_inputs, labels, 
+                        model_inputs = utils.to_device(model_inputs, distributed_config.device)
+                        labels = utils.to_device(labels, distributed_config.device)
+                        loss, metrics, preds = evaluator(model_inputs, labels,
                             train=False, evaluation_metric=args.evaluation_metric)
                         batch_size = 1.0 if args.evaluation_strategy == 'multiple-choice' else labels.size(0)
                         total_loss += loss.detach() * batch_size
@@ -344,12 +226,12 @@ def main(args):
         output_fname = os.path.join(args.ckpt_dir, 'predictions')
         model.eval()
         total_metrics = {}
-        denom = torch.tensor(0.0, device=distributed_config.device)
+        denom = torch.FloatTensor(0.0, device=distributed_config.device)
         with torch.no_grad(), open(output_fname, 'w') as f:
             for model_inputs, labels in test_loader:
                 model_inputs = {k: v.to(distributed_config.device) for k, v in model_inputs.items()}
                 labels = labels.to(distributed_config.device)
-                _, metrics, preds = evaluator(model_inputs, labels, train=False, 
+                _, metrics, preds = evaluator(model_inputs, labels, train=False,
                                         evaluation_metric=args.evaluation_metric)
                 batch_size = 1.0 if args.evaluation_strategy == 'multiple-choice' else labels.size(0)
                 for metric in metrics:
@@ -374,7 +256,7 @@ def main(args):
         score = score_fn(metrics, denom)
         writer.add_scalar(f'{args.evaluation_metric.capitalize()}/test', score.item(), epoch)
         logger.info(f'Metric: {score: 0.4f}')
-        
+
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
@@ -485,4 +367,3 @@ if __name__ == '__main__':
     logging.basicConfig(level=level)
 
     main(args)
-

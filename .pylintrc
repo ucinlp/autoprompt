@@ -1,0 +1,19 @@
+[BASIC]
+good-names=level,logger,e,f,i,j,k,x,fn,fp,tn,tp
+ignored-argument-names=args|kwargs
+
+[MESSAGES CONTROL]
+disable=
+    duplicate-code,
+    fixme,
+    line-too-long,
+    logging-fstring-interpolation,
+    too-few-public-methods,
+    too-many-ancestors,
+    too-many-arguments,
+    too-many-locals
+
+[TYPECHECK]
+generated-members=
+    numpy.*,
+    torch.*

@@ -1,12 +1,15 @@
 """
 Preprocessors for dealing with different input files.
 """
+# pylint: disable=missing-function-docstring
+
 import csv
 import json
 
 
-def _stringify(d):
-    return {k: str(v) for k, v in d.items()}
+def _stringify(x):
+    """Converts dict values to strings. Useful for mapping integer labels."""
+    return {k: str(v) for k, v in x.items()}
 
 
 def preprocess_csv(fname, **kwargs):
@@ -164,4 +167,3 @@ PREPROCESSORS = {
     'record': preprocess_record,
     'kilt': preprocess_kilt,
 }
-

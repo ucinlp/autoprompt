@@ -11,11 +11,11 @@ from pathlib import Path
 import torch
 import torch.nn.functional as F
 from torch.utils.data import DataLoader
-from transformers import (
-    AutoConfig, AutoModelForMaskedLM, AutoTokenizer, BertForMaskedLM, RobertaForMaskedLM
-)
+from transformers import BertForMaskedLM, RobertaForMaskedLM
 from tqdm import tqdm
 
+import autoprompt.data as data
+import autoprompt.templatizers as templatizers
 import autoprompt.utils as utils
 import autoprompt.create_trigger as ct
 from autoprompt.preprocessors import PREPROCESSORS
@@ -24,59 +24,62 @@ from autoprompt.preprocessors import PREPROCESSORS
 logger = logging.getLogger(__name__)
 
 
-def load_pretrained(model_name):
+class OutputStorage:
     """
-    Loads pretrained HuggingFace config/model/tokenizer, as well as performs required
-    initialization steps to facilitate working with triggers.
+    This object stores the intermediate gradients of the output a the given PyTorch module, which
+    otherwise might not be retained.
     """
-    config = AutoConfig.from_pretrained(args.model_name)
-    model = AutoModelForMaskedLM.from_pretrained(args.model_name, config=config)
-    model.eval()
-    tokenizer = AutoTokenizer.from_pretrained(
-        args.model_name,
-        add_prefix_space=True,
-        additional_special_tokens=('[T]', '[P]'),
-    )
-    return config, model, tokenizer
+    def __init__(self, module):
+        self._stored_output = None
+        module.register_forward_hook(self.hook)
+
+    def hook(self, module, input, output):
+        """Forward hook to be registered to the model."""
+        # pylint: disable=redefined-builtin,unused-argument
+        self._stored_output = output
+
+    def get(self):
+        """Gets the stored output."""
+        return self._stored_output
 
 
 def get_final_embeddings(model):
+    """Gets final embeddings from model."""
     if isinstance(model, BertForMaskedLM):
         return model.cls.predictions.transform
-    elif isinstance(model, RobertaForMaskedLM):
+    if isinstance(model, RobertaForMaskedLM):
         return model.lm_head.layer_norm
-    else:
-        raise NotImplementedError(f'{model} not currently supported')
+    raise NotImplementedError(f'{model} not currently supported')
 
 
 def get_word_embeddings(model):
+    """Gets word embeddings from model."""
     if isinstance(model, BertForMaskedLM):
         return model.cls.predictions.decoder.weight
-    elif isinstance(model, RobertaForMaskedLM):
+    if isinstance(model, RobertaForMaskedLM):
         return model.lm_head.decoder.weight
-    else:
-        raise NotImplementedError(f'{model} not currently supported')
+    raise NotImplementedError(f'{model} not currently supported')
 
 
 def main(args):
+    # pylint: disable=C0116,E1121,R0912,R0915
     utils.set_seed(args.seed)
     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 
     logger.info('Loading model, tokenizer, etc.')
-    config, model, tokenizer = load_pretrained(args.model_name)
+    config, tokenizer, model = utils.load_transformers(args.model_name)
     model.to(device)
     final_embeddings = get_final_embeddings(model)
-    embedding_storage = utils.OutputStorage(final_embeddings)
+    embedding_storage = OutputStorage(final_embeddings)
     word_embeddings = get_word_embeddings(model)
 
     label_map = json.loads(args.label_map)
     reverse_label_map = {y: x for x, y in label_map.items()}
-    templatizer = utils.TriggerTemplatizer(
+    templatizer = templatizers.TriggerTemplatizer(
         args.template,
         tokenizer,
         label_map=label_map,
         label_field=args.label_field,
-        add_special_tokens=False
     )
 
     # The weights of this projection will help identify the best label words.
@@ -93,11 +96,11 @@ def main(args):
         assert len(trigger_ids) == templatizer.num_trigger_tokens
     else:
         trigger_ids = [tokenizer.mask_token_id] * templatizer.num_trigger_tokens
-    trigger_ids = torch.tensor(trigger_ids, device=device).unsqueeze(0)
+    trigger_ids = torch.LongTensor(trigger_ids, device=device).unsqueeze(0)
 
     logger.info('Loading datasets')
-    collator = utils.Collator(pad_token_id=tokenizer.pad_token_id)
-    train_dataset = utils.load_trigger_dataset(
+    collator = data.Collator(pad_token_id=tokenizer.pad_token_id)
+    train_dataset = data.load_trigger_dataset(
         args.train,
         templatizer,
         preprocessor_key=args.preprocessor,
@@ -135,10 +138,10 @@ def main(args):
 
         scores = torch.matmul(projection.weight, word_embeddings.transpose(0, 1))
         scores = F.softmax(scores, dim=0)
-        for i, row in enumerate(scores):
+        for j, row in enumerate(scores):
             _, top = row.topk(args.k)
             decoded = tokenizer.convert_ids_to_tokens(top)
-            logger.info(f"Top k for class {reverse_label_map[i]}: {', '.join(decoded)}")
+            logger.info(f"Top k for class {reverse_label_map[j]}: {', '.join(decoded)}")
 
     out = {}
     for i, row in enumerate(scores):

@@ -1,6 +1,8 @@
 """
 Frozen model with a linear topping...I'm really sleepy...
 """
+# pylint: disable=missing-class-docstring,missing-function-docstring,arguments-differ
+
 import logging
 
 import torch
@@ -16,7 +18,6 @@ from transformers import (
 
 
 logger = logging.getLogger(__name__)
-
 
 
 class Bertsicle(BertForSequenceClassification):

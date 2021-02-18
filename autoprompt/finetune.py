@@ -24,7 +24,7 @@ from transformers import (
 )
 from tqdm import tqdm
 
-import autoprompt.utils as utils
+import autoprompt.data as data
 from autoprompt.preprocessors import PREPROCESSORS
 
 
@@ -58,6 +58,7 @@ def get_linear_schedule_with_warmup(optimizer, num_warmup_steps, num_training_st
 
 
 def main(args):
+    # pylint: disable=C0116,E1121,R0912,R0915
     # Handle multi-GPU setup
     world_size = None
     if args.local_rank == -1:
@@ -89,7 +90,7 @@ def main(args):
             config=config,
         )
         model.add_adapter(
-            'adapter', 
+            'adapter',
             transformers.AdapterType.text_task,
             config='pfeiffer',
         )
@@ -109,12 +110,12 @@ def main(args):
             output_device=args.local_rank
         )
 
-    collator = utils.Collator(pad_token_id=tokenizer.pad_token_id)
+    collator = data.Collator(pad_token_id=tokenizer.pad_token_id)
     if args.label_map:
         label_map = json.loads(args.label_map)
     else:
         label_map = None
-    train_dataset, label_map = utils.load_classification_dataset(
+    train_dataset, label_map = data.load_classification_dataset(
         args.train,
         tokenizer,
         args.field_a,
@@ -135,7 +136,7 @@ def main(args):
         sampler=train_sampler,
         collate_fn=collator,
     )
-    dev_dataset, _ = utils.load_classification_dataset(
+    dev_dataset, _ = data.load_classification_dataset(
         args.dev,
         tokenizer,
         args.field_a,
@@ -150,7 +151,7 @@ def main(args):
     else:
         dev_sampler = SequentialSampler(dev_dataset)
     dev_loader = DataLoader(dev_dataset, batch_size=args.bsz, sampler=dev_sampler, collate_fn=collator)
-    test_dataset, _ = utils.load_classification_dataset(
+    test_dataset, _ = data.load_classification_dataset(
         args.test,
         tokenizer,
         args.field_a,
@@ -194,6 +195,7 @@ def main(args):
     if not args.skip_train:
         best_accuracy = 0
         for epoch in range(args.epochs):
+            logger.info(f'Epoch {epoch}')
             logger.info('Training...')
             model.train()
             if is_main_process and not args.quiet:
@@ -229,8 +231,8 @@ def main(args):
 
             logger.info('Evaluating...')
             model.eval()
-            correct = torch.tensor(0.0, device=device)
-            total = torch.tensor(0.0, device=device)
+            correct = torch.FloatTensor(0.0, device=device)
+            total = torch.FloatTensor(0.0, device=device)
             with torch.no_grad():
                 for model_inputs, labels in dev_loader:
                     model_inputs = {k: v.to(device) for k, v in model_inputs.items()}
@@ -267,8 +269,8 @@ def main(args):
             shutil.rmtree(args.ckpt_dir)
     model.eval()
 
-    correct = torch.tensor(0.0, device=device)
-    total = torch.tensor(0.0, device=device)
+    correct = torch.FloatTensor(0.0, device=device)
+    total = torch.FloatTensor(0.0, device=device)
     with torch.no_grad():
         for model_inputs, labels in test_loader:
             model_inputs = {k: v.to(device) for k, v in model_inputs.items()}
@@ -320,4 +322,3 @@ if __name__ == '__main__':
     args = parser.parse_args()
 
     main(args)
-

@@ -1,28 +1,26 @@
+"""Continuous triggers for sequence classification."""
 import argparse
 import logging
 import os
 from pathlib import Path
-import random
 import shutil
 
-import numpy as np
 import torch
 import torch.nn.functional as F
 from torch.utils.data import DataLoader
-from transformers import AutoConfig, AutoTokenizer, AutoModelForSequenceClassification, PreTrainedModel
-from transformers import get_linear_schedule_with_warmup, AdamW
-from transformers.modeling_albert import AlbertPreTrainedModel
-from transformers.modeling_bert import BertPreTrainedModel
-from transformers.modeling_roberta import RobertaPreTrainedModel
+from transformers import AutoConfig, AutoTokenizer
 from tqdm import tqdm
 
+import autoprompt.data as data
+import autoprompt.models as models
 import autoprompt.utils as utils
 
 
 logger = logging.getLogger(__name__)
 
 
-def generate_inputs_embeds(model_inputs, model, tokenizer, eos_idx):
+def generate_inputs_embeds(model_inputs, model, eos_idx):
+    """Adds trigger tokens to the model input embeddings."""
     source_ids = model_inputs["input_ids"]
     source_mask = model_inputs["attention_mask"]
     eos_token_idxs = (source_ids == eos_idx).nonzero()[:,1]
@@ -32,54 +30,25 @@ def generate_inputs_embeds(model_inputs, model, tokenizer, eos_idx):
     subject_embeds = model.embeds(source_ids)
     relation_embeds = model.relation_embeds.to(source_ids.device)
 
-    inputs_embeds = torch.cat([torch.cat([sembedding[:eos_token_idxs[idx], :], 
+    inputs_embeds = torch.cat([torch.cat([sembedding[:eos_token_idxs[idx], :],
                                           relation_embeds,
-                                          sembedding[eos_token_idxs[idx]:, :]], dim=0).unsqueeze(0) 
+                                          sembedding[eos_token_idxs[idx]:, :]], dim=0).unsqueeze(0)
                                           for idx, sembedding in enumerate(subject_embeds)], dim=0)
-    input_attention_mask = torch.cat([torch.ones((len(source_ids), relation_embeds.shape[0]), 
+    input_attention_mask = torch.cat([torch.ones((len(source_ids), relation_embeds.shape[0]),
                                       dtype=torch.long).to(source_ids.device), source_mask], dim=1)
     return {"inputs_embeds": inputs_embeds, "attention_mask": input_attention_mask}
 
 
-class ContTriggerTransformer(PreTrainedModel):
-
-    def __init__(self, config, model_name, trigger_length):
-        super(ContTriggerTransformer, self).__init__(config)
-        self.model = AutoModelForSequenceClassification.from_pretrained(model_name, config=self.config)
-        self.embeds = utils.get_word_embeddings(self.model)
-        indices = np.random.randint(0, self.embeds.weight.shape[0], size=trigger_length)
-        self.relation_embeds = torch.nn.Parameter(self.embeds.weight.detach()[indices], requires_grad=True)
-        self.clf_head = utils.get_clf_head(self.model)
-    
-    def forward(
-        self,
-        input_ids=None,
-        attention_mask=None,
-        token_type_ids=None,
-        position_ids=None,
-        head_mask=None,
-        inputs_embeds=None,
-        **kwargs
-    ):
-        output = self.model(
-            input_ids=input_ids,
-            attention_mask=attention_mask,
-            token_type_ids=token_type_ids,
-            position_ids=position_ids,
-            head_mask=head_mask,
-            inputs_embeds=inputs_embeds,
-        )
-
-        return output
-
-
 def main(args):
+    # pylint: disable=C0116,E1121,R0912,R0915
     logger.info(args)
 
     utils.set_seed(args.seed)
 
     # Handle multi-GPU setup
-    world_size = os.getenv('WORLD_SIZE', -1)
+    world_size = os.getenv('WORLD_SIZE')
+    if world_size is None:
+        world_size = -1
     if args.local_rank == -1:
         device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
     else:
@@ -104,7 +73,7 @@ def main(args):
     tokenizer = AutoTokenizer.from_pretrained(args.model_name)
     eos_idx = tokenizer.eos_token_id if tokenizer.eos_token_id else tokenizer.sep_token_id
 
-    model = ContTriggerTransformer(config, args.model_name, args.trigger_length)
+    model = models.ContTriggerTransformer(config, args.model_name, args.trigger_length)
     model.to(device)
 
     ckpt_path = args.ckpt_dir / 'pytorch_model.bin'
@@ -119,9 +88,9 @@ def main(args):
             device_ids=[args.local_rank],
         )
 
-    collator = utils.Collator(pad_token_id=tokenizer.pad_token_id)
+    collator = data.Collator(pad_token_id=tokenizer.pad_token_id)
 
-    train_dataset, label_map = utils.load_classification_dataset(
+    train_dataset, label_map = data.load_classification_dataset(
         args.train,
         tokenizer,
         args.field_a,
@@ -135,7 +104,7 @@ def main(args):
         train_sampler = torch.utils.data.DistributedSampler(train_dataset, shuffle=True)
     train_loader = DataLoader(train_dataset, batch_size=args.bsz, collate_fn=collator, sampler=train_sampler)
 
-    dev_dataset, _ = utils.load_classification_dataset(
+    dev_dataset, _ = data.load_classification_dataset(
         args.dev,
         tokenizer,
         args.field_a,
@@ -150,7 +119,7 @@ def main(args):
         dev_sampler = torch.utils.data.DistributedSampler(dev_dataset)
     dev_loader = DataLoader(dev_dataset, batch_size=args.bsz, collate_fn=collator, sampler=dev_sampler)
 
-    test_dataset, _ = utils.load_classification_dataset(
+    test_dataset, _ = data.load_classification_dataset(
         args.test,
         tokenizer,
         args.field_a,
@@ -162,9 +131,9 @@ def main(args):
         test_sampler = torch.utils.data.SequentialSampler(test_dataset)
     else:
         test_sampler = torch.utils.data.DistributedSampler(test_dataset)
-    test_loader = DataLoader(test_dataset, batch_size=args.bsz, shuffle=True, collate_fn=collator)
+    test_loader = DataLoader(test_dataset, batch_size=args.bsz, collate_fn=collator, sampler=test_sampler)
     params = [{'params': [model.relation_embeds]}]
-    if args.finetune_mode == 'partial': 
+    if args.finetune_mode == 'partial':
         params.append({
             'params': model.clf_head.parameters(),
             'lr': args.finetune_lr if args.finetune_lr else args.lr
@@ -181,33 +150,31 @@ def main(args):
     )
 
     best_accuracy = 0
-    for epoch in range(args.epochs):
+    for _ in range(args.epochs):
         logger.info('Training...')
         model.train()
-        avg_loss = utils.ExponentialMovingAverage()
         if is_main_process:
             iter_ = tqdm(train_loader)
         else:
             iter_ = train_loader
         for model_inputs, labels in iter_:
             model_inputs = {k: v.to(device) for k, v in model_inputs.items()}
-            model_inputs = generate_inputs_embeds(model_inputs, model, tokenizer, eos_idx)
+            model_inputs = generate_inputs_embeds(model_inputs, model, eos_idx)
             labels = labels.to(device)
             optimizer.zero_grad()
-            logits, *_ = model(**model_inputs)    
+            logits, *_ = model(**model_inputs)
             loss = F.cross_entropy(logits, labels.squeeze(-1))
             loss.backward()
             optimizer.step()
             # NOTE: This loss will only be on the subset of training data in
             # the main process.
-            avg_loss.update(loss.item())
             if is_main_process:
-                iter_.set_description(f'loss: {avg_loss.get_metric(): 0.4f}')
+                iter_.set_description(f'loss: {loss: 0.4f}')
 
         logger.info('Evaluating...')
         model.eval()
-        correct = torch.tensor(0.0, device=device)
-        total = torch.tensor(0.0, device=device)
+        correct = torch.FloatTensor(0.0, device=device)
+        total = torch.FloatTensor(0.0, device=device)
         with torch.no_grad():
             for model_inputs, labels in dev_loader:
                 model_inputs = {k: v.to(device) for k, v in model_inputs.items()}
@@ -246,8 +213,8 @@ def main(args):
         model.load_state_dict(state_dict)
 
     model.eval()
-    correct = torch.tensor(0.0, device=device)
-    total = torch.tensor(0.0, device=device)
+    correct = torch.FloatTensor(0.0, device=device)
+    total = torch.FloatTensor(0.0, device=device)
     with torch.no_grad():
         for model_inputs, labels in test_loader:
             model_inputs = {k: v.to(device) for k, v in model_inputs.items()}
@@ -297,4 +264,3 @@ if __name__ == '__main__':
     args = parser.parse_args()
 
     main(args)
-

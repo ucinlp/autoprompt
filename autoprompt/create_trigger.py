@@ -13,6 +13,7 @@ import transformers
 from transformers import AutoConfig, AutoModelForMaskedLM, AutoTokenizer
 from tqdm import tqdm
 
+import autoprompt.templatizers as templatizers
 import autoprompt.utils as utils
 from autoprompt.preprocessors import PREPROCESSORS
 
@@ -203,7 +204,7 @@ def run_model(args):
     else:
         label_map = None
 
-    templatizer = utils.TriggerTemplatizer(
+    templatizer = templatizers.TriggerTemplatizer(
         args.template,
         tokenizer,
         label_map=label_map,
@@ -343,7 +344,6 @@ def run_model(args):
         candidate_scores = torch.zeros(args.num_cand, device=device)
         denom = 0
         for step in pbar:
-
             try:
                 model_inputs, labels = next(train_iter)
             except:

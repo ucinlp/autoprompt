@@ -24,26 +24,26 @@ class MultipleChoiceEvaluator:
         self._tokenizer = tokenizer
         self._decoding_strategy = decoding_strategy
 
-    def __call__(self, model_inputs, labels, train=True, evaluation_metric='accuracy'):
+    def __call__(self, model_inputs, labels, train=True, evaluation_metric='accuracy', **kwargs):
         if train:
-            _, logits, *_ = self._model(model_inputs, labels)
+            _, logits, *_ = self._model(model_inputs, labels, **kwargs)
             logits = logits.transpose(1, -1)  # Class probs need to be dim 1 for CE
             log_p = -F.cross_entropy(logits, labels, reduction='none')
             log_p = log_p.mean(dim=-1)
             loss = 1 - log_p[0] + log_p[1]
             loss[loss < 0] = 0.0
-            correct = {'accuracy': log_p[0] > log_p[1]} # TODO: do we need a metric other than accuracy?
+            metrics = {'accuracy': log_p[0] > log_p[1]} # TODO: do we need a metric other than accuracy?
             predictions = None  # Too lazy to support ATM
         else:
-            loss = torch.tensor(0.0, device=labels.device)
-            prediction_idx = self._decode(model_inputs, labels)
+            loss = torch.FloatTensor(0.0, device=labels.device)
+            prediction_idx = self._decode(model_inputs, labels, **kwargs)
             logger.debug(f'Prediction idx: {prediction_idx}')
-            correct = {'accuracy': (prediction_idx == 0).sum()}
+            metrics = {'accuracy': (prediction_idx == 0).sum()}
             predicted_instance = labels[prediction_idx]
             prediction_mask = model_inputs['predict_mask'][prediction_idx]
             predicted_label_ids = predicted_instance[prediction_mask]
             predictions = [self._tokenizer.decode(predicted_label_ids)]
-        return loss, correct, predictions
+        return loss, metrics, predictions
 
     def _decode(self, model_inputs, labels):
         predict_mask = model_inputs['predict_mask'].clone()
@@ -59,7 +59,7 @@ class MultipleChoiceEvaluator:
             log_p = torch.zeros_like(idx0, dtype=torch.float)
             input_ids = model_inputs['input_ids']
             iterations = predict_mask.sum(dim=-1).max().item()
-            for i in range(iterations):
+            for _ in range(iterations):
                 logits, *_ = self._model(model_inputs)
                 logits = logits.transpose(1, -1)
                 scores = -F.cross_entropy(logits, labels, reduction='none')
@@ -78,7 +78,7 @@ class MultipleChoiceEvaluator:
             log_p = torch.zeros_like(idx0, dtype=torch.float)
             input_ids = model_inputs['input_ids']
             iterations = predict_mask.sum().item()
-            for i in range(iterations):
+            for _ in range(iterations):
                 # NOTE: We're going to be lazy and make the search for the most
                 # likely prediction easier by setting the logits for any tokens
                 # other than the candidates to a huge negative number.
@@ -111,17 +111,17 @@ class GenerativeEvaluator:
         self._model = model
         self._tokenizer = tokenizer
         self._decoding_strategy = decoding_strategy
-        
-    def __call__(self, model_inputs, labels, train=True, evaluation_metric='accuracy'):
+
+    def __call__(self, model_inputs, labels, train=True, evaluation_metric='accuracy', **kwargs):
         predict_mask = model_inputs['predict_mask']
         if train:
-            loss, logits, *_ = self._model(model_inputs, labels)
+            loss, logits, *_ = self._model(model_inputs, labels, **kwargs)
             prediction_ids = torch.full_like(model_inputs['input_ids'], -100)
             prediction_ids[predict_mask] = logits.argmax(dim=-1)[predict_mask]
         else:
-            loss = torch.tensor(0.0, device=labels.device)
-            prediction_ids = self._decode(model_inputs)
-        correct = {'accuracy': (prediction_ids == labels).all(dim=-1).sum()} # TODO: do we need a metric other than accuracy?
+            loss = torch.FloatTensor(0.0, device=labels.device)
+            prediction_ids = self._decode(model_inputs, **kwargs)
+        metrics = {'accuracy': (prediction_ids == labels).all(dim=-1).sum()} # TODO: do we need a metric other than accuracy?
 
         # Debug printing of predictions.
         predictions = []
@@ -135,9 +135,9 @@ class GenerativeEvaluator:
                 'prediction_tokens': self._tokenizer.convert_ids_to_tokens(pred[mask]),
             }))
 
-        return loss, correct, predictions
+        return loss, metrics, predictions
 
-    def _decode(self, model_inputs):
+    def _decode(self, model_inputs, **kwargs):
         """
         Decode from model.
 
@@ -160,7 +160,7 @@ class GenerativeEvaluator:
 
         if self._decoding_strategy == 'parallel':
             # Simple argmax over arguments.
-            logits, *_ = self._model(model_inputs)
+            logits, *_ = self._model(model_inputs, **kwargs)
             preds = logits.argmax(dim=-1)
             output[predict_mask] = preds[predict_mask]
 
@@ -168,8 +168,8 @@ class GenerativeEvaluator:
             idx0 = torch.arange(predict_mask.size(0))
             input_ids = model_inputs['input_ids']
             iterations = predict_mask.sum(dim=-1).max().item()
-            for i in range(iterations):
-                logits, *_ = self._model(model_inputs)
+            for _ in range(iterations):
+                logits, *_ = self._model(model_inputs, **kwargs)
                 row_mask = predict_mask.any(dim=-1)
                 idx1 = torch.argmax(predict_mask.long(), dim=-1)
                 combined_mask = torch.zeros_like(predict_mask)
@@ -183,11 +183,11 @@ class GenerativeEvaluator:
             idx0 = torch.arange(predict_mask.size(0))
             input_ids = model_inputs['input_ids']
             iterations = predict_mask.sum().item()
-            for i in range(iterations):
+            for _ in range(iterations):
                 # NOTE: We're going to be lazy and make the search for the most
                 # likely prediction easier by setting the logits for any tokens
                 # other than the candidates to a huge negative number.
-                logits, *_ = self._model(model_inputs)
+                logits, *_ = self._model(model_inputs, **kwargs)
                 logits[~predict_mask] = -1e32
                 top_scores, preds = torch.max(logits, dim=-1)
                 row_mask = predict_mask.any(dim=-1)
@@ -230,7 +230,7 @@ class ClassificationEvaluator:
         self._label_tokens = label_tokens.view(1, -1)
         self._label_keys = list(label_map.keys())
 
-    def __call__(self, model_inputs, labels, train=True, evaluation_metric='accuracy'):
+    def __call__(self, model_inputs, labels, train=True, evaluation_metric='accuracy', **kwargs):
 
         # Ensure everything is on the same device
         label_tokens = self._label_tokens.to(labels.device)
@@ -238,7 +238,7 @@ class ClassificationEvaluator:
         # Get predictions
         predict_mask = model_inputs['predict_mask']
         labels = labels[predict_mask].unsqueeze(-1)
-        logits, *_ = self._model(model_inputs)
+        logits, *_ = self._model(model_inputs, **kwargs)
         predict_logits = torch.gather(
             logits[predict_mask],
             dim=-1,
@@ -261,15 +261,15 @@ class ClassificationEvaluator:
 
         # Get evaluation score
         if evaluation_metric == 'accuracy':
-            correct = {'accuracy': preds.eq(label_inds).sum()}
+            metrics = {'accuracy': preds.eq(label_inds).sum()}
         else:
             tp = torch.sum((label_inds == 1) & (preds == 1))
             fp = torch.sum((label_inds == 0) & (preds == 1))
             tn = torch.sum((label_inds == 0) & (preds == 0))
             fn = torch.sum((label_inds == 1) & (preds == 0))
-            correct = {"TP": tp, "FP": fp, "TN": tn, "FN": fn}
+            metrics = {"TP": tp, "FP": fp, "TN": tn, "FN": fn}
 
-        return loss, correct, predictions
+        return loss, metrics, predictions
 
 
 MLM_EVALUATORS = {
@@ -277,4 +277,3 @@ MLM_EVALUATORS = {
     'classification': ClassificationEvaluator,
     'multiple-choice': MultipleChoiceEvaluator
 }
-
