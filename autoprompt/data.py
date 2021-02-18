@@ -85,7 +85,7 @@ def load_classification_dataset(
         if label not in label_map:
             label_map[label] = len(label_map)
         label_id = label_map[label]
-        label_id = torch.LongTensor([[label_id]])  # To make collator expectation
+        label_id = torch.tensor([[label_id]])  # To make collator expectation
         logger.debug(f'Label id: {label_id}')
         instances.append((model_inputs, label_id))
     if limit:

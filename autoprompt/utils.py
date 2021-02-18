@@ -69,7 +69,7 @@ def get_initial_trigger_ids(initial_trigger, tokenizer):
     """Converts a list of trigger tokens to a tensor of trigger token ids."""
     if initial_trigger is None:
         return None
-    initial_trigger_ids = torch.LongTensor(
+    initial_trigger_ids = torch.tensor(
         tokenizer.convert_tokens_to_ids(initial_trigger)
     )
     detokenized = tokenizer.convert_ids_to_tokens(initial_trigger_ids)
@@ -89,6 +89,21 @@ def to_device(data, device):
         'Could not place on device: `data` should be a tensor or dictionary/list '
         'containing tensors.'
     )
+
+
+# TODO(rloganiv): Probably want to make a proper interface for metrics instead of taking this janky
+# approach.
+def update_metrics(total_metrics, metrics):
+    """
+    Updates total metrics w/ metrics for a batch.
+
+    WARNING: This mutates the metrics dict.
+    """
+    for metric in metrics:
+        if metric in total_metrics:
+            total_metrics[metric] += metrics[metric].detach()
+        else:
+            total_metrics[metric] = metrics[metric].detach()
 
 
 DistributedConfig = collections.namedtuple(

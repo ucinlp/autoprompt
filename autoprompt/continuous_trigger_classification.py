@@ -173,8 +173,8 @@ def main(args):
 
         logger.info('Evaluating...')
         model.eval()
-        correct = torch.FloatTensor(0.0, device=device)
-        total = torch.FloatTensor(0.0, device=device)
+        correct = torch.tensor(0.0, device=device)
+        total = torch.tensor(0.0, device=device)
         with torch.no_grad():
             for model_inputs, labels in dev_loader:
                 model_inputs = {k: v.to(device) for k, v in model_inputs.items()}
@@ -213,8 +213,8 @@ def main(args):
         model.load_state_dict(state_dict)
 
     model.eval()
-    correct = torch.FloatTensor(0.0, device=device)
-    total = torch.FloatTensor(0.0, device=device)
+    correct = torch.tensor(0.0, device=device)
+    total = torch.tensor(0.0, device=device)
     with torch.no_grad():
         for model_inputs, labels in test_loader:
             model_inputs = {k: v.to(device) for k, v in model_inputs.items()}

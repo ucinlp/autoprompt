@@ -11,7 +11,8 @@ disable=
     too-few-public-methods,
     too-many-ancestors,
     too-many-arguments,
-    too-many-locals
+    too-many-locals,
+    not-callable
 
 [TYPECHECK]
 generated-members=

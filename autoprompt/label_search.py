@@ -96,7 +96,7 @@ def main(args):
         assert len(trigger_ids) == templatizer.num_trigger_tokens
     else:
         trigger_ids = [tokenizer.mask_token_id] * templatizer.num_trigger_tokens
-    trigger_ids = torch.LongTensor(trigger_ids, device=device).unsqueeze(0)
+    trigger_ids = torch.tensor(trigger_ids, device=device).unsqueeze(0)
 
     logger.info('Loading datasets')
     collator = data.Collator(pad_token_id=tokenizer.pad_token_id)

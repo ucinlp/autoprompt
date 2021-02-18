@@ -165,7 +165,7 @@ class DiscreteTriggerMLM(torch.nn.Module):
         batch_size = input_ids.size(0)
         if trigger_ids is None:
             trigger_ids = self.trigger_ids
-        trigger_ids = trigger_ids.repeat((batch_size, 1))
+        trigger_ids = trigger_ids.repeat((batch_size,))
         input_ids[trigger_mask] = trigger_ids
 
         return self.base_model(**model_inputs, labels=labels)

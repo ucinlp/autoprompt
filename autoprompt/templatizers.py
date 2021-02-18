@@ -26,11 +26,11 @@ def _encode_label(tokenizer, label, tokenize=False):
             if tokens[0] == tokenizer.unk_token:
                 raise ValueError(f'Label "{label}" gets mapped to unk.')
             label = tokens[0]
-        encoded = torch.LongTensor(tokenizer.convert_tokens_to_ids([label])).unsqueeze(0)
+        encoded = torch.tensor(tokenizer.convert_tokens_to_ids([label])).unsqueeze(0)
     elif isinstance(label, list):
-        encoded = torch.LongTensor(tokenizer.convert_tokens_to_ids(label)).unsqueeze(0)
+        encoded = torch.tensor(tokenizer.convert_tokens_to_ids(label)).unsqueeze(0)
     elif isinstance(label, int):
-        encoded = torch.LongTensor([[label]])
+        encoded = torch.tensor([[label]])
     return encoded
 
 

@@ -35,7 +35,7 @@ class MultipleChoiceEvaluator:
             metrics = {'accuracy': log_p[0] > log_p[1]} # TODO: do we need a metric other than accuracy?
             predictions = None  # Too lazy to support ATM
         else:
-            loss = torch.FloatTensor(0.0, device=labels.device)
+            loss = torch.tensor(0.0, device=labels.device)
             prediction_idx = self._decode(model_inputs, labels, **kwargs)
             logger.debug(f'Prediction idx: {prediction_idx}')
             metrics = {'accuracy': (prediction_idx == 0).sum()}
@@ -119,7 +119,7 @@ class GenerativeEvaluator:
             prediction_ids = torch.full_like(model_inputs['input_ids'], -100)
             prediction_ids[predict_mask] = logits.argmax(dim=-1)[predict_mask]
         else:
-            loss = torch.FloatTensor(0.0, device=labels.device)
+            loss = torch.tensor(0.0, device=labels.device)
             prediction_ids = self._decode(model_inputs, **kwargs)
         metrics = {'accuracy': (prediction_ids == labels).all(dim=-1).sum()} # TODO: do we need a metric other than accuracy?
 

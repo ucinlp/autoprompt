@@ -117,9 +117,9 @@ def main(args):
                 iter_ = tqdm(train_loader)
             else:
                 iter_ = train_loader
-            total_loss = torch.FloatTensor(0.0, device=distributed_config.device)
+            total_loss = torch.tensor(0.0, device=distributed_config.device)
             total_metrics = {}
-            denom = torch.FloatTensor(0.0, device=distributed_config.device)
+            denom = torch.tensor(0.0, device=distributed_config.device)
 
             optimizer.zero_grad()
             for i, (model_inputs, labels) in enumerate(iter_):
@@ -138,12 +138,8 @@ def main(args):
 
                 batch_size = 1.0 if args.evaluation_strategy == 'multiple-choice' else labels.size(0)
                 total_loss += loss.detach() * batch_size
-                for metric in metrics:
-                    if metric in total_metrics:
-                        total_metrics[metric] += metrics[metric].detach()
-                    else:
-                        total_metrics[metric] = metrics[metric].detach()
                 denom += batch_size
+                utils.update_metrics(total_metrics, metrics)
 
                 # NOTE: This loss/accuracy is only on the subset of training data
                 # in the main process.
@@ -167,9 +163,9 @@ def main(args):
             if not args.skip_eval:
                 logger.info('Evaluating...')
                 model.eval()
-                total_loss = torch.FloatTensor(0.0, device=distributed_config.device)
+                total_loss = torch.tensor(0.0, device=distributed_config.device)
                 total_metrics = {}
-                denom = torch.FloatTensor(0.0, device=distributed_config.device)
+                denom = torch.tensor(0.0, device=distributed_config.device)
                 if distributed_config.is_main_process and not args.quiet:
                     iter_ = tqdm(dev_loader)
                 else:
@@ -182,11 +178,7 @@ def main(args):
                             train=False, evaluation_metric=args.evaluation_metric)
                         batch_size = 1.0 if args.evaluation_strategy == 'multiple-choice' else labels.size(0)
                         total_loss += loss.detach() * batch_size
-                        for metric in metrics:
-                            if metric in total_metrics:
-                                total_metrics[metric] += metrics[metric].detach()
-                            else:
-                                total_metrics[metric] = metrics[metric].detach()
+                        utils.update_metrics(total_metrics, metrics)
                         denom += batch_size
 
                         if distributed_config.world_size != -1:
@@ -226,7 +218,7 @@ def main(args):
         output_fname = os.path.join(args.ckpt_dir, 'predictions')
         model.eval()
         total_metrics = {}
-        denom = torch.FloatTensor(0.0, device=distributed_config.device)
+        denom = torch.tensor(0.0, device=distributed_config.device)
         with torch.no_grad(), open(output_fname, 'w') as f:
             for model_inputs, labels in test_loader:
                 model_inputs = {k: v.to(distributed_config.device) for k, v in model_inputs.items()}
@@ -234,11 +226,7 @@ def main(args):
                 _, metrics, preds = evaluator(model_inputs, labels, train=False,
                                         evaluation_metric=args.evaluation_metric)
                 batch_size = 1.0 if args.evaluation_strategy == 'multiple-choice' else labels.size(0)
-                for metric in metrics:
-                    if metric in total_metrics:
-                        total_metrics[metric] += metrics[metric].detach()
-                    else:
-                        total_metrics[metric] = metrics[metric].detach()
+                utils.update_metrics(total_metrics, metrics)
                 denom += batch_size
                 # Serialize output
                 for pred in preds:
