@@ -1,0 +1,99 @@
+{% for task_name, template in [
+    ("P1001", "{sub_label} is a legal term in [P] ."),
+    ("P101", "{sub_label} works in the field of [P] ."),
+    ("P103", "The native language of {sub_label} is [P] ."),
+    ("P106", "{sub_label} is a [P] by profession ."),
+    ("P108", "{sub_label} works for [P] ."),
+    ("P127", "{sub_label} is owned by [P] ."),
+    ("P1303", "{sub_label} plays [P] ."),
+    ("P131", "{sub_label} is located in [P] ."),
+    ("P1376", "{sub_label} is the capital of [P] ."),
+    ("P138", "{sub_label} is named after [P] ."),
+    ("P140", "{sub_label} is affiliated with the [P] religion ."),
+    ("P1412", "{sub_label} used to communicate in [P] ."),
+    ("P159", "The headquarter of {sub_label} is in [P] ."),
+    ("P176", "{sub_label} is produced by [P] ."),
+    ("P178", "{sub_label} is developed by [P] ."),
+    ("P19", "{sub_label} was born in [P] ."),
+    ("P190", "{sub_label} and [P] are twin cities ."),
+    ("P20", "{sub_label} died in [P] ."),
+    ("P264", "{sub_label} is represented by music label [P] ."),
+    ("P27", "{sub_label} is [P] citizen ."), 
+    ("P276", "{sub_label} is located in [P] ."), 
+    ("P279", "{sub_label} is a subclass of [P] ."),  
+    ("P30", "{sub_label} is located in [P] ."),
+    ("P31", "{sub_label} is a [P] ."),
+    ("P36", "The capital of {sub_label} is [P] ."),
+    ("P361", "{sub_label} is part of [P] ."),
+    ("P364", "The original language of {sub_label} is [P] ."),
+    ("P37", "The official language of {sub_label} is [P] ."),
+    ("P39", "{sub_label} has the position of [P] ."),
+    ("P407", "{sub_label} was written in [P] ."),
+    ("P413", "{sub_label} plays in [P] position ."),
+    ("P449", "{sub_label} was originally aired on [P] ."),
+    ("P463", "{sub_label} is a member of [P] ."),
+    ("P47", "{sub_label} shares border with [P] ."),
+    ("P495", "{sub_label} was created in [P] ."),
+    ("527", "{sub_label} consists of [P] ."),
+    ("530", "{sub_label} maintains diplomatic relations with [P] ."),
+    ("P740", "{sub_label} was founded in [P] ."),
+    ("P937", "{sub_label} used to work in [P] ."),
+
+] -%}
+{% for seed in [1, 420, 808, 1234, 1337] -%}
+{% for limit in [32] -%}
+{% for finetune_mode in ['all'] -%}
+{% for epochs in [20] -%}
+{% for bsz in [2] -%}
+{% for lr in [5e-6] -%}
+
+---
+out: /checkpoint/ibalazevic/results/LAMA/cinf-template-mlm_bert-base-cased_task_LAMA_{{task_name}}_seed_{{seed}}_limit_{{limit}}_finetune-mode_{{finetune_mode}}_bsz_{{bsz}}_lr_{{lr}}_epochs_{{epochs}}
+script: autoprompt/continuous_trigger_mlm.py
+args:
+    - '--model-name'
+    - 'bert-base-cased'
+    - '--train'
+    - 'data/LAMA/{{task_name}}/train.jsonl'
+    - '--dev'
+    - 'data/LAMA/{{task_name}}/dev.jsonl'
+    - '--test'
+    - 'data/LAMA/{{task_name}}/test.jsonl'
+    - '--bsz'
+    - '{{bsz}}'
+    - '--epochs'
+    - '{{epochs}}'
+    - '--accumulation-steps'
+    - '8'
+    - '--lr'
+    - '{{lr}}'
+    - '--evaluation-strategy'
+    - 'generative'
+    - '--decoding-strategy'
+    - 'iterative'
+{% if limit %}
+    - '--limit'
+    - '{{limit}}'
+{% endif %}
+    - '--clip'
+    - '1.0'
+    - '--seed'
+    - '{{seed}}'
+    - '--template'
+    - '{{template}}'
+    - '--label-field'
+    - 'obj_label'
+    - '--finetune-mode'
+    - '{{finetune_mode}}'
+    - '--tmp'
+    - '--ckpt-dir'
+    - '/checkpoint/ibalazevic/results/LAMA/cinf-template-mlm_bert-base-cased_task_LAMA_{{task_name}}_seed_{{seed}}_limit_{{limit}}_finetune-mode_{{finetune_mode}}_bsz_{{bsz}}_lr_{{lr}}_epochs_{{epochs}}'
+    - '-f'
+...
+{% endfor %}
+{%- endfor %}
+{%- endfor %}
+{%- endfor %}
+{%- endfor %}
+{%- endfor %}
+{%- endfor %}

@@ -1,0 +1,109 @@
+{% for task_name, template, initial_trigger in [
+    ("P1001", "{sub_label} [T] [T] [T] [T] [T] [P] .", ['is', 'a', 'legal', 'term', 'in']),
+    ("P101", "{sub_label} [T] [T] [T] [T] [T] [P] .", ['works', 'in', 'the', 'field', 'of']),
+    ("P103", "[T] [T] [T] [T] {sub_label} [T] [P] .", ['The', 'native', 'language', 'of', 'is']),
+    ("P106", "{sub_label} [T] [T] [P] [T] [T] .", ['is', 'a', 'by', 'profession']),
+    ("P108", "{sub_label} [T] [T] [P] .", ['works', 'for']),
+    ("P127", "{sub_label} [T] [T] [T] [P] .", ['is', 'owned', 'by']),
+    ("P1303", "{sub_label} [T] [P] .", ['plays']),
+    ("P131", "{sub_label} [T] [T] [T] [P] .", ['is', 'located', 'in']),
+    ("P1376", "{sub_label} [T] [T] [T] [T] [P] .", ['is', 'the', 'capital', 'of']),
+    ("P138", "{sub_label} [T] [T] [T] [P] .", ['is', 'named', 'after']),
+    ("P140", "{sub_label} [T] [T] [T] [T] [P] [T] .", ['is', 'affiliated', 'with', 'the', 'religion']),
+    ("P1412", "{sub_label} [T] [T] [T] [T] [P] .", ['used', 'to', 'communicate', 'in']),
+    ("P159", "[T] [T] [T] [T] [T] {sub_label} [T] [T] [P] .", ['The', 'head', '##qua', '##rter', 'of', 'is', 'in']),
+    ("P176", "{sub_label} [T] [T] [T] [P] .", ['is', 'produced', 'by']),
+    ("P178", "{sub_label} [T] [T] [T] [P] .", ['is', 'developed', 'by']),
+    ("P19", "{sub_label} [T] [T] [T] [P] .", ['was', 'born', 'in']),
+    ("P190", "{sub_label} [T] [P] [T] [T] [T] .", ['and', 'are', 'twin', 'cities']),
+    ("P20", "{sub_label} [T] [T] [P] .", ['died', 'in']),
+    ("P264", "{sub_label} [T] [T] [T] [T] [T] [P] .", ['is', 'represented', 'by', 'music', 'label']),
+    ("P27", "{sub_label} [T] [P] [T] .", ['is', 'citizen']), 
+    ("P276", "{sub_label} [T] [T] [T] [P] .", ['is', 'located', 'in']), 
+    ("P279", "{sub_label} [T] [T] [T] [T] [T] [T] [P] .", ['is', 'a', 'sub', '##c', '##lass', 'of']),  
+    ("P30", "{sub_label} [T] [T] [T] [P] .", ['is', 'located', 'in']),
+    ("P31", "{sub_label} [T] [T] [P] .", ['is', 'a']),
+    ("P36", "[T] [T] [T] {sub_label} [T] [P] .", ['The', 'capital', 'of', 'is']),
+    ("P361", "{sub_label} [T] [T] [T] [P] .", ['is', 'part', 'of']),
+    ("P364", "[T] [T] [T] [T] {sub_label} [T] [P] .", ['The', 'original', 'language', 'of', 'is']),
+    ("P37", "[T] [T] [T] [T] {sub_label} [T] [P] .", ['The', 'official', 'language', 'of', 'is']),
+    ("P39", "{sub_label} [T] [T] [T] [T] [P] .", ['has', 'the', 'position', 'of']),
+    ("P407", "{sub_label} [T] [T] [T] [P] .", ['was', 'written', 'in']),
+    ("P413", "{sub_label} [T] [T] [P] [T] .", ['plays', 'in', 'position']),
+    ("P449", "{sub_label} [T] [T] [T] [T] [P] .", ['was', 'originally', 'aired', 'on']),
+    ("P463", "{sub_label} [T] [T] [T] [T] [P] .", ['is', 'a', 'member', 'of']),
+    ("P47", "{sub_label} [T] [T] [T] [P] .", ['shares', 'border', 'with']),
+    ("P495", "{sub_label} [T] [T] [T] [P] .", ['was', 'created', 'in']),
+    ("P527", "{sub_label} [T] [T] [P] .", ['consists', 'of']),
+    ("P530", "{sub_label} [T] [T] [T] [T] [P] .", ['maintains', 'diplomatic', 'relations', 'with']),
+    ("P740", "{sub_label} [T] [T] [T] [P] .", ['was', 'founded', 'in']),
+    ("P937", "{sub_label} [T] [T] [T] [T] [P] .", ['used', 'to', 'work', 'in']),
+] -%}
+{% for seed in [1, 420, 808, 1234, 1337] -%}
+{% for limit in [32] -%}
+{% for finetune_mode in ['all', 'partial', 'trigger'] -%}
+{% for epochs in [20] -%}
+{% for bsz in [2] -%}
+{% for lr in [5e-3] -%}
+{% for finetune_lr in [1e-5] -%}
+{% for template_init in [True, False] -%}
+---
+out: /checkpoint/ibalazevic/results/LAMA/cinf-prompt-mlm_bert-base-cased_task_LAMA_{{task_name}}_seed_{{seed}}_limit_{{limit}}_finetune-mode_{{finetune_mode}}_bsz_{{bsz}}_lr_{{lr}}_finetune-lr_{{finetune_lr}}_template-init_{{template_init}}_epochs_{{epochs}}
+script: autoprompt/continuous_trigger_mlm.py
+args:
+    - '--model-name'
+    - 'bert-base-cased'
+    - '--train'
+    - 'data/LAMA/{{task_name}}/train.jsonl'
+    - '--dev'
+    - 'data/LAMA/{{task_name}}/dev.jsonl'
+    - '--test'
+    - 'data/LAMA/{{task_name}}/test.jsonl'
+    - '--bsz'
+    - '{{bsz}}'
+    - '--epochs'
+    - '{{epochs}}'
+    - '--accumulation-steps'
+    - '8'
+    - '--lr'
+    - '{{lr}}'
+    - '--finetune-lr'
+    - '{{finetune_lr}}'
+    - '--evaluation-strategy'
+    - 'generative'
+    - '--decoding-strategy'
+    - 'iterative'
+{% if limit %}
+    - '--limit'
+    - '{{limit}}'
+{% endif %}
+    - '--clip'
+    - '1.0'
+    - '--seed'
+    - '{{seed}}'
+    - '--template'
+    - '{{template}}'
+{% if template_init %}
+    - '--initial-trigger' 
+{% for token in initial_trigger %}
+    - '{{token}}'
+{% endfor %}
+{% endif %}
+    - '--label-field'
+    - 'obj_label'
+    - '--finetune-mode'
+    - '{{finetune_mode}}'
+    - '--tmp'
+    - '--ckpt-dir'
+    - '/checkpoint/ibalazevic/results/LAMA/cinf-prompt-mlm_bert-base-cased_task_LAMA_{{task_name}}_seed_{{seed}}_limit_{{limit}}_finetune-mode_{{finetune_mode}}_bsz_{{bsz}}_lr_{{lr}}_finetune-lr_{{finetune_lr}}_template-init_{{template_init}}_epochs_{{epochs}}'
+    - '-f'
+...
+{% endfor %}
+{%- endfor %}
+{%- endfor %}
+{%- endfor %}
+{%- endfor %}
+{% endfor %}
+{%- endfor %}
+{%- endfor %}
+{%- endfor %}
