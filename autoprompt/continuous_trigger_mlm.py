@@ -241,7 +241,7 @@ def main(args):
                 logger.info('Temporary mode enabled, deleting checkpoint.')
                 os.remove(ckpt_path)
 
-        score = score_fn(metrics, denom)
+        score = score_fn(total_metrics, denom)
         writer.add_scalar(f'{args.evaluation_metric.capitalize()}/test', score.item(), epoch)
         logger.info(f'Metric: {score: 0.4f}')
 
