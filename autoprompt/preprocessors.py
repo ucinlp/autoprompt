@@ -5,6 +5,7 @@ Preprocessors for dealing with different input files.
 
 import csv
 import json
+import io
 
 
 def _stringify(x):
@@ -31,6 +32,10 @@ def preprocess_jsonl(fname, **kwargs):
         for line in f:
             yield _stringify(json.loads(line))
 
+def preprocess_jsonl_string(fname, **kwargs):
+    with io.StringIO(fname) as f:
+        for line in f:
+            yield _stringify(json.loads(line))
 
 def preprocess_multirc(fname, **kwargs):
     with open(fname, 'r') as f:
@@ -161,6 +166,7 @@ PREPROCESSORS = {
     'csv': preprocess_csv,
     'tsv': preprocess_tsv,
     'jsonl': preprocess_jsonl,
+    'jsonl-string': preprocess_jsonl_string,
     'multirc': preprocess_multirc,
     'wsc': preprocess_wsc,
     'copa': preprocess_copa,

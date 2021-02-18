@@ -1,0 +1,136 @@
+{% for template, initial_trigger in [
+    ('{passage} [T] [T] [T] {question} [T] [T] [T] [P] [T]', ['.', 'ĠQuestion', ':', 'Ġ?', 'ĠAnswer', ':', 'Ġ.']),
+    ('{passage} [T] [T] [T] [T] [T] [T] [T] {question} [T] [P] [T]', ['.', 'ĠBased', 'Ġon', 'Ġthe', 'Ġprevious', 'Ġpassage', ',', 'Ġ?', 'Ġ.']),
+    ('[T] [T] [T] [T] [T] [T] {question} [T] [P] [T] {passage}', ['Based', 'Ġon', 'Ġthe', 'Ġfollowing', 'Ġpassage', ',', 'Ġ?', 'Ġ.']),
+] -%}
+{% set template_idx = loop.index %}
+{% for pet in [True, False] -%}
+{% for label_map in [
+    '{"True": "True", "False": "False"}',
+    '{"True": "Yes", "False": "No"}',
+] -%}
+{% set label_idx = loop.index %}
+{% for lr in [1e-2, 5e-3, 1e-3, 5e-4, 1e-4] -%}
+{% for finetune_lr in [1e-2, 5e-3, 1e-3, 5e-4, 1e-4] -%}
+{% for accumulation_steps in [1, 2, 4] -%}
+{% for finetune_mode in ['trigger', 'partial'] -%}
+---
+out: /checkpoint/ibalazevic/results/SuperFUGUE/boolq-cinf_model_roberta-large_template_{{template_idx}}_initial-trigger_{{pet}}_label-map_{{label_idx}}_lr_{{lr}}_finetune-lr_{{finetune_lr}}_accumulation-steps_{{accumulation_steps}}_finetune-mode_{{finetune_mode}}
+script: autoprompt/continuous_trigger_mlm.py
+args:
+    - '--model-name'
+    - 'roberta-large'
+    - '--train'
+    - 'data/SuperFUGUE/BoolQ/train.jsonl'
+    - '--dev'
+    - 'data/SuperFUGUE/BoolQ/dev.jsonl'
+    - '--test'
+    - 'data/SuperFUGUE/BoolQ/dev_all.jsonl'
+    - '--ckpt-dir'
+    - '/checkpoint/ibalazevic/results/SuperFUGUE/boolq-cinf_model_roberta-large_template_{{template_idx}}_initial-trigger_{{pet}}_label-map_{{label_idx}}_lr_{{lr}}_finetune-lr_{{finetune_lr}}_accumulation-steps_{{accumulation_steps}}_finetune-mode_{{finetune_mode}}'
+    - '--evaluation-strategy'
+    - 'classification'
+    - '--finetune-mode'
+    - '{{finetune_mode}}'
+    - '--template'
+    - '{{template}}'
+    - '--label-map'
+    - '{{label_map}}'
+    - '--epochs'
+    - '30'
+    - '--bsz'
+    - '2'
+    - '--clip'
+    - '1.0'
+    - '--accumulation-steps'
+    - '{{accumulation_steps}}'
+    - '--lr'
+    - '{{lr}}'
+    - '--finetune-lr'
+    - '{{finetune_lr}}'
+{% if pet %}
+    - '--initial-trigger' 
+{% for token in initial_trigger %}
+    - '{{token}}'
+{% endfor %}
+{% endif %}
+    - '--quiet'
+    - '--tmp'
+    - '-f'
+...
+{% endfor %}
+{%- endfor %}
+{%- endfor %}
+{%- endfor %}
+{%- endfor %}
+{%- endfor %}
+{%- endfor %}
+{# ================================ #}
+{% for template, initial_trigger in [
+    ('{passage} [T] [T] [T] {question} [T] [T] [T] [P] [T]', ['.', '▁question', ':', '?', '▁answer', ':', '.']),
+    ('{passage} [T] [T] [T] [T] [T] [T] [T] {question} [T] [P] [T]', ['.', '▁based', '▁on', '▁the', '▁previous', '▁passage', ',',  '?',  '.']),
+    ('[T] [T] [T] [T] [T] [T] {question} [T] [P] [T] {passage}', ['▁based', '▁on', '▁the', '▁following', '▁passage', ',', '?', '.']),
+] -%}
+{% set template_idx = loop.index %}
+{% for pet in [True, False] -%}
+{% for label_map in [
+    '{"True": "True", "False": "False"}',
+    '{"True": "Yes", "False": "No"}',
+] -%}
+{% set label_idx = loop.index %}
+{% for lr in [1e-2, 5e-3, 1e-3, 5e-4, 1e-4] -%}
+{% for finetune_lr in [1e-2, 5e-3, 1e-3, 5e-4, 1e-4] -%}
+{% for accumulation_steps in [1, 2, 4] -%}
+{% for finetune_mode in ['trigger', 'partial'] -%}
+{% set out = "model_albert-xxlarge-v2_template_{{template_idx}}_initial-trigger_{{pet}}_label-map_{{label_idx}}_lr_{{lr}}_finetune-lr_{{finetune_lr}}_accumulation-steps_{{accumulation_steps}}_finetune-mode_{{finetune_mode}}" -%}
+---
+out: /checkpoint/ibalazevic/results/SuperFUGUE/boolq-cinf_model_albert-xxlarge-v2_template_{{template_idx}}_initial-trigger_{{pet}}_label-map_{{label_idx}}_lr_{{lr}}_finetune-lr_{{finetune_lr}}_accumulation-steps_{{accumulation_steps}}_finetune-mode_{{finetune_mode}}
+script: autoprompt/continuous_trigger_mlm.py
+args:
+    - '--model-name'
+    - 'albert-xxlarge-v2'
+    - '--train'
+    - 'data/SuperFUGUE/BoolQ/train.jsonl'
+    - '--dev'
+    - 'data/SuperFUGUE/BoolQ/dev.jsonl'
+    - '--test'
+    - 'data/SuperFUGUE/BoolQ/dev_all.jsonl'
+    - '--ckpt-dir'
+    - '/checkpoint/ibalazevic/results/SuperFUGUE/boolq-cinf_model_albert-xxlarge-v2_template_{{template_idx}}_initial-trigger_{{pet}}_label-map_{{label_idx}}_lr_{{lr}}_finetune-lr_{{finetune_lr}}_accumulation-steps_{{accumulation_steps}}_finetune-mode_{{finetune_mode}}'
+    - '--evaluation-strategy'
+    - 'classification'
+    - '--finetune-mode'
+    - '{{finetune_mode}}'
+    - '--template'
+    - '{{template}}'
+    - '--label-map'
+    - '{{label_map}}'
+    - '--epochs'
+    - '30'
+    - '--bsz'
+    - '2'
+    - '--clip'
+    - '1.0'
+    - '--accumulation-steps'
+    - '{{accumulation_steps}}'
+    - '--lr'
+    - '{{lr}}'
+    - '--finetune-lr'
+    - '{{finetune_lr}}'
+{% if pet %}
+    - '--initial-trigger' 
+{% for token in initial_trigger %}
+    - '{{token}}'
+{% endfor %}
+{% endif %}
+    - '--quiet'
+    - '--tmp'
+    - '-f'
+...
+{% endfor %}
+{%- endfor %}
+{%- endfor %}
+{%- endfor %}
+{%- endfor %}
+{%- endfor %}
+{%- endfor %}

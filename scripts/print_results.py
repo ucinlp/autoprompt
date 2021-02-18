@@ -8,6 +8,7 @@ import sys
 
 
 ACC_REGEX = re.compile('(?<=Accuracy:  ).*')
+F1_REGEX = re.compile('(?<=F1 score:  ).*')
 
 
 def main(args):
@@ -21,6 +22,10 @@ def main(args):
         if match:
             acc = match.group(0)
             writer.writerow((*fields, acc))
+        match = F1_REGEX.search(line)
+        if match:
+            f1 = match.group(0)
+            writer.writerow((*fields, f1))
 
 
 
