@@ -3,14 +3,12 @@ import pandas as pd
 from autoprompt import utils
 from autoprompt.create_trigger import *
 
+class Object(object):
+    pass
+
 def autoprompt_args():
-    class Object(object):
-        pass
     a = Object()
-    # a.train
-    # a.dev
     a.template = st.sidebar.text_input("Template string", "[CLS] {sentence} [T] [T] [T] [P] . [SEP]")
-    #  a.label_map = None
     a.tokenize_labels = True
     a.filter = st.sidebar.checkbox("Filter", True)
     a.print_lama = False
@@ -69,18 +67,30 @@ def load_trigger_dataset(dataset, templatizer, use_ctx, limit=None):
     else:
         return instances
 
-@st.cache(persist=False, suppress_st_warning=True, max_entries=100, allow_output_mutation=True)
-def run_autoprompt(args, dataset):
+@st.cache(allow_output_mutation=True)
+def load_model(model_name):
+    global_data = Object()
+    global_data.device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+    logger.info('Loading model, tokenizer, etc.')
+    global_data.config, model, global_data.tokenizer = load_pretrained(model_name)
+    global_data.model = model
+    global_data.model.to(global_data.device)
+    global_data.embeddings = get_embeddings(global_data.model, global_data.config)
+    global_data.embedding_gradient = GradientStorage(global_data.embeddings)
+    global_data.predictor = PredictWrapper(global_data.model)
+    return global_data
+    
+@st.cache(persist=True, suppress_st_warning=True, max_entries=100, allow_output_mutation=True)
+def run_autoprompt(global_data, args, dataset):
+    model = global_data.model
+    tokenizer = global_data.tokenizer
+    config = global_data.config
+    device = global_data.device
+    embeddings = global_data.embeddings
+    embedding_gradient = global_data.embedding_gradient
+    predictor = global_data.predictor
 
     set_seed(args.seed)
-    device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
-
-    logger.info('Loading model, tokenizer, etc.')
-    config, model, tokenizer = load_pretrained(args.model_name)
-    model.to(device)
-    embeddings = get_embeddings(model, config)
-    embedding_gradient = GradientStorage(embeddings)
-    predictor = PredictWrapper(model)
 
     if args.label_map is not None:
         ## CHANGED
@@ -390,7 +400,7 @@ def run_autoprompt(args, dataset):
 def run():
     st.title('AutoPrompt Demo')
     st.write("Give some examples, get a model!")
-
+    st.markdown("See https://ucinlp.github.io/autoprompt/ for more details.")
     num_train_instances = st.slider("Number of Train Instances", 2, 50)
 
     any_empty = False
@@ -420,6 +430,7 @@ def run():
     args = autoprompt_args()
     label_set = set(map(lambda x: x['label'], dataset))
     args.label_map = dict(map(lambda x: (x, x), label_set))
+    global_data = load_model(args.model_name)
 
     if any_empty:
         st.warning('Waiting for data to be added')
@@ -430,7 +441,7 @@ def run():
         st.stop()
 
     st.write('Training...')
-    trigger_tokens, dev_metric, predict = run_autoprompt(args, dataset)
+    trigger_tokens, dev_metric, predict = run_autoprompt(global_data, args, dataset)
     st.write('Tokens: ' + ' ,'.join(trigger_tokens))
     st.write('Train accuracy: ' + str(round(dev_metric*100, 1)))
     st.write("### Test Predictions")
