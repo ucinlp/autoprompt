@@ -80,7 +80,7 @@ def load_model(model_name):
     global_data.predictor = PredictWrapper(global_data.model)
     return global_data
     
-@st.cache(persist=True, suppress_st_warning=True, max_entries=100, allow_output_mutation=True)
+@st.cache(persist=False, suppress_st_warning=True, max_entries=100, allow_output_mutation=True)
 def run_autoprompt(global_data, args, dataset):
     model = global_data.model
     tokenizer = global_data.tokenizer
