@@ -9,7 +9,7 @@ from tqdm import tqdm
 
 from autoprompt.evaluators import MLM_EVALUATORS
 from autoprompt.metrics import METRICS
-from autoprompt.models import ContinuousTriggerMLM
+from autoprompt.models import ContinuousTriggerMLM, LinearComboMLM
 from autoprompt.preprocessors import PREPROCESSORS
 import autoprompt.data as data
 import autoprompt.templatizers as templatizers
@@ -19,9 +19,75 @@ import autoprompt.utils as utils
 logger = logging.getLogger(__name__)
 
 
+class L1SGD(torch.optim.Optimizer):
+    def __init__(self, params, lr, l1decay=0.0, theta=1e32):
+        default = dict(lr=lr, l1decay=l1decay, theta=theta)
+        super().__init__(params, default)
+
+    @staticmethod
+    def _update(params, d_p_list, lr, l1decay, theta):
+        for i, param in enumerate(params):
+            # Standard SGD Step
+            d_p = d_p_list[i]
+            zeros = param.eq(0.0)
+            param.add_(d_p, alpha=-lr)
+
+            # Truncation
+            if l1decay != 0.0:
+                logger.debug('Truncated routine invoked.')
+                branch1 = param.ge(0.0) & param.le(theta)
+                branch2 = param.le(0.0) & param.ge(-theta)
+                # Max 0
+                branch1_update = param[branch1] - lr*l1decay
+                branch1_mask = branch1_update.lt(0.0)
+                branch1_update[branch1_mask] = 0.0
+                param[branch1] = branch1_update
+                # Min 0
+                branch2_update = param[branch2] + lr*l1decay
+                branch2_mask = branch2_update.gt(0.0)
+                branch2_update[branch2_mask] = 0.0
+                param[branch2] = branch2_update
+
+                # Make sure zeros stay zeros
+                param[zeros] = 0.0
+
+    @torch.no_grad()
+    def step(self):
+        for group in self.param_groups:
+            params_with_grad = []
+            d_p_list = []
+            lr = group['lr']
+            l1decay = group['l1decay']
+            theta = group['theta']
+
+            for p in group['params']:
+                if p.grad is not None:
+                    params_with_grad.append(p)
+                    d_p_list.append(p.grad)
+
+            self._update(
+                params_with_grad,
+                d_p_list,
+                lr,
+                l1decay,
+                theta,
+            )
+
+
 def get_optimizer(model, args):
     """Handles setting the optimizer up for different finetuning modes."""
-    params = [{'params': [model.trigger_embeddings]}]
+    if isinstance(model, ContinuousTriggerMLM):
+        default_params = model.trigger_embeddings
+        params = [{'params': [default_params]}]
+        optimizer = torch.optim.AdamW
+    elif isinstance(model, LinearComboMLM):
+        default_params = model.trigger_projection
+        params = [{
+            'params': [default_params],
+            'l1decay': args.l1decay,
+            'theta': args.theta
+        }]
+        optimizer = L1SGD
     if args.finetune_mode == 'partial':
         params.append({
             'params': model.lm_head.parameters(),
@@ -29,14 +95,14 @@ def get_optimizer(model, args):
         })
     elif args.finetune_mode == 'all':
         params.append({
-            'params': [p for p in model.parameters() if not torch.equal(p, model.trigger_embeddings)],
+            'params': [p for p in model.parameters() if not torch.equal(p, default_params)],
             'lr': args.finetune_lr if args.finetune_lr else args.lr
         })
-    return AdamW(
+    return optimizer(
         params,
         lr=args.lr,
-        weight_decay=1e-2,
-        eps=1e-8
+        # weight_decay=1e-2,
+        # eps=1e-8
     )
 
 
@@ -74,11 +140,18 @@ def main(args):
     # Setup model
     logger.info('Initializing model.')
     initial_trigger_ids = utils.get_initial_trigger_ids(args.initial_trigger, tokenizer)
-    model = ContinuousTriggerMLM(
-        base_model=base_model,
-        num_trigger_tokens=templatizer.num_trigger_tokens,
-        initial_trigger_ids=initial_trigger_ids,
-    )
+    if args.linear:
+        model = LinearComboMLM(
+            base_model=base_model,
+            num_trigger_tokens=templatizer.num_trigger_tokens,
+            initial_trigger_ids=initial_trigger_ids,
+        )
+    else:
+        model = ContinuousTriggerMLM(
+            base_model=base_model,
+            num_trigger_tokens=templatizer.num_trigger_tokens,
+            initial_trigger_ids=initial_trigger_ids,
+        )
     model.to(distributed_config.device)
 
     # Restore existing checkpoint if available.
@@ -196,6 +269,9 @@ def main(args):
                     writer.add_scalar('Loss/dev', (total_loss / (denom + 1e-13)).item(), epoch)
                     score = score_fn(total_metrics, denom)
                     writer.add_scalar(f'{args.evaluation_metric.capitalize()}/dev', score.item(), epoch)
+                    if args.linear:
+                        zero_frac = model.trigger_projection.eq(0.0).sum() / torch.numel(model.trigger_projection)
+                        logger.info(f'Fraction of Zero Weights: {zero_frac}')
 
                     if score > best_score:
                         logger.info('Best performance so far.')
@@ -241,6 +317,9 @@ def main(args):
                 logger.info('Temporary mode enabled, deleting checkpoint.')
                 os.remove(ckpt_path)
 
+        if args.linear:
+            zero_frac = model.trigger_projection.eq(0.0).sum() / torch.numel(model.trigger_projection)
+            logger.info(f'Fraction of Zero Weights: {zero_frac}')
         score = score_fn(total_metrics, denom)
         writer.add_scalar(f'{args.evaluation_metric.capitalize()}/test', score.item(), epoch)
         logger.info(f'Metric: {score: 0.4f}')
@@ -301,6 +380,7 @@ if __name__ == '__main__':
     parser.add_argument('--evaluation-metric', type=str, default='accuracy',
                         choices=list(METRICS.keys()),
                         help='Evaluation metric to use.')
+    parser.add_argument('--linear', action='store_true', help='Enables using linear combo MLM')
 
     # Skips
     parser.add_argument('--skip-train', action='store_true',
@@ -331,6 +411,12 @@ if __name__ == '__main__':
                              'number of datapoints.')
     parser.add_argument('--seed', type=int, default=1234,
                         help='Random seed.')
+
+    # Sparse loss params
+    parser.add_argument('--l1decay', type=float, default=0.0,
+                        help='L1 regularization weight (if using linear combination MLM)')
+    parser.add_argument('--theta', type=float, default=1e32,
+                        help='L1 regularization weight (if using linear combination MLM)')
 
     # Additional options
     parser.add_argument('-f', '--force-overwrite', action='store_true',
