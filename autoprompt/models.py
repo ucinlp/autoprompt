@@ -1,4 +1,6 @@
 """Transformer model wrappers."""
+import warnings
+
 import numpy as np
 import torch
 from transformers import (
@@ -108,6 +110,59 @@ class ContinuousTriggerMLM(torch.nn.Module):
         # Insert trigger embeddings into input embeddings.
         batch_size = input_ids.size(0)
         inputs_embeds[trigger_mask] = self.trigger_embeddings.repeat((batch_size, 1))
+        model_inputs['inputs_embeds'] = inputs_embeds
+
+        return self.base_model(**model_inputs, labels=labels)
+
+
+class LinearComboMLM(torch.nn.Module):
+    """
+    A masked language model w/ continuous triggers.
+
+    Generic wrapper for HuggingFace transformers models that handles naming conventions and
+    instantiating triggers during forward pass.
+
+    Parameters
+    ===
+    base_model : transformers.XModelForMaskedLM
+        Any HuggingFace masked language model.
+    num_trigger_tokens : int
+        The number of trigger tokens.
+    """
+    def __init__(self, base_model, num_trigger_tokens, **kwargs):
+        if 'initial_trigger_ids' in kwargs:
+            warnings.warn('LinearComboMLM does not support initial triggers. Ignoring.')
+        super().__init__()
+        self.base_model = base_model
+        self.word_embeddings = get_word_embeddings(base_model)
+        self.lm_head = get_lm_head(base_model)
+        # TODO(rloganiv): May need to flip
+        self.trigger_projection = torch.nn.Parameter(
+            torch.zeros(
+                num_trigger_tokens,
+                self.base_model.config.vocab_size,
+            )
+        )
+        torch.nn.init.xavier_normal_(self.trigger_projection)
+
+    def forward(self, model_inputs, labels=None, trigger_ids=None):
+        # Ensure destructive pop operations are only limited to this function.
+        model_inputs = model_inputs.copy()
+        trigger_mask = model_inputs.pop('trigger_mask')
+        input_ids = model_inputs.pop('input_ids')
+        del model_inputs['predict_mask']
+
+        # Get embeddings of input sequence
+        inputs_embeds = self.word_embeddings(input_ids)
+        trigger_embeddings = torch.einsum(
+            'tv,ve->te',
+            self.trigger_projection,
+            self.word_embeddings.weight,
+        )
+
+        # Insert trigger embeddings into input embeddings.
+        batch_size = input_ids.size(0)
+        inputs_embeds[trigger_mask] = trigger_embeddings.repeat((batch_size,1))
         model_inputs['inputs_embeds'] = inputs_embeds
 
         return self.base_model(**model_inputs, labels=labels)

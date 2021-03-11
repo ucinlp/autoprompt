@@ -33,6 +33,9 @@ def check_args(args):
         assert args.label_map is not None
     if args.evaluation_strategy == 'multiple-choice':
         assert args.bsz is None, 'Multiple choice uses custom batching, do not set `--bsz`.'
+    if args.l1decay != 0.0:
+        assert args.linear, 'L1 regularization only applies to linear combo mlms.'
+        assert args.l1decay > 0.0, 'L1 decay cannot be negative.'
 
 
 def serialize_args(args):
