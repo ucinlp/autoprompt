@@ -98,6 +98,31 @@ def get_optimizer(model, args):
             'params': [p for p in model.parameters() if not torch.equal(p, default_params)],
             'lr': args.finetune_lr if args.finetune_lr else args.lr
         })
+    elif args.finetune_mode == 'bitfit':
+        for module in model.modules():
+            if isinstance(module, torch.nn.LayerNorm) or isinstance(module, torch.nn.Linear):
+                params.append({
+                    'params': [module.bias],
+                    'lr': args.finetune_lr if args.finetune_lr else args.lr
+                })
+    elif args.finetune_mode == 'layernorm':
+        for module in model.modules():
+            if isinstance(module, torch.nn.LayerNorm):
+                params.append({
+                    'params': [p for p in module.parameters()],
+                    'lr': args.finetune_lr if args.finetune_lr else args.lr
+                })
+
+    # print parameter counts.
+    # TODO, the count for partial will be inaccurate since we count *all* of the LM head params, whereas
+    # we are actually only updating the few that correspond to the label token names.
+    total = 0
+    for p in params:
+        for t in p['params']:
+            total += t.numel()
+    logger.info('Using finetuning mode ' + args.finetune_mode)
+    logger.info('Updating ' + str(total) + ' / ' + str(sum(p.numel() for p in model.parameters())) + ' params, which is ' + str(round(100 * (total / sum(p.numel() for p in model.parameters())), 2)) + '%')
+ 
     return optimizer(
         params,
         lr=args.lr,
@@ -371,12 +396,14 @@ if __name__ == '__main__':
                         help='Decoding strategy for generative tasks. For more '
                              'details refer to the PET paper.')
     parser.add_argument('--finetune-mode', type=str, default='trigger',
-                        choices=['trigger', 'partial', 'all', 'all-but-trigger'],
+                        choices=['trigger', 'partial', 'all', 'all-but-trigger', 'bitfit', 'layernorm'],
                         help='Approach used for finetuning. Options: '
                              'trigger: Only triggers are tuned. '
                              'partial: Top model weights additionally tuned. '
                              'all: All model weights are tuned.'
-                             'all-but-trigger: All model weights apart from trigger weights are tuned. ')
+                             'all-but-trigger: All model weights apart from trigger weights are tuned. '
+                             'bitfit: Only finetune the bias terms.'
+                             'layernorm: Only finetune the layernorm params.')
     parser.add_argument('--evaluation-metric', type=str, default='accuracy',
                         choices=list(METRICS.keys()),
                         help='Evaluation metric to use.')
