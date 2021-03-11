@@ -10,7 +10,7 @@ jobs:
         parallelism: 1
         steps:
             - checkout
-            - run: conda install pytorch cpuonly -c pytorch -y
+            - run: conda install pytorch==1.4.0 cpuonly -c pytorch -y
             - run: pip install -e '.[test]'
             - run: python -m pytest --disable-warnings --junitxml=test-results/junit.xml
             - store_test_results:
