@@ -11,7 +11,7 @@ jobs:
         steps:
             - checkout
             - run: pip install --upgrade pip
-            - run: pip install -e '.[test]'
+            - run: pip install -r requirements.txt
             - run: python -m pytest --disable-warnings
             - store_test_results:
                 path: test-results
