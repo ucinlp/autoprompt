@@ -2,9 +2,9 @@ from unittest import TestCase
 
 import torch
 from torch.utils.data import DataLoader
-from transformers import AutoTokenizer
+from transformers import AutoConfig, AutoTokenizer
 
-import lmat.utils as utils
+import autoprompt.utils as utils
 
 
 class TestEncodeLabel(TestCase):
@@ -23,18 +23,11 @@ class TestEncodeLabel(TestCase):
         ])
         assert torch.equal(output, expected_output)
 
-    def test_fails_on_multi_word_piece_labels(self):
-        with self.assertRaises(ValueError):
-            utils.encode_label(self._tokenizer, 'Supercalifragilisticexpialidocious')
-        with self.assertRaises(ValueError):
-            utils.encode_label(self._tokenizer, ['Supercalifragilisticexpialidocious', 'chimneysweep'])
-
-
-
 
 class TestTriggerTemplatizer(TestCase):
     def setUp(self):
         self.default_template = '[T] [T] {arbitrary} [T] {fields} [P]'
+        self.default_config = AutoConfig.from_pretrained('bert-base-cased')
         self.default_tokenizer = AutoTokenizer.from_pretrained('bert-base-cased')
         utils.add_task_specific_tokens(self.default_tokenizer)
         self.default_instance = {
@@ -46,6 +39,7 @@ class TestTriggerTemplatizer(TestCase):
     def test_bert(self):
         templatizer = utils.TriggerTemplatizer(
             self.default_template,
+            self.default_config,
             self.default_tokenizer,
             add_special_tokens=False
         )
@@ -78,10 +72,12 @@ class TestTriggerTemplatizer(TestCase):
         assert predict_token_id == self.default_tokenizer.mask_token_id
 
     def test_roberta(self):
+        config = AutoConfig.from_pretrained('roberta-base')
         tokenizer = AutoTokenizer.from_pretrained('roberta-base')
         utils.add_task_specific_tokens(tokenizer)
         templatizer = utils.TriggerTemplatizer(
             self.default_template,
+            config,
             tokenizer,
             add_special_tokens=False
         )
@@ -120,9 +116,11 @@ class TestCollator(TestCase):
     def test_collator(self):
         template = '[T] [T] {arbitrary} [T] {fields} [P]'
         tokenizer = AutoTokenizer.from_pretrained('bert-base-cased')
+        config = AutoConfig.from_pretrained('bert-base-cased')
         utils.add_task_specific_tokens(tokenizer)
         templatizer = utils.TriggerTemplatizer(
             template,
+            config,
             tokenizer,
             add_special_tokens=False
         )
