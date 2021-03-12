@@ -339,4 +339,15 @@ def load_datasets(args, templatizer, distributed_config):
     test_sampler = get_sampler(test_dataset, args.evaluation_strategy, distributed_config, train=False)
     test_loader = DataLoader(test_dataset, batch_size=args.bsz, collate_fn=collator, sampler=test_sampler)
 
-    return train_loader, dev_loader, test_loader
+    if args.checklist:
+        checklist_test_dataset = dataset_constructor(
+            args.checklist,
+            templatizer=templatizer,
+            preprocessor_key=args.preprocessor,
+        )
+        checklist_test_sampler = get_sampler(checklist_test_dataset, args.evaluation_strategy, distributed_config, train=False)
+        checklist_test_loader = DataLoader(checklist_test_dataset, batch_size=args.bsz, collate_fn=collator, sampler=checklist_test_sampler)
+    else:
+        checklist_test_loader = None
+
+    return train_loader, dev_loader, test_loader, checklist_test_loader

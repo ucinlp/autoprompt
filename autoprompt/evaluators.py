@@ -230,7 +230,7 @@ class ClassificationEvaluator:
         self._label_tokens = label_tokens.view(1, -1)
         self._label_keys = list(label_map.keys())
 
-    def __call__(self, model_inputs, labels, train=True, evaluation_metric='accuracy', **kwargs):
+    def __call__(self, model_inputs, labels, train=True, evaluation_metric='accuracy', return_probs=False, **kwargs):
 
         # Ensure everything is on the same device
         label_tokens = self._label_tokens.to(labels.device)
@@ -255,6 +255,7 @@ class ClassificationEvaluator:
             predictions = None  # TODO: Maybe not be lazy? Th
 
         # Get loss
+        probs = F.softmax(predict_logits, dim=-1)
         predict_logp = F.log_softmax(predict_logits, dim=-1)
         label_inds = label_inds.unsqueeze(-1)
         loss = -predict_logp.gather(-1, label_inds).mean()
@@ -269,7 +270,10 @@ class ClassificationEvaluator:
             fn = torch.sum((label_inds == 1) & (preds == 0))
             metrics = {"TP": tp, "FP": fp, "TN": tn, "FN": fn}
 
-        return loss, metrics, predictions
+        if return_probs:
+            return loss, metrics, predictions, probs
+        else:
+            return loss, metrics, predictions
 
 
 MLM_EVALUATORS = {

@@ -3,6 +3,7 @@ import argparse
 import logging
 import os
 
+import numpy as np
 import torch
 from transformers import AdamW
 from tqdm import tqdm
@@ -122,7 +123,7 @@ def get_optimizer(model, args):
             total += t.numel()
     logger.info('Using finetuning mode ' + args.finetune_mode)
     logger.info('Updating ' + str(total) + ' / ' + str(sum(p.numel() for p in model.parameters())) + ' params, which is ' + str(round(100 * (total / sum(p.numel() for p in model.parameters())), 2)) + '%')
- 
+
     return optimizer(
         params,
         lr=args.lr,
@@ -156,7 +157,7 @@ def main(args):
         label_map=label_map,
         add_padding=args.add_padding,
     )
-    train_loader, dev_loader, test_loader = data.load_datasets(
+    train_loader, dev_loader, test_loader, checklist_test_loader = data.load_datasets(
         args,
         templatizer=templatizer,
         distributed_config=distributed_config,
@@ -350,6 +351,84 @@ def main(args):
         logger.info(f'Metric: {score: 0.4f}')
 
 
+        # TODO, verify this works for QQP also
+        if args.checklist:
+            output_fname = os.path.join(args.ckpt_dir, 'predictions_checklist')
+            all_checklist_preds = []
+            all_checklist_probs = []
+            with torch.no_grad(), open(output_fname, 'w') as f:
+                for model_inputs, labels in checklist_test_loader:
+                    model_inputs = {k: v.to(distributed_config.device) for k, v in model_inputs.items()}
+                    labels = labels.to(distributed_config.device)
+                    _, _, preds, probs = evaluator(model_inputs, labels, train=False,
+                                            evaluation_metric=args.evaluation_metric, return_probs=True)
+                    batch_size = 1.0 if args.evaluation_strategy == 'multiple-choice' else labels.size(0)
+                    # Serialize output
+                    for index, pred in enumerate(preds):
+                        if pred == '1':
+                            pred = '2' # checklist considers '2' to be positive
+                        else:
+                            pred = '0'
+                        print(str(pred) + ' ' + str(probs[index][0].item()) + ' ' + "0.0" + ' ' + str(probs[index][1].item()), file=f)
+                        all_checklist_preds.append(int(pred))
+                        current_probs = probs[index].cpu().numpy()
+                        current_probs = np.array([current_probs[0], 0.0, current_probs[1]]) # inserted a 0.0 for the neutral prob
+                        all_checklist_probs.append(current_probs)
+
+            # load checklist test suite
+            import checklist
+            from checklist.test_suite import TestSuite
+            suite_path = 'checklist/release_data/sentiment/sentiment_suite.pkl'
+            suite = TestSuite.from_file(suite_path)
+
+            # run checklist and save its printed output
+            suite.run_from_preds_confs(all_checklist_preds, all_checklist_probs, overwrite=True)
+            import io
+            import contextlib
+            f = io.StringIO()
+            with contextlib.redirect_stdout(f):
+                suite.summary()
+            s = f.getvalue()
+
+            # ignore tests that assume neutral labels.
+            # TODO, add the ones for QQP also
+            neutral_tests = [
+            'single neutral words',
+            'neutral words in context',
+            'protected: race',
+            'protected: sexual',
+            'protected: religion',
+            'protected: nationality',
+            'simple negations: not neutral is still neutral',
+            'simple negations: but it was not (neutral) should still be neutral',
+            'negation of neutral with neutral in the middle, should still neutral',
+            'Q & A: yes (neutral)',
+            'Q & A: no (neutral)']
+
+            total_incorrect = 0.0
+            total = 0.0
+            all_lines = []
+            for index, line in enumerate(s.split('\n')):
+                all_lines.append(line.strip())
+                if 'Fails' in line:
+                    # get the name of the test, which is either 2 or 3 lines back
+                    if 'Test cases:' in all_lines[index - 2]:
+                        test_name = all_lines[index - 3]
+                        total += int(all_lines[index - 1].split(' ')[-1])
+                    elif 'Test cases:' in all_lines[index - 3]:
+                        test_name = all_lines[index - 4]
+                        total += int(all_lines[index - 1].split(' ')[-2])
+                    else:
+                        test_name = all_lines[index - 2]
+                        total += int(all_lines[index - 1].split(' ')[-1])
+                    if test_name in neutral_tests:
+                        continue
+                    else:
+                        total_incorrect += int(all_lines[index].split(' ')[-2])
+
+            logger.info(f'Checklist accuracy: {1 - (total_incorrect / total)}')
+
+
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
 
@@ -362,6 +441,8 @@ if __name__ == '__main__':
                         help='Path to the development dataset.')
     parser.add_argument('--test', type=str, required=True,
                         help='Path to the test dataset.')
+    parser.add_argument('--checklist', type=str, default=None, 
+                        help='Path to a checklist test set.')
     parser.add_argument('--ckpt-dir', type=str, default='ckpt/',
                         help='Path to save/load model checkpoint.')
 
