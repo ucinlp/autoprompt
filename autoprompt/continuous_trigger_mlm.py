@@ -1,16 +1,19 @@
 """Continuous triggers for MLM prompting."""
 import argparse
+import contextlib
+import io
 import logging
 import os
 
+from checklist.test_suite import TestSuite
 import numpy as np
 import torch
-from transformers import AdamW
 from tqdm import tqdm
 
 from autoprompt.evaluators import MLM_EVALUATORS
 from autoprompt.metrics import METRICS
 from autoprompt.models import ContinuousTriggerMLM, LinearComboMLM
+from autoprompt.optimizers import L1SGD
 from autoprompt.preprocessors import PREPROCESSORS
 import autoprompt.data as data
 import autoprompt.templatizers as templatizers
@@ -18,61 +21,6 @@ import autoprompt.utils as utils
 
 
 logger = logging.getLogger(__name__)
-
-
-class L1SGD(torch.optim.Optimizer):
-    def __init__(self, params, lr, l1decay=0.0, theta=1e32):
-        default = dict(lr=lr, l1decay=l1decay, theta=theta)
-        super().__init__(params, default)
-
-    @staticmethod
-    def _update(params, d_p_list, lr, l1decay, theta):
-        for i, param in enumerate(params):
-            # Standard SGD Step
-            d_p = d_p_list[i]
-            zeros = param.eq(0.0)
-            param.add_(d_p, alpha=-lr)
-
-            # Truncation
-            if l1decay != 0.0:
-                logger.debug('Truncated routine invoked.')
-                branch1 = param.ge(0.0) & param.le(theta)
-                branch2 = param.le(0.0) & param.ge(-theta)
-                # Max 0
-                branch1_update = param[branch1] - lr*l1decay
-                branch1_mask = branch1_update.lt(0.0)
-                branch1_update[branch1_mask] = 0.0
-                param[branch1] = branch1_update
-                # Min 0
-                branch2_update = param[branch2] + lr*l1decay
-                branch2_mask = branch2_update.gt(0.0)
-                branch2_update[branch2_mask] = 0.0
-                param[branch2] = branch2_update
-
-                # Make sure zeros stay zeros
-                param[zeros] = 0.0
-
-    @torch.no_grad()
-    def step(self):
-        for group in self.param_groups:
-            params_with_grad = []
-            d_p_list = []
-            lr = group['lr']
-            l1decay = group['l1decay']
-            theta = group['theta']
-
-            for p in group['params']:
-                if p.grad is not None:
-                    params_with_grad.append(p)
-                    d_p_list.append(p.grad)
-
-            self._update(
-                params_with_grad,
-                d_p_list,
-                lr,
-                l1decay,
-                theta,
-            )
 
 
 def get_optimizer(model, args):
@@ -101,7 +49,7 @@ def get_optimizer(model, args):
         })
     elif args.finetune_mode == 'bitfit':
         for module in model.modules():
-            if isinstance(module, torch.nn.LayerNorm) or isinstance(module, torch.nn.Linear):
+            if isinstance(module, (torch.nn.LayerNorm, torch.nn.Linear)):
                 params.append({
                     'params': [module.bias],
                     'lr': args.finetune_lr if args.finetune_lr else args.lr
@@ -110,19 +58,20 @@ def get_optimizer(model, args):
         for module in model.modules():
             if isinstance(module, torch.nn.LayerNorm):
                 params.append({
-                    'params': [p for p in module.parameters()],
+                    'params': module.parameters(),
                     'lr': args.finetune_lr if args.finetune_lr else args.lr
                 })
 
     # print parameter counts.
-    # TODO, the count for partial will be inaccurate since we count *all* of the LM head params, whereas
-    # we are actually only updating the few that correspond to the label token names.
+    # TODO(ewallace): The count for partial will be inaccurate since we count *all* of the LM head
+    # params, whereas we are actually only updating the few that correspond to the label token
+    # names.
     total = 0
-    for p in params:
-        for t in p['params']:
-            total += t.numel()
-    logger.info('Using finetuning mode ' + args.finetune_mode)
-    logger.info('Updating ' + str(total) + ' / ' + str(sum(p.numel() for p in model.parameters())) + ' params, which is ' + str(round(100 * (total / sum(p.numel() for p in model.parameters())), 2)) + '%')
+    for param in params:
+        for tensor in param['params']:
+            total += tensor.numel()
+    logger.info(f'Using finetuning mode: {args.finetune_mode}')
+    logger.info(f'Updating {total} / {sum(p.numel() for p in model.parameters())} params.')
 
     return optimizer(
         params,
@@ -351,6 +300,9 @@ def main(args):
         logger.info(f'Metric: {score: 0.4f}')
 
 
+        # TODO(rloganiv): The checklist stuff seems different enough that it warrants being its own
+        # subroutine, if not split into another file.
+
         # TODO, verify this works for QQP also
         if args.checklist:
             output_fname = os.path.join(args.ckpt_dir, 'predictions_checklist')
@@ -376,19 +328,16 @@ def main(args):
                         all_checklist_probs.append(current_probs)
 
             # load checklist test suite
-            import checklist
-            from checklist.test_suite import TestSuite
+            # TODO: make an argument.
             suite_path = 'checklist/release_data/sentiment/sentiment_suite.pkl'
             suite = TestSuite.from_file(suite_path)
 
             # run checklist and save its printed output
             suite.run_from_preds_confs(all_checklist_preds, all_checklist_probs, overwrite=True)
-            import io
-            import contextlib
             f = io.StringIO()
             with contextlib.redirect_stdout(f):
                 suite.summary()
-            s = f.getvalue()
+            checklist_stdout = f.getvalue()
 
             # ignore tests that assume neutral labels.
             # TODO, add the ones for QQP also
@@ -408,7 +357,7 @@ def main(args):
             total_incorrect = 0.0
             total = 0.0
             all_lines = []
-            for index, line in enumerate(s.split('\n')):
+            for index, line in enumerate(checklist_stdout.split('\n')):
                 all_lines.append(line.strip())
                 if 'Fails' in line:
                     # get the name of the test, which is either 2 or 3 lines back
@@ -423,8 +372,7 @@ def main(args):
                         total += int(all_lines[index - 1].split(' ')[-1])
                     if test_name in neutral_tests:
                         continue
-                    else:
-                        total_incorrect += int(all_lines[index].split(' ')[-2])
+                    total_incorrect += int(all_lines[index].split(' ')[-2])
 
             logger.info(f'Checklist accuracy: {1 - (total_incorrect / total)}')
 
@@ -441,7 +389,7 @@ if __name__ == '__main__':
                         help='Path to the development dataset.')
     parser.add_argument('--test', type=str, required=True,
                         help='Path to the test dataset.')
-    parser.add_argument('--checklist', type=str, default=None, 
+    parser.add_argument('--checklist', type=str, default=None,
                         help='Path to a checklist test set.')
     parser.add_argument('--ckpt-dir', type=str, default='ckpt/',
                         help='Path to save/load model checkpoint.')
