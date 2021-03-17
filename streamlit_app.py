@@ -9,8 +9,11 @@ import sys
 # logging.basicConfig(level=logging.DEBUG,
 #                     stream=sys.stdout)
 logger.setLevel(logging.CRITICAL)
+
+
 class Object(object):
     pass
+
 
 def autoprompt_args():
     a = Object()
@@ -28,10 +31,10 @@ def autoprompt_args():
     a.limit = None
     a.use_ctx = st.sidebar.checkbox("Use context sentences", False)
     a.perturbed = st.sidebar.checkbox("Perturbed", False)
-    a.patience = int(st.sidebar.number_input("Patience", value=5))
     a.num_cand = int(st.sidebar.number_input("Num Candidates", value=10))
     a.sentence_size = int(st.sidebar.number_input("Sentence Size", value=50))
     return a
+
 
 def load_trigger_dataset(dataset, templatizer, use_ctx, limit=None):
     instances = []
