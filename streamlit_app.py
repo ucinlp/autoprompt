@@ -30,7 +30,6 @@ def autoprompt_args():
     a.seed = int(st.sidebar.number_input("seed", value=0))
     a.limit = None
     a.use_ctx = False
-    a.perturbed = False
     a.num_cand = int(st.sidebar.number_input("Num Candidates", value=10))
     a.sentence_size = int(st.sidebar.number_input("Sentence Size", value=50))
     return a
@@ -41,6 +40,7 @@ def load_trigger_dataset(dataset, templatizer, use_ctx, limit=None):
 
     for x in dataset:
         try:
+            # in the demo it should be always false as hard-coded in the auto_prompt_args function
             if use_ctx:
                 pass
                 # # For relation extraction, skip facts that don't have context sentence
@@ -163,22 +163,11 @@ def run_autoprompt(args, dataset):# args, dataset):
     # logger.info('Loading datasets')
     collator = utils.Collator(pad_token_id=tokenizer.pad_token_id)
 
-    if args.perturbed:
-        # train_dataset = utils.load_augmented_trigger_dataset(args.train, templatizer, limit=args.limit)
-        pass
-    else:
-        ## CHANGED
-        # train_dataset = utils.load_trigger_dataset(args.train, templatizer, use_ctx=args.use_ctx, limit=args.limit)
-        train_dataset = load_trigger_dataset(dataset, templatizer, use_ctx=args.use_ctx, limit=args.limit)
+    train_dataset = load_trigger_dataset(dataset, templatizer, use_ctx=args.use_ctx, limit=args.limit)
     train_loader = DataLoader(train_dataset, batch_size=args.bsz, shuffle=True, collate_fn=collator)
 
-    if args.perturbed:
-        # dev_dataset = utils.load_augmented_trigger_dataset(args.dev, templatizer)
-        pass
-    else:
-        ## CHANGED
-        # dev_dataset = utils.load_trigger_dataset(args.dev, templatizer, use_ctx=args.use_ctx)
-        dev_dataset = load_trigger_dataset(dataset, templatizer, use_ctx=args.use_ctx)
+    #dev_dataset now is the dame as train-dataset
+    dev_dataset = load_trigger_dataset(dataset, templatizer, use_ctx=args.use_ctx)
     dev_loader = DataLoader(dev_dataset, batch_size=args.eval_size, shuffle=False, collate_fn=collator)
 
     # To "filter" unwanted trigger tokens, we subtract a huge number from their logits.
