@@ -29,8 +29,8 @@ def autoprompt_args():
     a.model_name = st.sidebar.selectbox("Model name", ['bert-base-cased', 'roberta-large'])
     a.seed = int(st.sidebar.number_input("seed", value=0))
     a.limit = None
-    a.use_ctx = st.sidebar.checkbox("Use context sentences", False)
-    a.perturbed = st.sidebar.checkbox("Perturbed", False)
+    a.use_ctx = False
+    a.perturbed = False
     a.num_cand = int(st.sidebar.number_input("Num Candidates", value=10))
     a.sentence_size = int(st.sidebar.number_input("Sentence Size", value=50))
     return a
