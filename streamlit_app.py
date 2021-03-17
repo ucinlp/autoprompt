@@ -17,10 +17,8 @@ def autoprompt_args():
     a.template = st.sidebar.text_input("Template string", "[CLS] {sentence} [T] [T] [T] [P] . [SEP]")
     a.tokenize_labels = True
     a.filter = st.sidebar.checkbox("Filter", True)
-    a.print_lama = False
     a.initial_trigger = None
     a.label_field = "label"
-
     a.bsz = 32
     a.eval_size = 1
     a.iters = int(st.sidebar.number_input("Iterations", 1, value=3))
@@ -311,12 +309,6 @@ def run_autoprompt(args, dataset):# args, dataset):
 
                 candidate_scores[i] += eval_metric.sum()
 
-        # TODO: Something cleaner. LAMA templates can't have mask tokens, so if
-        # there are still mask tokens in the trigger then set the current score
-        # to -inf.
-        if args.print_lama:
-            if trigger_ids.eq(tokenizer.mask_token_id).any():
-                current_score = float('-inf')
 
         if (candidate_scores > current_score).any():
             # logger.info('Better trigger detected.')
@@ -343,13 +335,6 @@ def run_autoprompt(args, dataset):# args, dataset):
         # logger.info(f'Trigger tokens: {tokenizer.convert_ids_to_tokens(trigger_ids.squeeze(0))}')
         # logger.info(f'Dev metric: {dev_metric}')
 
-        # TODO: Something cleaner. LAMA templates can't have mask tokens, so if
-        # there are still mask tokens in the trigger then set the current score
-        # to -inf.
-        if args.print_lama:
-            if best_trigger_ids.eq(tokenizer.mask_token_id).any():
-                best_dev_metric = float('-inf')
-
         if dev_metric > best_dev_metric:
             # logger.info('Best performance so far')
             best_trigger_ids = trigger_ids.clone()
@@ -359,75 +344,8 @@ def run_autoprompt(args, dataset):# args, dataset):
     best_trigger_tokens = tokenizer.convert_ids_to_tokens(best_trigger_ids.squeeze(0))
     # # logger.info(f'Best tokens: {best_trigger_tokens}')
     # # logger.info(f'Best dev metric: {best_dev_metric}')
-    # # if args.print_lama:
-    # #     # Templatize with [X] and [Y]
-    # #     if args.use_ctx:
-    # #         model_inputs, label_ids = templatizer({
-    # #             'sub_label': '[X]',
-    # #             'obj_label': tokenizer.lama_y,
-    # #             'context': ''
-    # #         })
-    # #     else:
-    # #         model_inputs, label_ids = templatizer({
-    # #             'sub_label': '[X]',
-    # #             'obj_label': tokenizer.lama_y,
-    # #         })
-    #     # lama_template = model_inputs['input_ids']
-    #     # # Instantiate trigger tokens
-    #     # lama_template.masked_scatter_(
-    #     #     mask=model_inputs['trigger_mask'],
-    #     #     source=best_trigger_ids.cpu())
-    #     # # Instantiate label token
-    #     # lama_template.masked_scatter_(
-    #     #     mask=model_inputs['predict_mask'],
-    #     #     source=label_ids)
-    #     # Print LAMA JSON template
-    #     # relation = args.train.parent.stem
-    #
-    #     # The following block of code is a bit hacky but whatever, it gets the job done
-    #     # if args.use_ctx:
-    #     #     template = tokenizer.decode(lama_template.squeeze(0)[1:-1]).replace('[SEP] ', '').replace('</s> ', '').replace('[ X ]', '[X]')
-    #     # else:
-    #     #     template = tokenizer.decode(lama_template.squeeze(0)[1:-1]).replace('[ X ]', '[X]')
-    #     #
-    #     # out = {
-    #     #     'relation': args.train.parent.stem,
-    #     #     'template': template
-    #     # }
-    #     # print(json.dumps(out))
-    #
-    # # @st.cache(persist=False, suppress_st_warning=True, max_entries=100, allow_output_mutation=True)
-    # # def predict(sentences):
-    # #     # Evaluate clean
-    # #     output = { 'sentences': [] }
-    # #     any_label = None
-    # #     for label in label_map.values():
-    # #         output[label] = []
-    # #         any_label = label
-    # #     output['prompt'] = []
-    # #     for sentence in sentences:
-    # #         model_inputs, _ = templatizer({'sentence': sentence, 'label': any_label})
-    # #
-    # #         prompt_ids = replace_trigger_tokens(
-    # #             model_inputs, best_trigger_ids, model_inputs['trigger_mask'])
-    # #         # st.write(prompt_ids)
-    # #         # st.write(prompt_ids.shape)
-    # #
-    # #         prompt = ' '.join(tokenizer.convert_ids_to_tokens(prompt_ids['input_ids'][0]))
-    # #         output['prompt'].append(prompt)
-    # #
-    # #         predict_logits = predictor(model_inputs, best_trigger_ids)
-    # #         output['sentences'].append(sentence)
-    # #         for label in label_map.values():
-    # #             label_id = utils.encode_label(tokenizer=tokenizer, label=label, tokenize=args.tokenize_labels)
-    # #             label_loss = get_loss(predict_logits, label_id)
-    # #             # st.write(sentence, label, label_loss)
-    # #             output[label].append(label_loss.item())
-    # #     return output
-    #
     dev_output = predict_test(map(lambda x: x['sentence'], dataset), label_map, templatizer, best_trigger_ids, tokenizer, predictor, args)
     st.dataframe(pd.DataFrame(dev_output).style.highlight_min(axis=1))
-    # return None
     return best_trigger_tokens, best_dev_metric, label_map, templatizer, best_trigger_ids, tokenizer, predictor, args
 
 
@@ -458,7 +376,6 @@ def predict_test(sentences, label_map, templatizer, best_trigger_ids, tokenizer,
             # st.write(sentence, label, label_loss)
             output[label].append(label_loss.item())
     return output
-
 
 
 def run():
