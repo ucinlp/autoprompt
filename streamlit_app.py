@@ -2,7 +2,13 @@ import streamlit as st
 import pandas as pd
 from autoprompt import utils
 from autoprompt.create_trigger import *
-
+import logging
+import sys
+# logging.getLogger("streamlit.caching").addHandler(logging.StreamHandler(sys.stdout))
+# logging.getLogger("streamlit.caching").setLevel(logging.DEBUG)
+# logging.basicConfig(level=logging.DEBUG,
+#                     stream=sys.stdout)
+logger.setLevel(logging.CRITICAL)
 class Object(object):
     pass
 
@@ -17,7 +23,7 @@ def autoprompt_args():
 
     a.bsz = 32
     a.eval_size = 1
-    a.iters = int(st.sidebar.number_input("Iterations", 1, value=10))
+    a.iters = int(st.sidebar.number_input("Iterations", 1, value=3))
     a.accumulation_steps = int(st.sidebar.number_input("Accumulation Steps", value=1))
     a.model_name = st.sidebar.selectbox("Model name", ['bert-base-cased', 'roberta-large'])
     a.seed = int(st.sidebar.number_input("seed", value=0))
@@ -35,30 +41,31 @@ def load_trigger_dataset(dataset, templatizer, use_ctx, limit=None):
     for x in dataset:
         try:
             if use_ctx:
-                # For relation extraction, skip facts that don't have context sentence
-                if 'evidences' not in x:
-                    logger.warning('Skipping RE sample because it lacks context sentences: {}'.format(x))
-                    continue
-
-                evidences = x['evidences']
-                    
-                # Randomly pick a context sentence
-                obj_surface, masked_sent = random.choice([(evidence['obj_surface'], evidence['masked_sentence']) for evidence in evidences])
-                words = masked_sent.split()
-                if len(words) > MAX_CONTEXT_LEN:
-                    # If the masked sentence is too long, use the first X tokens. For training we want to keep as many samples as we can.
-                    masked_sent = ' '.join(words[:MAX_CONTEXT_LEN])
-                
-                # If truncated context sentence still has MASK, we need to replace it with object surface
-                # We explicitly use [MASK] because all TREx fact's context sentences use it
-                context = masked_sent.replace('[MASK]', obj_surface)
-                x['context'] = context
-                model_inputs, label_id = templatizer(x)
+                pass
+                # # For relation extraction, skip facts that don't have context sentence
+                # if 'evidences' not in x:
+                #     logger.warning('Skipping RE sample because it lacks context sentences: {}'.format(x))
+                #     continue
+                #
+                # evidences = x['evidences']
+                #
+                # # Randomly pick a context sentence
+                # obj_surface, masked_sent = random.choice([(evidence['obj_surface'], evidence['masked_sentence']) for evidence in evidences])
+                # words = masked_sent.split()
+                # if len(words) > utils.MAX_CONTEXT_LEN:
+                #     # If the masked sentence is too long, use the first X tokens. For training we want to keep as many samples as we can.
+                #     masked_sent = ' '.join(words[:utils.MAX_CONTEXT_LEN])
+                #
+                # # If truncated context sentence still has MASK, we need to replace it with object surface
+                # # We explicitly use [MASK] because all TREx fact's context sentences use it
+                # context = masked_sent.replace('[MASK]', obj_surface)
+                # x['context'] = context
+                # model_inputs, label_id = templatizer(x)
             else:
                 # CHANGED
                 model_inputs, label_id = templatizer(x)
         except ValueError as e:
-            logger.warning('Encountered error "%s" when processing "%s".  Skipping.', e, x)
+            # logger.warning('Encountered error "%s" when processing "%s".  Skipping.', e, x)
             continue
         else:
             instances.append((model_inputs, label_id))
@@ -79,9 +86,31 @@ def load_model(model_name):
     global_data.embedding_gradient = GradientStorage(global_data.embeddings)
     global_data.predictor = PredictWrapper(global_data.model)
     return global_data
-    
-@st.cache(persist=False, suppress_st_warning=True, max_entries=100, allow_output_mutation=True)
-def run_autoprompt(global_data, args, dataset):
+
+
+class Alaki:
+    def __init__(self, args, dataset):
+        self.args = args
+        self.dataset = dataset
+
+def alaki_hash(alaki):
+    # r = (alaki.args.__dict__, alaki.dataset)
+    ll = [(str(k),str(v)) for k,v in alaki.args.__dict__.items()]
+    rr = []
+    for dd in alaki.dataset:
+        rr.extend([(str(k),str(v)) for k,v in dd.items()])
+    h_1 = "_".join(k+"."+v for (k,v) in sorted(ll))
+    h_2 = "_".join(k+"."+v for (k,v) in sorted(rr))
+    r = h_1 + "     " + h_2
+    print("Cache: " + r)
+    # print("B ======------=====", r)
+    return r
+
+
+@st.cache(suppress_st_warning=True, allow_output_mutation=True)
+def run_autoprompt(args, dataset):# args, dataset):
+    # args,dataset = alaki.args, alaki.dataset
+    global_data = load_model(args.model_name)
     model = global_data.model
     tokenizer = global_data.tokenizer
     config = global_data.config
@@ -114,8 +143,8 @@ def run_autoprompt(global_data, args, dataset):
     # Obtain the initial trigger tokens and label mapping
     if args.initial_trigger:
         trigger_ids = tokenizer.convert_tokens_to_ids(args.initial_trigger)
-        logger.debug(f'Initial trigger: {args.initial_trigger}')
-        logger.debug(f'Trigger ids: {trigger_ids}')
+        # logger.debug(f'Initial trigger: {args.initial_trigger}')
+        # logger.debug(f'Trigger ids: {trigger_ids}')
         assert len(trigger_ids) == templatizer.num_trigger_tokens
     else:
         trigger_ids = [tokenizer.mask_token_id] * templatizer.num_trigger_tokens
@@ -130,11 +159,12 @@ def run_autoprompt(global_data, args, dataset):
     else:
         evaluation_fn = lambda x, y: -get_loss(x, y)
 
-    logger.info('Loading datasets')
+    # logger.info('Loading datasets')
     collator = utils.Collator(pad_token_id=tokenizer.pad_token_id)
 
     if args.perturbed:
-        train_dataset = utils.load_augmented_trigger_dataset(args.train, templatizer, limit=args.limit)
+        # train_dataset = utils.load_augmented_trigger_dataset(args.train, templatizer, limit=args.limit)
+        pass
     else:
         ## CHANGED
         # train_dataset = utils.load_trigger_dataset(args.train, templatizer, use_ctx=args.use_ctx, limit=args.limit)
@@ -142,7 +172,8 @@ def run_autoprompt(global_data, args, dataset):
     train_loader = DataLoader(train_dataset, batch_size=args.bsz, shuffle=True, collate_fn=collator)
 
     if args.perturbed:
-        dev_dataset = utils.load_augmented_trigger_dataset(args.dev, templatizer)
+        # dev_dataset = utils.load_augmented_trigger_dataset(args.dev, templatizer)
+        pass
     else:
         ## CHANGED
         # dev_dataset = utils.load_trigger_dataset(args.dev, templatizer, use_ctx=args.use_ctx)
@@ -152,7 +183,7 @@ def run_autoprompt(global_data, args, dataset):
     # To "filter" unwanted trigger tokens, we subtract a huge number from their logits.
     filter = torch.zeros(tokenizer.vocab_size, dtype=torch.float32, device=device)
     if args.filter:
-        logger.info('Filtering label tokens.')
+        # logger.info('Filtering label tokens.')
         if label_map:
             for label_tokens in label_map.values():
                 label_ids = utils.encode_label(tokenizer, label_tokens).unsqueeze(0)
@@ -160,20 +191,20 @@ def run_autoprompt(global_data, args, dataset):
         else:
             for _, label_ids in train_dataset:
                 filter[label_ids] = -1e32
-        logger.info('Filtering special tokens and capitalized words.')
+        # logger.info('Filtering special tokens and capitalized words.')
         for word, idx in tokenizer.get_vocab().items():
             if len(word) == 1 or idx >= tokenizer.vocab_size:
                 continue
             # Filter special tokens.
             if idx in tokenizer.all_special_ids:
-                logger.debug('Filtered: %s', word)
+                # logger.debug('Filtered: %s', word)
                 filter[idx] = -1e32
             # Filter capitalized words (lazy way to remove proper nouns).
             if isupper(idx, tokenizer):
-                logger.debug('Filtered: %s', word)
+                # logger.debug('Filtered: %s', word)
                 filter[idx] = -1e32
 
-    logger.info('Evaluating')
+    # logger.info('Evaluating')
     numerator = 0
     denominator = 0
     for model_inputs, labels in tqdm(dev_loader):
@@ -184,18 +215,17 @@ def run_autoprompt(global_data, args, dataset):
         numerator += evaluation_fn(predict_logits, labels).sum().item()
         denominator += labels.size(0)
     dev_metric = numerator / (denominator + 1e-13)
-    logger.info(f'Dev metric: {dev_metric}')
+    # logger.info(f'Dev metric: {dev_metric}')
 
     best_dev_metric = -float('inf')
     # Measure elapsed time of trigger search
     start = time.time()
     progress = st.progress(0.0)
     for i in range(args.iters):
-
-        logger.info(f'Iteration: {i}')
+        # logger.info(f'Iteration: {i}')
         # ADDED
         progress.progress(float(i)/args.iters)
-        logger.info('Accumulating Gradient')
+        # logger.info('Accumulating Gradient')
         model.zero_grad()
 
         pbar = tqdm(range(args.accumulation_steps))
@@ -209,10 +239,10 @@ def run_autoprompt(global_data, args, dataset):
             try:
                 model_inputs, labels = next(train_iter)
             except:
-                logger.warning(
-                    'Insufficient data for number of accumulation steps. '
-                    'Effective batch size will be smaller than specified.'
-                )
+                # logger.warning(
+                #     'Insufficient data for number of accumulation steps. '
+                #     'Effective batch size will be smaller than specified.'
+                # )
                 break
             model_inputs = {k: v.to(device) for k, v in model_inputs.items()}
             labels = labels.to(device)
@@ -231,7 +261,7 @@ def run_autoprompt(global_data, args, dataset):
             else:
                 averaged_grad += grad.sum(dim=0) / args.accumulation_steps
 
-        logger.info('Evaluating Candidates')
+        # logger.info('Evaluating Candidates')
         pbar = tqdm(range(args.accumulation_steps))
         train_iter = iter(train_loader)
 
@@ -250,10 +280,10 @@ def run_autoprompt(global_data, args, dataset):
             try:
                 model_inputs, labels = next(train_iter)
             except:
-                logger.warning(
-                    'Insufficient data for number of accumulation steps. '
-                    'Effective batch size will be smaller than specified.'
-                )
+                # logger.warning(
+                #     'Insufficient data for number of accumulation steps. '
+                #     'Effective batch size will be smaller than specified.'
+                # )
                 break
             model_inputs = {k: v.to(device) for k, v in model_inputs.items()}
             labels = labels.to(device)
@@ -289,16 +319,16 @@ def run_autoprompt(global_data, args, dataset):
                 current_score = float('-inf')
 
         if (candidate_scores > current_score).any():
-            logger.info('Better trigger detected.')
+            # logger.info('Better trigger detected.')
             best_candidate_score = candidate_scores.max()
             best_candidate_idx = candidate_scores.argmax()
             trigger_ids[:, token_to_flip] = candidates[best_candidate_idx]
-            logger.info(f'Train metric: {best_candidate_score / (denom + 1e-13): 0.4f}')
+            # logger.info(f'Train metric: {best_candidate_score / (denom + 1e-13): 0.4f}')
         else:
-            logger.info('No improvement detected. Skipping evaluation.')
+            # logger.info('No improvement detected. Skipping evaluation.')
             continue
 
-        logger.info('Evaluating')
+        # logger.info('Evaluating')
         numerator = 0
         denominator = 0
         for model_inputs, labels in tqdm(dev_loader):
@@ -310,8 +340,8 @@ def run_autoprompt(global_data, args, dataset):
             denominator += labels.size(0)
         dev_metric = numerator / (denominator + 1e-13)
 
-        logger.info(f'Trigger tokens: {tokenizer.convert_ids_to_tokens(trigger_ids.squeeze(0))}')
-        logger.info(f'Dev metric: {dev_metric}')
+        # logger.info(f'Trigger tokens: {tokenizer.convert_ids_to_tokens(trigger_ids.squeeze(0))}')
+        # logger.info(f'Dev metric: {dev_metric}')
 
         # TODO: Something cleaner. LAMA templates can't have mask tokens, so if
         # there are still mask tokens in the trigger then set the current score
@@ -321,81 +351,115 @@ def run_autoprompt(global_data, args, dataset):
                 best_dev_metric = float('-inf')
 
         if dev_metric > best_dev_metric:
-            logger.info('Best performance so far')
+            # logger.info('Best performance so far')
             best_trigger_ids = trigger_ids.clone()
             best_dev_metric = dev_metric
     progress.progress(1.0)
 
     best_trigger_tokens = tokenizer.convert_ids_to_tokens(best_trigger_ids.squeeze(0))
-    logger.info(f'Best tokens: {best_trigger_tokens}')
-    logger.info(f'Best dev metric: {best_dev_metric}')
-    if args.print_lama:
-        # Templatize with [X] and [Y]
-        if args.use_ctx:
-            model_inputs, label_ids = templatizer({
-                'sub_label': '[X]',
-                'obj_label': tokenizer.lama_y,
-                'context': ''
-            })
-        else:
-            model_inputs, label_ids = templatizer({
-                'sub_label': '[X]',
-                'obj_label': tokenizer.lama_y,
-            })
-        lama_template = model_inputs['input_ids']
-        # Instantiate trigger tokens
-        lama_template.masked_scatter_(
-            mask=model_inputs['trigger_mask'],
-            source=best_trigger_ids.cpu())
-        # Instantiate label token
-        lama_template.masked_scatter_(
-            mask=model_inputs['predict_mask'],
-            source=label_ids)
-        # Print LAMA JSON template
-        relation = args.train.parent.stem
-
-        # The following block of code is a bit hacky but whatever, it gets the job done
-        if args.use_ctx:
-            template = tokenizer.decode(lama_template.squeeze(0)[1:-1]).replace('[SEP] ', '').replace('</s> ', '').replace('[ X ]', '[X]')
-        else:
-            template = tokenizer.decode(lama_template.squeeze(0)[1:-1]).replace('[ X ]', '[X]')
-
-        out = {
-            'relation': args.train.parent.stem,
-            'template': template
-        }
-        print(json.dumps(out))
-
-    def predict(sentences):
-        # Evaluate clean
-        output = { 'sentences': [] }
-        any_label = None
-        for label in label_map.values():
-            output[label] = []
-            any_label = label
-        output['prompt'] = []
-        for sentence in sentences:
-            model_inputs, _ = templatizer({'sentence': sentence, 'label': any_label})
-            
-            prompt_ids = replace_trigger_tokens(
-                model_inputs, best_trigger_ids, model_inputs['trigger_mask'])
-            # st.write(prompt_ids)
-            # st.write(prompt_ids.shape)
-
-            prompt = ' '.join(tokenizer.convert_ids_to_tokens(prompt_ids['input_ids'][0]))
-            output['prompt'].append(prompt)
-
-            predict_logits = predictor(model_inputs, best_trigger_ids)
-            output['sentences'].append(sentence)
-            for label in label_map.values():
-                label_id = utils.encode_label(tokenizer=tokenizer, label=label, tokenize=args.tokenize_labels)
-                label_loss = get_loss(predict_logits, label_id)
-                # st.write(sentence, label, label_loss)
-                output[label].append(label_loss.item())
-        return output
-    dev_output = predict(map(lambda x: x['sentence'], dataset))
+    # # logger.info(f'Best tokens: {best_trigger_tokens}')
+    # # logger.info(f'Best dev metric: {best_dev_metric}')
+    # # if args.print_lama:
+    # #     # Templatize with [X] and [Y]
+    # #     if args.use_ctx:
+    # #         model_inputs, label_ids = templatizer({
+    # #             'sub_label': '[X]',
+    # #             'obj_label': tokenizer.lama_y,
+    # #             'context': ''
+    # #         })
+    # #     else:
+    # #         model_inputs, label_ids = templatizer({
+    # #             'sub_label': '[X]',
+    # #             'obj_label': tokenizer.lama_y,
+    # #         })
+    #     # lama_template = model_inputs['input_ids']
+    #     # # Instantiate trigger tokens
+    #     # lama_template.masked_scatter_(
+    #     #     mask=model_inputs['trigger_mask'],
+    #     #     source=best_trigger_ids.cpu())
+    #     # # Instantiate label token
+    #     # lama_template.masked_scatter_(
+    #     #     mask=model_inputs['predict_mask'],
+    #     #     source=label_ids)
+    #     # Print LAMA JSON template
+    #     # relation = args.train.parent.stem
+    #
+    #     # The following block of code is a bit hacky but whatever, it gets the job done
+    #     # if args.use_ctx:
+    #     #     template = tokenizer.decode(lama_template.squeeze(0)[1:-1]).replace('[SEP] ', '').replace('</s> ', '').replace('[ X ]', '[X]')
+    #     # else:
+    #     #     template = tokenizer.decode(lama_template.squeeze(0)[1:-1]).replace('[ X ]', '[X]')
+    #     #
+    #     # out = {
+    #     #     'relation': args.train.parent.stem,
+    #     #     'template': template
+    #     # }
+    #     # print(json.dumps(out))
+    #
+    # # @st.cache(persist=False, suppress_st_warning=True, max_entries=100, allow_output_mutation=True)
+    # # def predict(sentences):
+    # #     # Evaluate clean
+    # #     output = { 'sentences': [] }
+    # #     any_label = None
+    # #     for label in label_map.values():
+    # #         output[label] = []
+    # #         any_label = label
+    # #     output['prompt'] = []
+    # #     for sentence in sentences:
+    # #         model_inputs, _ = templatizer({'sentence': sentence, 'label': any_label})
+    # #
+    # #         prompt_ids = replace_trigger_tokens(
+    # #             model_inputs, best_trigger_ids, model_inputs['trigger_mask'])
+    # #         # st.write(prompt_ids)
+    # #         # st.write(prompt_ids.shape)
+    # #
+    # #         prompt = ' '.join(tokenizer.convert_ids_to_tokens(prompt_ids['input_ids'][0]))
+    # #         output['prompt'].append(prompt)
+    # #
+    # #         predict_logits = predictor(model_inputs, best_trigger_ids)
+    # #         output['sentences'].append(sentence)
+    # #         for label in label_map.values():
+    # #             label_id = utils.encode_label(tokenizer=tokenizer, label=label, tokenize=args.tokenize_labels)
+    # #             label_loss = get_loss(predict_logits, label_id)
+    # #             # st.write(sentence, label, label_loss)
+    # #             output[label].append(label_loss.item())
+    # #     return output
+    #
+    dev_output = predict_test(map(lambda x: x['sentence'], dataset), label_map, templatizer, best_trigger_ids, tokenizer, predictor, args)
     st.dataframe(pd.DataFrame(dev_output).style.highlight_min(axis=1))
-    return best_trigger_tokens, best_dev_metric, predict
+    # return None
+    return best_trigger_tokens, best_dev_metric, label_map, templatizer, best_trigger_ids, tokenizer, predictor, args
+
+
+def predict_test(sentences, label_map, templatizer, best_trigger_ids, tokenizer, predictor, args):
+    # Evaluate clean
+    output = { 'sentences': [] }
+    any_label = None
+    for label in label_map.values():
+        output[label] = []
+        any_label = label
+    output['prompt'] = []
+    for sentence in sentences:
+        model_inputs, _ = templatizer({'sentence': sentence, 'label': any_label})
+
+        prompt_ids = replace_trigger_tokens(
+            model_inputs, best_trigger_ids, model_inputs['trigger_mask'])
+        # st.write(prompt_ids)
+        # st.write(prompt_ids.shape)
+
+        prompt = ' '.join(tokenizer.convert_ids_to_tokens(prompt_ids['input_ids'][0]))
+        output['prompt'].append(prompt)
+
+        predict_logits = predictor(model_inputs, best_trigger_ids)
+        output['sentences'].append(sentence)
+        for label in label_map.values():
+            label_id = utils.encode_label(tokenizer=tokenizer, label=label, tokenize=args.tokenize_labels)
+            label_loss = get_loss(predict_logits, label_id)
+            # st.write(sentence, label, label_loss)
+            output[label].append(label_loss.item())
+    return output
+
+
 
 def run():
     st.title('AutoPrompt Demo')
@@ -430,8 +494,6 @@ def run():
     args = autoprompt_args()
     label_set = set(map(lambda x: x['label'], dataset))
     args.label_map = dict(map(lambda x: (x, x), label_set))
-    global_data = load_model(args.model_name)
-
     if any_empty:
         st.warning('Waiting for data to be added')
         st.stop()
@@ -439,17 +501,16 @@ def run():
     if len(label_set) < 2:
         st.warning('Not enough labels')
         st.stop()
-
-    st.write('Training...')
-    trigger_tokens, dev_metric, predict = run_autoprompt(global_data, args, dataset)
+    trigger_tokens, dev_metric, label_map, templatizer, best_trigger_ids, tokenizer, predictor, args = run_autoprompt(args, dataset)
     st.write('Tokens: ' + ' ,'.join(trigger_tokens))
     st.write('Train accuracy: ' + str(round(dev_metric*100, 1)))
     st.write("### Test Predictions")
-    eval_output = predict(map(lambda x: x['sentence'], eval_dataset))
+    eval_output = predict_test(map(lambda x: x['sentence'], eval_dataset), label_map ,templatizer, best_trigger_ids, tokenizer, predictor, args)
     st.dataframe(pd.DataFrame(eval_output).style.highlight_min(axis=1))
     st.write("### Let's test it ourselves!")
     sentence = st.text_input("Sentence", dataset[1]['sentence'])
-    pred_output = predict([sentence])
+    pred_output = predict_test([sentence], label_map ,templatizer, best_trigger_ids, tokenizer, predictor, args)
     st.dataframe(pd.DataFrame(pred_output).style.highlight_min(axis=1))
+
 
 run()

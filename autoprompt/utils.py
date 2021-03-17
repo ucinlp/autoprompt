@@ -91,7 +91,8 @@ def encode_label(tokenizer, label, tokenize=False):
             # desired behavior.
             tokens = tokenizer.tokenize(label, add_prefix_space=True)
             if len(tokens) > 1:
-                logger.warning('Label "%s" gets split into multiple tokens: %s', label, tokens)
+                # logger.warning('Label "%s" gets split into multiple tokens: %s', label, tokens)
+                pass
             if tokens[0] == tokenizer.unk_token:
                 raise ValueError(f'Label "{label}" gets mapped to unk.')
             label = tokens[0]
