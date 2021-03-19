@@ -312,6 +312,7 @@ def predict_test(sentences, label_map, templatizer, best_trigger_ids, tokenizer,
     output['prompt'] = []
     for sentence in sentences:
         model_inputs, _ = templatizer({'sentence': sentence, 'label': any_label})
+        model_inputs = {k: v.to(best_trigger_ids.device) for k, v in model_inputs.items()}
 
         prompt_ids = ct.replace_trigger_tokens(
             model_inputs, best_trigger_ids, model_inputs['trigger_mask'])
@@ -325,6 +326,7 @@ def predict_test(sentences, label_map, templatizer, best_trigger_ids, tokenizer,
         output['sentences'].append(sentence)
         for label in label_map.values():
             label_id = utils.encode_label(tokenizer=tokenizer, label=label, tokenize=args.tokenize_labels)
+            label_id = label_id.to(best_trigger_ids.device)
             label_loss = ct.get_loss(predict_logits, label_id)
             # st.write(sentence, label, label_loss)
             output[label].append(label_loss.item())
