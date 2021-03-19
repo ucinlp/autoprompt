@@ -89,10 +89,9 @@ def encode_label(tokenizer, label, tokenize=False):
             # Ensure label is properly tokenized, and only retain first token
             # if it gets split into multiple tokens. TODO: Make sure this is
             # desired behavior.
-            tokens = tokenizer.tokenize(label, add_prefix_space=True)
+            tokens = tokenizer.tokenize(label)
             if len(tokens) > 1:
-                # logger.warning('Label "%s" gets split into multiple tokens: %s', label, tokens)
-                pass
+                raise ValueError(f'Label "{label}" gets mapped to multiple tokens.')
             if tokens[0] == tokenizer.unk_token:
                 raise ValueError(f'Label "{label}" gets mapped to unk.')
             label = tokens[0]
@@ -164,7 +163,6 @@ class TriggerTemplatizer:
         model_inputs = self._tokenizer.encode_plus(
             text,
             add_special_tokens=self._add_special_tokens,
-            add_prefix_space=True,
             return_tensors='pt'
         )
         input_ids = model_inputs['input_ids']
