@@ -27,26 +27,26 @@ def set_seed(seed: int):
 
 def check_args(args):
     """Checks for invalid argument combinations."""
-    if args.evaluation_strategy == 'exact-match':
-        assert args.decoding_strategy is not None
-    if args.evaluation_strategy == 'classification':
-        assert args.label_map is not None
-    if args.evaluation_strategy == 'multiple-choice':
-        assert args.bsz is None, 'Multiple choice uses custom batching, do not set `--bsz`.'
-    if args.l1decay != 0.0:
-        assert args.linear, 'L1 regularization only applies to linear combo mlms.'
-        assert args.l1decay > 0.0, 'L1 decay cannot be negative.'
+    if args['evaluation_strategy'] == 'exact-match':
+        assert args['decoding_strategy'] is not None
+    if args['evaluation_strategy'] == 'classification':
+        assert args['label_map'] is not None
+    if args['evaluation_strategy'] == 'multiple-choice':
+        assert args['bsz'] is None, 'Multiple choice uses custom batching, do not set `--bsz`.'
+    if args.get('l1decay', 0.0) != 0.0:
+        assert args['linear'], 'L1 regularization only applies to linear combo mlms.'
+        assert args['l1decay'] > 0.0, 'L1 decay cannot be negative.'
 
 
 def serialize_args(args):
     """Serializes arguments to the checkpoint directory."""
-    if not os.path.exists(args.ckpt_dir):
-        logger.info(f'Making directory: {args.ckpt_dir}')
-        os.makedirs(args.ckpt_dir)
-    fname = os.path.join(args.ckpt_dir, 'args.json')
+    if not os.path.exists(args['ckpt_dir']):
+        logger.info(f'Making directory: {args["ckpt_dir"]}')
+        os.makedirs(args['ckpt_dir'])
+    fname = os.path.join(args['ckpt_dir'], 'args.json')
     with open(fname, 'w') as f:
         logger.info(f'Serializing CLI arguments to: {fname}')
-        json.dump(vars(args), f)
+        json.dump(args, f)
 
 
 def load_label_map(label_map):

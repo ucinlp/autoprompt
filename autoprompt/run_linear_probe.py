@@ -24,49 +24,49 @@ def main(args):
     # pylint: disable=C0116,E1121,R0912,R0915
     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 
-    config = AutoConfig.from_pretrained(args.model_name, num_labels=args.num_labels)
-    tokenizer = AutoTokenizer.from_pretrained(args.model_name)
-    model = AutoPopsicle.from_pretrained(args.model_name, config=config)
+    config = AutoConfig.from_pretrained(args['model_name'], num_labels=args['num_labels'])
+    tokenizer = AutoTokenizer.from_pretrained(args['model_name'])
+    model = AutoPopsicle.from_pretrained(args['model_name'], config=config)
     model.to(device)
 
     collator = data.Collator(pad_token_id=tokenizer.pad_token_id)
     train_dataset, label_map = data.load_classification_dataset(
-        args.train,
+        args['train'],
         tokenizer,
-        args.field_a,
-        args.field_b,
-        args.label_field
+        args['field_a'],
+        args['field_b'],
+        args['label_field']
     )
-    train_loader = DataLoader(train_dataset, batch_size=args.bsz, shuffle=True, collate_fn=collator)
+    train_loader = DataLoader(train_dataset, batch_size=args['bsz'], shuffle=True, collate_fn=collator)
     dev_dataset, _ = data.load_classification_dataset(
-        args.dev,
+        args['dev'],
         tokenizer,
-        args.field_a,
-        args.field_b,
-        args.label_field,
+        args['field_a'],
+        args['field_b'],
+        args['label_field'],
         label_map
     )
-    dev_loader = DataLoader(dev_dataset, batch_size=args.bsz, shuffle=True, collate_fn=collator)
+    dev_loader = DataLoader(dev_dataset, batch_size=args['bsz'], shuffle=True, collate_fn=collator)
     test_dataset, _ = data.load_classification_dataset(
-        args.test,
+        args['test'],
         tokenizer,
-        args.field_a,
-        args.field_b,
-        args.label_field,
+        args['field_a'],
+        args['field_b'],
+        args['label_field'],
         label_map
     )
-    test_loader = DataLoader(test_dataset, batch_size=args.bsz, shuffle=True, collate_fn=collator)
-    optimizer = torch.optim.Adam(model.classifier.parameters(), lr=args.lr, weight_decay=1e-6)
+    test_loader = DataLoader(test_dataset, batch_size=args['bsz'], shuffle=True, collate_fn=collator)
+    optimizer = torch.optim.Adam(model.classifier.parameters(), lr=args['lr'], weight_decay=1e-6)
 
-    if not args.ckpt_dir.exists():
-        # logger.info(f'Making checkpoint directory: {args.ckpt_dir}')
-        args.ckpt_dir.mkdir(parents=True)
-    elif not args.force_overwrite:
+    if not args['ckpt_dir'].exists():
+        # logger.info(f'Making checkpoint directory: {args['ckpt_dir']}')
+        args['ckpt_dir'].mkdir(parents=True)
+    elif not args['force_overwrite']:
         raise RuntimeError('Checkpoint directory already exists.')
 
     best_accuracy = 0
     try:
-        for epoch in range(args.epochs):
+        for epoch in range(args['epochs']):
             logger.info(f'Epoch: {epoch}')
             logger.info('Training...')
             model.eval()  # Just linear regression - don't want model outputs changing during training.
@@ -97,17 +97,17 @@ def main(args):
 
             if accuracy > best_accuracy:
                 logger.info('Best performance so far. Saving...')
-                # torch.save(model.state_dict(), args.ckpt_dir / WEIGHTS_NAME)
-                # model.config.to_json_file(args.ckpt_dir / CONFIG_NAME)
-                model.save_pretrained(args.ckpt_dir)
-                tokenizer.save_pretrained(args.ckpt_dir)
+                # torch.save(model.state_dict(), args['ckpt_dir'] / WEIGHTS_NAME)
+                # model.config.to_json_file(args['ckpt_dir'] / CONFIG_NAME)
+                model.save_pretrained(args['ckpt_dir'])
+                tokenizer.save_pretrained(args['ckpt_dir'])
                 best_accuracy = accuracy
 
     except KeyboardInterrupt:
         logger.info('Training manually terminated.')
 
     logger.info('Testing...')
-    checkpoint = torch.load(args.ckpt_dir / WEIGHTS_NAME)
+    checkpoint = torch.load(args['ckpt_dir'] / WEIGHTS_NAME)
     model.load_state_dict(checkpoint)
     model.eval()
     correct = 0
@@ -142,10 +142,10 @@ if __name__ == '__main__':
     parser.add_argument('--log_file', type=str, default='log.txt')
     args = parser.parse_args()
 
-    if args.debug:
+    if args['debug']:
         level = logging.DEBUG
     else:
         level = logging.INFO
-    logging.basicConfig(level=level, filename=args.log_file)
+    logging.basicConfig(level=level, filename=args['log_file'])
 
     main(args)

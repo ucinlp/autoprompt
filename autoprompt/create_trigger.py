@@ -108,11 +108,11 @@ def load_pretrained(model_name):
     Loads pretrained HuggingFace config/model/tokenizer, as well as performs required
     initialization steps to facilitate working with triggers.
     """
-    config = AutoConfig.from_pretrained(args.model_name)
-    model = AutoModelForMaskedLM.from_pretrained(args.model_name)
+    config = AutoConfig.from_pretrained(args['model_name'])
+    model = AutoModelForMaskedLM.from_pretrained(args['model_name'])
     model.eval()
     tokenizer = AutoTokenizer.from_pretrained(
-        args.model_name,
+        args['model_name'],
         add_prefix_space=True,
         additional_special_tokens=('[T]', '[P]'),
     )
@@ -188,35 +188,35 @@ def isupper(idx, tokenizer):
 
 def run_model(args):
 
-    utils.set_seed(args.seed)
+    utils.set_seed(args['seed'])
     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 
     logger.info('Loading model, tokenizer, etc.')
-    config, model, tokenizer = load_pretrained(args.model_name)
+    config, model, tokenizer = load_pretrained(args['model_name'])
     model.to(device)
     embeddings = get_embeddings(model, config)
     embedding_gradient = GradientStorage(embeddings)
     predictor = PredictWrapper(model)
 
-    if args.label_map is not None:
-        label_map = json.loads(args.label_map)
+    if args['label_map'] is not None:
+        label_map = json.loads(args['label_map'])
         logger.info(f"Label map: {label_map}")
     else:
         label_map = None
 
     templatizer = templatizers.TriggerTemplatizer(
-        args.template,
+        args['template'],
         tokenizer,
         label_map=label_map,
-        label_field=args.label_field,
-        tokenize_labels=args.tokenize_labels,
+        label_field=args['label_field'],
+        tokenize_labels=args['tokenize_labels'],
         add_special_tokens=False
     )
 
     # Obtain the initial trigger tokens and label mapping
-    if args.initial_trigger:
-        trigger_ids = tokenizer.convert_tokens_to_ids(args.initial_trigger)
-        logger.debug(f'Initial trigger: {args.initial_trigger}')
+    if args['initial_trigger']:
+        trigger_ids = tokenizer.convert_tokens_to_ids(args['initial_trigger'])
+        logger.debug(f'Initial trigger: {args['initial_trigger']}')
         logger.debug(f'Trigger ids: {trigger_ids}')
         assert len(trigger_ids) == templatizer.num_trigger_tokens
     else:
@@ -235,22 +235,22 @@ def run_model(args):
     logger.info('Loading datasets')
     collator = utils.Collator(pad_token_id=tokenizer.pad_token_id)
     train_dataset = utils.load_trigger_dataset(
-        args.train,
+        args['train'],
         templatizer=templatizer,
-        limit=args.limit,
-        preprocessor_key=args.preprocessor,
+        limit=args['limit'],
+        preprocessor_key=args['preprocessor'],
     )
-    train_loader = DataLoader(train_dataset, batch_size=args.bsz, shuffle=True, collate_fn=collator)
+    train_loader = DataLoader(train_dataset, batch_size=args['bsz'], shuffle=True, collate_fn=collator)
     dev_dataset = utils.load_trigger_dataset(
-        args.dev,
+        args['dev'],
         templatizer=templatizer,
-        preprocessor_key=args.preprocessor,
+        preprocessor_key=args['preprocessor'],
     )
-    dev_loader = DataLoader(dev_dataset, batch_size=args.eval_size, shuffle=False, collate_fn=collator)
+    dev_loader = DataLoader(dev_dataset, batch_size=args['eval_size'], shuffle=False, collate_fn=collator)
 
     # To "filter" unwanted trigger tokens, we subtract a huge number from their logits.
     filter = torch.zeros(tokenizer.vocab_size, dtype=torch.float32, device=device)
-    if args.filter:
+    if args['filter']:
         logger.info('Filtering label tokens.')
         if label_map:
             for label_tokens in label_map.values():
@@ -289,14 +289,14 @@ def run_model(args):
     # Measure elapsed time of trigger search
     start = time.time()
 
-    for i in range(args.iters):
+    for i in range(args['iters']):
 
         logger.info(f'Iteration: {i}')
 
         logger.info('Accumulating Gradient')
         model.zero_grad()
 
-        pbar = tqdm(range(args.accumulation_steps))
+        pbar = tqdm(range(args['accumulation_steps']))
         train_iter = iter(train_loader)
         averaged_grad = None
 
@@ -325,23 +325,23 @@ def run_model(args):
             grad = grad.view(bsz, templatizer.num_trigger_tokens, emb_dim)
 
             if averaged_grad is None:
-                averaged_grad = grad.sum(dim=0) / args.accumulation_steps
+                averaged_grad = grad.sum(dim=0) / args['accumulation_steps']
             else:
-                averaged_grad += grad.sum(dim=0) / args.accumulation_steps
+                averaged_grad += grad.sum(dim=0) / args['accumulation_steps']
 
         logger.info('Evaluating Candidates')
-        pbar = tqdm(range(args.accumulation_steps))
+        pbar = tqdm(range(args['accumulation_steps']))
         train_iter = iter(train_loader)
 
         token_to_flip = random.randrange(templatizer.num_trigger_tokens)
         candidates = hotflip_attack(averaged_grad[token_to_flip],
                                     embeddings.weight,
                                     increase_loss=False,
-                                    num_candidates=args.num_cand,
+                                    num_candidates=args['num_cand'],
                                     filter=filter)
 
         current_score = 0
-        candidate_scores = torch.zeros(args.num_cand, device=device)
+        candidate_scores = torch.zeros(args['num_cand'], device=device)
         denom = 0
         for step in pbar:
             try:
@@ -381,7 +381,7 @@ def run_model(args):
         # TODO: Something cleaner. LAMA templates can't have mask tokens, so if
         # there are still mask tokens in the trigger then set the current score
         # to -inf.
-        if args.print_lama:
+        if args['print_lama']:
             if trigger_ids.eq(tokenizer.mask_token_id).any():
                 current_score = float('-inf')
 
@@ -413,7 +413,7 @@ def run_model(args):
         # TODO: Something cleaner. LAMA templates can't have mask tokens, so if
         # there are still mask tokens in the trigger then set the current score
         # to -inf.
-        if args.print_lama:
+        if args['print_lama']:
             if best_trigger_ids.eq(tokenizer.mask_token_id).any():
                 best_dev_metric = float('-inf')
 
@@ -425,7 +425,7 @@ def run_model(args):
     best_trigger_tokens = tokenizer.convert_ids_to_tokens(best_trigger_ids.squeeze(0))
     logger.info(f'Best tokens: {best_trigger_tokens}')
     logger.info(f'Best dev metric: {best_dev_metric}')
-    if args.print_lama:
+    if args['print_lama']:
         # Templatize with [X] and [Y]
         model_inputs, label_ids = templatizer({
             'sub_label': '[X]',
@@ -441,9 +441,9 @@ def run_model(args):
             mask=model_inputs['predict_mask'],
             source=label_ids)
         # Print LAMA JSON template
-        relation = args.train.parent.stem
+        relation = args['train'].parent.stem
         out = {
-            'relation': args.train.parent.stem,
+            'relation': args['train'].parent.stem,
             'template': tokenizer.decode(lama_template.squeeze(0)[1:-1])
         }
         print(json.dumps(out))
@@ -490,9 +490,9 @@ if __name__ == '__main__':
     parser.add_argument('--sentence_size', type=int, default=50)
 
     parser.add_argument('--debug', action='store_true')
-    args = parser.parse_args()
+    args = vars(parser.parse_args())
 
-    if args.debug:
+    if args['debug']:
         level = logging.DEBUG
     else:
         level = logging.INFO

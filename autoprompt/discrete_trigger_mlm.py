@@ -23,19 +23,19 @@ logger = logging.getLogger(__name__)
 def get_cinf_optimizer(model, args):
     """Handles setting the optimizer up for different finetuning modes."""
     params = []
-    if args.finetune_mode == 'partial':
+    if args['finetune_mode'] == 'partial':
         params.append({
             'params': model.lm_head.parameters(),
-            'lr': args.finetune_lr if args.finetune_lr else args.lr
+            'lr': args['finetune_lr'] if args['finetune_lr'] else args['lr']
         })
-    elif args.finetune_mode == 'all':
+    elif args['finetune_mode'] == 'all':
         params.append({
             'params': model.parameters(),
-            'lr': args.finetune_lr if args.finetune_lr else args.lr
+            'lr': args['finetune_lr'] if args['finetune_lr'] else args['lr']
         })
     return AdamW(
         params,
-        lr=args.lr,
+        lr=args['lr'],
         weight_decay=1e-2,
         eps=1e-8
     )
@@ -103,30 +103,30 @@ class DiscreteOptimizer:
 
 def main(args):
     # pylint: disable=C0116,E1121,R0912,R0915
-    utils.set_seed(args.seed)
+    utils.set_seed(args['seed'])
 
     # Initialization.
     utils.check_args(args)
     utils.serialize_args(args)
-    distributed_config = utils.distributed_setup(args.local_rank)
-    if not args.debug:
+    distributed_config = utils.distributed_setup(args['local_rank'])
+    if not args['debug']:
         logging.basicConfig(level=logging.INFO if distributed_config.is_main_process else logging.WARN)
         logger.info('Suppressing subprocess logging. If this is not desired enable debug mode.')
     if distributed_config.is_main_process:
-        writer = torch.utils.tensorboard.SummaryWriter(log_dir=args.ckpt_dir)
-    config, tokenizer, base_model = utils.load_transformers(args.model_name)
+        writer = torch.utils.tensorboard.SummaryWriter(log_dir=args['ckpt_dir'])
+    config, tokenizer, base_model = utils.load_transformers(args['model_name'])
 
     # Load data.
     logger.info('Loading data.')
-    label_map = utils.load_label_map(args.label_map)
+    label_map = utils.load_label_map(args['label_map'])
     templatizer = templatizers.MultiTokenTemplatizer(
-        template=args.template,
+        template=args['template'],
         tokenizer=tokenizer,
-        label_field=args.label_field,
+        label_field=args['label_field'],
         label_map=label_map,
-        add_padding=args.add_padding,
+        add_padding=args['add_padding'],
     )
-    train_loader, dev_loader, test_loader = data.load_datasets(
+    train_loader, dev_loader, test_loader, _ = data.load_datasets(
         args,
         templatizer=templatizer,
         distributed_config=distributed_config,
@@ -134,7 +134,7 @@ def main(args):
 
     # Setup model
     logger.info('Initializing trigger.')
-    initial_trigger_ids = utils.get_initial_trigger_ids(args.initial_trigger, tokenizer)
+    initial_trigger_ids = utils.get_initial_trigger_ids(args['initial_trigger'], tokenizer)
     if initial_trigger_ids is None:
         initial_trigger_ids = torch.full(
             (templatizer.num_trigger_tokens,),
@@ -145,42 +145,42 @@ def main(args):
     model.to(distributed_config.device)
 
     # Restore existing checkpoint if available.
-    ckpt_path = os.path.join(args.ckpt_dir, 'pytorch_model.bin')
-    if os.path.exists(ckpt_path) and not args.force_overwrite:
+    ckpt_path = os.path.join(args['ckpt_dir'], 'pytorch_model.bin')
+    if os.path.exists(ckpt_path) and not args['force_overwrite']:
         logger.info('Restoring checkpoint.')
         state_dict = torch.load(ckpt_path, map_location=distributed_config.device)
         model.load_state_dict(state_dict)
 
     # Setup optimizers
-    if args.finetune_mode != 'trigger':
+    if args['finetune_mode'] != 'trigger':
         cinf_optimizer = get_cinf_optimizer(model, args)
     else:
         cinf_optimizer = None
-    discrete_optimizer = DiscreteOptimizer(model, args.num_candidates)
+    discrete_optimizer = DiscreteOptimizer(model, args['num_candidates'])
 
     if distributed_config.world_size != -1:
         model = torch.nn.parallel.DistributedDataParallel(
             model,
-            device_ids=[args.local_rank],
+            device_ids=[args['local_rank']],
         )
-    evaluator = MLM_EVALUATORS[args.evaluation_strategy](
+    evaluator = MLM_EVALUATORS[args['evaluation_strategy']](
         model=model,
         tokenizer=tokenizer,
         label_map=label_map,
-        decoding_strategy=args.decoding_strategy,
+        decoding_strategy=args['decoding_strategy'],
     )
-    score_fn = METRICS[args.evaluation_metric]
+    score_fn = METRICS[args['evaluation_metric']]
 
     best_score = 0
-    if not args.skip_train:
-        for epoch in range(args.epochs):
+    if not args['skip_train']:
+        for epoch in range(args['epochs']):
             logger.info(f'Epoch: {epoch}')
             logger.info('Training...')
-            if not args.disable_dropout:
+            if not args['disable_dropout']:
                 model.train()
             else:
                 model.eval()
-            if distributed_config.is_main_process and not args.quiet:
+            if distributed_config.is_main_process and not args['quiet']:
                 iter_ = tqdm(train_loader)
             else:
                 iter_ = train_loader
@@ -197,7 +197,7 @@ def main(args):
             while running:
                 # Get candidates
                 logger.debug('Measuring loss...')
-                for _ in range(args.accumulation_steps):
+                for _ in range(args['accumulation_steps']):
                     try:
                         model_inputs, labels = next(iter_)
                     except StopIteration:
@@ -210,9 +210,9 @@ def main(args):
                             model_inputs,
                             labels,
                             train=True,
-                            evaluation_metric=args.evaluation_metric,
+                            evaluation_metric=args['evaluation_metric'],
                         )
-                        loss /= args.accumulation_steps
+                        loss /= args['accumulation_steps']
                         loss.backward()
                         discrete_optimizer.update(model_inputs['trigger_mask'])
                 # If terminated early just break
@@ -225,9 +225,9 @@ def main(args):
                 # Evaluate candidates
                 logger.debug('Evaluating candidates...')
                 current_total_metrics = {}
-                candidate_total_metrics = [{} for _ in range(args.num_candidates)]
+                candidate_total_metrics = [{} for _ in range(args['num_candidates'])]
                 denom = torch.tensor(0.0, device=distributed_config.device)
-                for _ in range(args.accumulation_steps):
+                for _ in range(args['accumulation_steps']):
                     try:
                         model_inputs, labels = next(iter_)
                     except StopIteration:
@@ -236,7 +236,7 @@ def main(args):
                     else:
                         model_inputs = utils.to_device(model_inputs, distributed_config.device)
                         labels = utils.to_device(labels, distributed_config.device)
-                        batch_size = 1.0 if args.evaluation_strategy == 'multiple-choice' else labels.size(0)
+                        batch_size = 1.0 if args['evaluation_strategy'] == 'multiple-choice' else labels.size(0)
                         denom += batch_size
 
                         # Current trigger
@@ -245,7 +245,7 @@ def main(args):
                                 model_inputs,
                                 labels,
                                 train=True,
-                                evaluation_metric=args.evaluation_metric,
+                                evaluation_metric=args['evaluation_metric'],
                             )
                         utils.update_metrics(current_total_metrics, metrics)
 
@@ -258,7 +258,7 @@ def main(args):
                                     model_inputs,
                                     labels,
                                     train=True,
-                                    evaluation_metric=args.evaluation_metric,
+                                    evaluation_metric=args['evaluation_metric'],
                                     trigger_ids=candidate_trigger_ids,
                                 )
                                 utils.update_metrics(total_metrics, metrics)
@@ -291,21 +291,21 @@ def main(args):
                 # Step continuous optimizer
                 if cinf_optimizer is not None:
                     logger.debug('Optimizer step.')
-                    if args.clip is not None:
-                        torch.nn.utils.clip_grad_norm_(model.parameters(), args.clip)
+                    if args['clip'] is not None:
+                        torch.nn.utils.clip_grad_norm_(model.parameters(), args['clip'])
                     cinf_optimizer.step()
 
                 # Make sure to reset the gradient accumulation.
                 model.zero_grad()
                 discrete_optimizer.reset()
             
-            if not args.skip_eval:
+            if not args['skip_eval']:
                 logger.info('Evaluating...')
                 model.eval()
                 total_loss = torch.tensor(0.0, device=distributed_config.device)
                 total_metrics = {}
                 denom = torch.tensor(0.0, device=distributed_config.device)
-                if distributed_config.is_main_process and not args.quiet:
+                if distributed_config.is_main_process and not args['quiet']:
                     iter_ = tqdm(dev_loader)
                 else:
                     iter_ = dev_loader
@@ -317,9 +317,9 @@ def main(args):
                             model_inputs,
                             labels,
                             train=False,
-                            evaluation_metric=args.evaluation_metric,
+                            evaluation_metric=args['evaluation_metric'],
                         )
-                        batch_size = 1.0 if args.evaluation_strategy == 'multiple-choice' else labels.size(0)
+                        batch_size = 1.0 if args['evaluation_strategy'] == 'multiple-choice' else labels.size(0)
                         total_loss += loss.detach() * batch_size
                         utils.update_metrics(total_metrics, metrics)
                         denom += batch_size
@@ -328,7 +328,7 @@ def main(args):
                             for metric in total_metrics:
                                 torch.distributed.reduce(total_metrics[metric], 0)
                             torch.distributed.reduce(denom, 0)
-                        if distributed_config.is_main_process and not args.quiet:
+                        if distributed_config.is_main_process and not args['quiet']:
                             score = score_fn(total_metrics, denom)
                             iter_.set_description(
                                 f'Loss: {total_loss / (denom + 1e-13): 0.4f}, '
@@ -337,7 +337,7 @@ def main(args):
                 if distributed_config.is_main_process:
                     writer.add_scalar('Loss/dev', (total_loss / (denom + 1e-13)).item(), epoch)
                     score = score_fn(total_metrics, denom)
-                    writer.add_scalar(f'{args.evaluation_metric.capitalize()}/dev', score.item(), epoch)
+                    writer.add_scalar(f'{args["evaluation_metric"].capitalize()}/dev', score.item(), epoch)
 
                     if score > best_score:
                         logger.info('Best performance so far.')
@@ -348,16 +348,16 @@ def main(args):
                             state_dict = model.state_dict()
                         if distributed_config.is_main_process:
                             torch.save(state_dict, ckpt_path)
-                        tokenizer.save_pretrained(args.ckpt_dir)
-                        config.save_pretrained(args.ckpt_dir)
+                        tokenizer.save_pretrained(args['ckpt_dir'])
+                        config.save_pretrained(args['ckpt_dir'])
 
-    if not args.skip_test:
+    if not args['skip_test']:
         logger.info('Testing...')
-        if os.path.exists(ckpt_path) and not args.skip_eval:
+        if os.path.exists(ckpt_path) and not args['skip_eval']:
             logger.info('Restoring checkpoint.')
             state_dict = torch.load(ckpt_path, map_location=distributed_config.device)
             model.load_state_dict(state_dict)
-        output_fname = os.path.join(args.ckpt_dir, 'predictions')
+        output_fname = os.path.join(args['ckpt_dir'], 'predictions')
         model.eval()
         total_metrics = {}
         denom = torch.tensor(0.0, device=distributed_config.device)
@@ -369,9 +369,9 @@ def main(args):
                     model_inputs,
                     labels,
                     train=False,
-                    evaluation_metric=args.evaluation_metric,
+                    evaluation_metric=args['evaluation_metric'],
                 )
-                batch_size = 1.0 if args.evaluation_strategy == 'multiple-choice' else labels.size(0)
+                batch_size = 1.0 if args['evaluation_strategy'] == 'multiple-choice' else labels.size(0)
                 utils.update_metrics(total_metrics, metrics)
                 denom += batch_size
                 # Serialize output
@@ -382,13 +382,13 @@ def main(args):
                 torch.distributed.reduce(metrics[metric], 0)
             torch.distributed.reduce(denom, 0)
 
-        if args.tmp:
+        if args['tmp']:
             if os.path.exists(ckpt_path):
                 logger.info('Temporary mode enabled, deleting checkpoint.')
                 os.remove(ckpt_path)
 
         score = score_fn(total_metrics, denom)
-        writer.add_scalar(f'{args.evaluation_metric.capitalize()}/test', score.item(), epoch)
+        writer.add_scalar(f"{args['evaluation_metric'].capitalize()}/test", score.item(), epoch)
         logger.info(f'Metric: {score: 0.4f}')
 
 
@@ -493,9 +493,9 @@ if __name__ == '__main__':
                         help='For parallel/distributed training. Usually will '
                              'be set automatically.')
 
-    args = parser.parse_args()
+    args = vars(parser.parse_args())
 
-    if args.debug:
+    if args['debug']:
         level = logging.DEBUG
     else:
         level = logging.INFO

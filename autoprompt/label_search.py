@@ -63,23 +63,23 @@ def get_word_embeddings(model):
 
 def main(args):
     # pylint: disable=C0116,E1121,R0912,R0915
-    utils.set_seed(args.seed)
+    utils.set_seed(args['seed'])
     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 
     logger.info('Loading model, tokenizer, etc.')
-    config, tokenizer, model = utils.load_transformers(args.model_name)
+    config, tokenizer, model = utils.load_transformers(args['model_name'])
     model.to(device)
     final_embeddings = get_final_embeddings(model)
     embedding_storage = OutputStorage(final_embeddings)
     word_embeddings = get_word_embeddings(model)
 
-    label_map = json.loads(args.label_map)
+    label_map = json.loads(args['label_map'])
     reverse_label_map = {y: x for x, y in label_map.items()}
     templatizer = templatizers.TriggerTemplatizer(
-        args.template,
+        args['template'],
         tokenizer,
         label_map=label_map,
-        label_field=args.label_field,
+        label_field=args['label_field'],
     )
 
     # The weights of this projection will help identify the best label words.
@@ -87,9 +87,9 @@ def main(args):
     projection.to(device)
 
     # Obtain the initial trigger tokens and label mapping
-    if args.initial_trigger:
+    if args['initial_trigger']:
         trigger_ids = tokenizer.encode(
-            args.initial_trigger,
+            args['initial_trigger'],
             add_special_tokens=False,
             add_prefix_space=True
         )
@@ -101,23 +101,23 @@ def main(args):
     logger.info('Loading datasets')
     collator = data.Collator(pad_token_id=tokenizer.pad_token_id)
     train_dataset = data.load_trigger_dataset(
-        args.train,
+        args['train'],
         templatizer,
-        preprocessor_key=args.preprocessor,
+        preprocessor_key=args['preprocessor'],
     )
-    train_loader = DataLoader(train_dataset, batch_size=args.bsz, shuffle=True, collate_fn=collator)
+    train_loader = DataLoader(train_dataset, batch_size=args['bsz'], shuffle=True, collate_fn=collator)
 
-    optimizer = torch.optim.Adam(projection.parameters(), lr=args.lr)
+    optimizer = torch.optim.Adam(projection.parameters(), lr=args['lr'])
 
     scores = torch.matmul(projection.weight, word_embeddings.transpose(0, 1))
     scores = F.softmax(scores, dim=0)
     for i, row in enumerate(scores):
-        _, top = row.topk(args.k)
+        _, top = row.topk(args['k'])
         decoded = tokenizer.convert_ids_to_tokens(top)
         logger.info(f"Top k for class {reverse_label_map[i]}: {', '.join(decoded)}")
 
     logger.info('Training')
-    for i in range(args.iters):
+    for i in range(args['iters']):
         pbar = tqdm(train_loader)
         for model_inputs, labels in pbar:
             optimizer.zero_grad()
@@ -139,13 +139,13 @@ def main(args):
         scores = torch.matmul(projection.weight, word_embeddings.transpose(0, 1))
         scores = F.softmax(scores, dim=0)
         for j, row in enumerate(scores):
-            _, top = row.topk(args.k)
+            _, top = row.topk(args['k'])
             decoded = tokenizer.convert_ids_to_tokens(top)
             logger.info(f"Top k for class {reverse_label_map[j]}: {', '.join(decoded)}")
 
     out = {}
     for i, row in enumerate(scores):
-        _, top = row.topk(args.k)
+        _, top = row.topk(args['k'])
         out[reverse_label_map[i]] = tokenizer.convert_ids_to_tokens(top)
     print(out)
 
@@ -170,9 +170,9 @@ if __name__ == '__main__':
                         help='Model name passed to HuggingFace AutoX classes.')
     parser.add_argument('--seed', type=int, default=0)
     parser.add_argument('--debug', action='store_true')
-    args = parser.parse_args()
+    args = vars(parser.parse_args())
 
-    if args.debug:
+    if args['debug']:
         level = logging.DEBUG
     else:
         level = logging.INFO

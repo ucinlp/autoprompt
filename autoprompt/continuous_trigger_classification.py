@@ -43,40 +43,40 @@ def main(args):
     # pylint: disable=C0116,E1121,R0912,R0915
     logger.info(args)
 
-    utils.set_seed(args.seed)
+    utils.set_seed(args['seed'])
 
     # Handle multi-GPU setup
     world_size = os.getenv('WORLD_SIZE')
     if world_size is None:
         world_size = -1
-    if args.local_rank == -1:
+    if args['local_rank'] == -1:
         device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
     else:
-        device = torch.device('cuda', args.local_rank)
+        device = torch.device('cuda', args['local_rank'])
         if world_size != -1:
             torch.distributed.init_process_group(
                 backend='nccl',
                 init_method='env://',
-                rank=args.local_rank,
+                rank=args['local_rank'],
                 world_size=world_size,
             )
-    is_main_process = args.local_rank in [-1, 0] or world_size == -1
+    is_main_process = args['local_rank'] in [-1, 0] or world_size == -1
 
     # Only have main process log (unless debug is enabled)
-    if args.debug:
+    if args['debug']:
         logging.basicConfig(level=logging.DEBUG)
     else:
         logging.basicConfig(level=logging.INFO if is_main_process else logging.WARN)
-    logger.warning('Rank: %s - World Size: %s', args.local_rank, world_size)
+    logger.warning('Rank: %s - World Size: %s', args['local_rank'], world_size)
 
-    config = AutoConfig.from_pretrained(args.model_name, num_labels=args.num_labels)
-    tokenizer = AutoTokenizer.from_pretrained(args.model_name)
+    config = AutoConfig.from_pretrained(args['model_name'], num_labels=args['num_labels'])
+    tokenizer = AutoTokenizer.from_pretrained(args['model_name'])
     eos_idx = tokenizer.eos_token_id if tokenizer.eos_token_id else tokenizer.sep_token_id
 
-    model = models.ContTriggerTransformer(config, args.model_name, args.trigger_length)
+    model = models.ContTriggerTransformer(config, args['model_name'], args['trigger_length'])
     model.to(device)
 
-    ckpt_path = args.ckpt_dir / 'pytorch_model.bin'
+    ckpt_path = args['ckpt_dir'] / 'pytorch_model.bin'
     if ckpt_path.exists():
         logger.info('Restoring checkpoint.')
         state_dict = torch.load(ckpt_path, map_location=device)
@@ -85,72 +85,72 @@ def main(args):
     if world_size != -1:
         model = torch.nn.parallel.DistributedDataParallel(
             model,
-            device_ids=[args.local_rank],
+            device_ids=[args['local_rank']],
         )
 
     collator = data.Collator(pad_token_id=tokenizer.pad_token_id)
 
     train_dataset, label_map = data.load_classification_dataset(
-        args.train,
+        args['train'],
         tokenizer,
-        args.field_a,
-        args.field_b,
-        args.label_field,
-        limit=args.limit,
+        args['field_a'],
+        args['field_b'],
+        args['label_field'],
+        limit=args['limit'],
     )
     if world_size == -1:
         train_sampler = torch.utils.data.RandomSampler(train_dataset)
     else:
         train_sampler = torch.utils.data.DistributedSampler(train_dataset, shuffle=True)
-    train_loader = DataLoader(train_dataset, batch_size=args.bsz, collate_fn=collator, sampler=train_sampler)
+    train_loader = DataLoader(train_dataset, batch_size=args['bsz'], collate_fn=collator, sampler=train_sampler)
 
     dev_dataset, _ = data.load_classification_dataset(
-        args.dev,
+        args['dev'],
         tokenizer,
-        args.field_a,
-        args.field_b,
-        args.label_field,
+        args['field_a'],
+        args['field_b'],
+        args['label_field'],
         label_map,
-        limit=args.limit,
+        limit=args['limit'],
     )
     if world_size == -1:
         dev_sampler = torch.utils.data.SequentialSampler(dev_dataset)
     else:
         dev_sampler = torch.utils.data.DistributedSampler(dev_dataset)
-    dev_loader = DataLoader(dev_dataset, batch_size=args.bsz, collate_fn=collator, sampler=dev_sampler)
+    dev_loader = DataLoader(dev_dataset, batch_size=args['bsz'], collate_fn=collator, sampler=dev_sampler)
 
     test_dataset, _ = data.load_classification_dataset(
-        args.test,
+        args['test'],
         tokenizer,
-        args.field_a,
-        args.field_b,
-        args.label_field,
+        args['field_a'],
+        args['field_b'],
+        args['label_field'],
         label_map,
     )
     if world_size == -1:
         test_sampler = torch.utils.data.SequentialSampler(test_dataset)
     else:
         test_sampler = torch.utils.data.DistributedSampler(test_dataset)
-    test_loader = DataLoader(test_dataset, batch_size=args.bsz, collate_fn=collator, sampler=test_sampler)
+    test_loader = DataLoader(test_dataset, batch_size=args['bsz'], collate_fn=collator, sampler=test_sampler)
     params = [{'params': [model.relation_embeds]}]
-    if args.finetune_mode == 'partial':
+    if args['finetune_mode'] == 'partial':
         params.append({
             'params': model.clf_head.parameters(),
-            'lr': args.finetune_lr if args.finetune_lr else args.lr
+            'lr': args['finetune_lr'] if args['finetune_lr'] else args['lr']
         })
-    elif args.finetune_mode == 'all':
+    elif args['finetune_mode'] == 'all':
         params.append({
             'params': [p for p in model.parameters() if not torch.equal(p, model.relation_embeds)],
-            'lr': args.finetune_lr if args.finetune_lr else args.lr
+            'lr': args['finetune_lr'] if args['finetune_lr'] else args['lr']
         })
     optimizer = torch.optim.Adam(
         params,
-        lr=args.lr,
-        weight_decay=args.weight_decay,
+        lr=args['lr'],
+        weight_decay=args['weight_decay'],
     )
 
     best_accuracy = 0
-    for _ in range(args.epochs):
+    for _ in range(args['epochs']):
         logger.info('Training...')
         model.train()
         if is_main_process:
@@ -178,7 +178,7 @@ def main(args):
         with torch.no_grad():
             for model_inputs, labels in dev_loader:
                 model_inputs = {k: v.to(device) for k, v in model_inputs.items()}
-                model_inputs = generate_inputs_embeds(model_inputs, model, tokenizer, eos_idx)
+                model_inputs = generate_inputs_embeds(model_inputs, model, eos_idx)
                 labels = labels.to(device)
                 logits, *_ = model(**model_inputs)
                 _, preds = logits.max(dim=-1)
@@ -196,15 +196,15 @@ def main(args):
             if accuracy > best_accuracy:
                 logger.info('Best performance so far.')
                 best_accuracy = accuracy
-                if not args.ckpt_dir.exists():
-                    args.ckpt_dir.mkdir(parents=True)
+                if not args['ckpt_dir'].exists():
+                    args['ckpt_dir'].mkdir(parents=True)
                 if world_size != -1:
                     state_dict = model.module.state_dict()
                 else:
                     state_dict = model.state_dict()
                 if is_main_process:
                     torch.save(state_dict, ckpt_path)
-                tokenizer.save_pretrained(args.ckpt_dir)
+                tokenizer.save_pretrained(args['ckpt_dir'])
 
     logger.info('Testing...')
     if ckpt_path.exists():
@@ -218,7 +218,7 @@ def main(args):
     with torch.no_grad():
         for model_inputs, labels in test_loader:
             model_inputs = {k: v.to(device) for k, v in model_inputs.items()}
-            model_inputs = generate_inputs_embeds(model_inputs, model, tokenizer, eos_idx)
+            model_inputs = generate_inputs_embeds(model_inputs, model, eos_idx)
             labels = labels.to(device)
             logits, *_ = model(**model_inputs)
             _, preds = logits.max(dim=-1)
@@ -231,17 +231,17 @@ def main(args):
     accuracy = correct / (total + 1e-13)
     logger.info(f'Accuracy: {accuracy : 0.4f}')
 
-    if args.tmp:
+    if args['tmp']:
         logger.info('Temporary mode enabled, deleting checkpoint dir')
-        shutil.rmtree(args.ckpt_dir)
+        shutil.rmtree(args['ckpt_dir'])
 
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
     parser.add_argument('--model-name', type=str)
-    parser.add_argument('--train', type=Path)
-    parser.add_argument('--dev', type=Path)
-    parser.add_argument('--test', type=Path)
+    parser.add_argument('--train', type=str)
+    parser.add_argument('--dev', type=str)
+    parser.add_argument('--test', type=str)
     parser.add_argument('--field-a', type=str)
     parser.add_argument('--field-b', type=str, default=None)
     parser.add_argument('--label-field', type=str, default='label')
@@ -261,6 +261,7 @@ if __name__ == '__main__':
     parser.add_argument('-f', '--force-overwrite', action='store_true')
     parser.add_argument('--debug', action='store_true')
     parser.add_argument('--local_rank', type=int, default=-1)
-    args = parser.parse_args()
+    args = vars(parser.parse_args())
 
     main(args)
+
