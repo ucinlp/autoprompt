@@ -56,7 +56,7 @@ def load_label_map(label_map):
     return None
 
 
-def load_transformers(model_name):
+def load_transformers(model_name, skip_model=False):
     """Loads transformers config, tokenizer, and model."""
     config = AutoConfig.from_pretrained(model_name)
     tokenizer = AutoTokenizer.from_pretrained(
@@ -107,6 +107,11 @@ def update_metrics(total_metrics, metrics):
             total_metrics[metric] += metrics[metric].detach()
         else:
             total_metrics[metric] = metrics[metric].detach()
+
+
+class NullWriter:
+    def add_scalar(self, *args, **kwargs):
+        return
 
 
 DistributedConfig = collections.namedtuple(

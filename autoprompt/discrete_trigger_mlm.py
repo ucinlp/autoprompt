@@ -5,7 +5,7 @@ import os
 import random
 
 import torch
-from transformers import AdamW
+import transformers
 from tqdm import tqdm
 
 from autoprompt.evaluators import MLM_EVALUATORS
@@ -33,7 +33,7 @@ def get_cinf_optimizer(model, args):
             'params': model.parameters(),
             'lr': args['finetune_lr'] if args['finetune_lr'] else args['lr']
         })
-    return AdamW(
+    return transformers.AdamW(
         params,
         lr=args['lr'],
         weight_decay=1e-2,
@@ -114,7 +114,12 @@ def main(args):
         logger.info('Suppressing subprocess logging. If this is not desired enable debug mode.')
     if distributed_config.is_main_process:
         writer = torch.utils.tensorboard.SummaryWriter(log_dir=args['ckpt_dir'])
-    config, tokenizer, base_model = utils.load_transformers(args['model_name'])
+    config = transformers.AutoConfig.from_pretrained(args['model_name'])
+    tokenizer = transformers.AutoTokenizer.from_pretrained(
+        args['model_name'],
+        add_prefix_space=True,
+        additional_special_tokens=('[T]', '[P]'),
+    )
 
     # Load data.
     logger.info('Loading data.')
@@ -133,7 +138,8 @@ def main(args):
     )
 
     # Setup model
-    logger.info('Initializing trigger.')
+    logger.info('Initializing model.')
+    base_model = transformers.AutoModelForMaskedLM.from_pretrained(args['model_name'], config=config)
     initial_trigger_ids = utils.get_initial_trigger_ids(args['initial_trigger'], tokenizer)
     if initial_trigger_ids is None:
         initial_trigger_ids = torch.full(

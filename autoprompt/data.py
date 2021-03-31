@@ -306,6 +306,44 @@ def get_sampler(
     return torch.utils.data.SequentialSampler(dataset)
 
 
+def generate_splits(args, num_folds, templatizer, distributed_config):
+    # TODO(rloganiv): Need to work something out for multiple choice...
+    if args['evaluation_strategy'] != 'classification':
+        raise NotImplementedError('Ugh...')
+    dataset_constructor = DATASET_CONSTRUCTORS[args['evaluation_strategy']]
+    collator = Collator(pad_token_id=templatizer.pad_token_id)
+
+    train_dataset = dataset_constructor(
+        args['train'],
+        templatizer=templatizer,
+        train=True,
+        preprocessor_key=args['preprocessor'],
+        limit=args['limit'],
+    )
+    dev_dataset = dataset_constructor(
+        args['dev'],
+        templatizer=templatizer,
+        preprocessor_key=args['preprocessor'],
+        limit=args['limit'],
+    )
+    combined = train_dataset + dev_dataset
+    logger.debug(f'Combined Size: {len(combined)}')
+    assert len(combined) % num_folds == 0, 'Folds must evenly divide data'
+    chunk_size = len(combined) // num_folds
+    for k in range(num_folds):
+        train_dataset = combined[:k*chunk_size] + combined[(k+1)*chunk_size:]
+        train_sampler = get_sampler(train_dataset, args['evaluation_strategy'], distributed_config, train=True)
+        train_loader = DataLoader(train_dataset, batch_size=args['bsz'], collate_fn=collator, sampler=train_sampler)
+
+        dev_dataset = combined[k*chunk_size:(k+1)*chunk_size]
+        dev_sampler = get_sampler(dev_dataset, args['evaluation_strategy'], distributed_config, train=False)
+        dev_loader = DataLoader(dev_dataset, batch_size=args['bsz'], collate_fn=collator, sampler=dev_sampler)
+
+        logger.debug(f'K: {k}, Train size: {len(train_dataset)}, Dev size: {len(dev_dataset)}')
+
+        yield train_loader, dev_loader
+
+
 # TODO(rloganiv): Maybe clean up usage of args here, to a more well-defined config.
 def load_datasets(args, templatizer, distributed_config):
     """Loads the training, dev and test datasets."""

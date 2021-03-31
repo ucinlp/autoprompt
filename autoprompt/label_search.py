@@ -11,6 +11,7 @@ from pathlib import Path
 import torch
 import torch.nn.functional as F
 from torch.utils.data import DataLoader
+import transformers
 from transformers import BertForMaskedLM, RobertaForMaskedLM
 from tqdm import tqdm
 
@@ -67,7 +68,13 @@ def main(args):
     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 
     logger.info('Loading model, tokenizer, etc.')
-    config, tokenizer, model = utils.load_transformers(args['model_name'])
+    config = transformers.AutoConfig.from_pretrained(args['model_name'])
+    tokenizer = transformers.AutoTokenizer.from_pretrained(
+        args['model_name'],
+        add_prefix_space=True,
+        additional_special_tokens=('[T]', '[P]'),
+    )
+    model = transformers.AutoModelForMaskedLM.from_pretrained(args['model_name'], config=config)
     model.to(device)
     final_embeddings = get_final_embeddings(model)
     embedding_storage = OutputStorage(final_embeddings)

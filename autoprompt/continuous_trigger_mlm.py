@@ -7,6 +7,7 @@ import os
 
 # from checklist.test_suite import TestSuite
 import numpy as np
+import transformers
 import torch
 from tqdm import tqdm
 
@@ -28,7 +29,11 @@ def get_optimizer(model, args):
     if isinstance(model, ContinuousTriggerMLM):
         default_params = model.trigger_embeddings
         params = [{'params': [default_params]}]
-        optimizer = torch.optim.AdamW
+        optimizer = transformers.AdamW
+        kwargs = {
+            'weight_decay':1e-2,
+            'eps': 1e-8,
+        }
     elif isinstance(model, LinearComboMLM):
         default_params = model.trigger_projection
         params = [{
@@ -37,6 +42,7 @@ def get_optimizer(model, args):
             'theta': args['theta']
         }]
         optimizer = L1SGD
+        kwargs = {}
     if args['finetune_mode'] == 'partial':
         params.append({
             'params': model.lm_head.parameters(),
@@ -76,44 +82,26 @@ def get_optimizer(model, args):
     return optimizer(
         params,
         lr=args['lr'],
-        # weight_decay=1e-2,
-        # eps=1e-8
+        **kwargs
     )
 
 
-def main(args):
-    # pylint: disable=C0116,E1121,R0912,R0915
-    utils.set_seed(args['seed'])
-
-    # Initialization.
-    utils.check_args(args)
-    utils.serialize_args(args)
-    distributed_config = utils.distributed_setup(args['local_rank'])
-    if not args['debug']:
-        logging.basicConfig(level=logging.INFO if distributed_config.is_main_process else logging.WARN)
-        logger.info('Suppressing subprocess logging. If this is not desired enable debug mode.')
-    if distributed_config.is_main_process:
-        writer = torch.utils.tensorboard.SummaryWriter(log_dir=args['ckpt_dir'])
-    config, tokenizer, base_model = utils.load_transformers(args['model_name'])
-
-    # Load data.
-    logger.info('Loading data.')
-    label_map = utils.load_label_map(args['label_map'])
-    templatizer = templatizers.MultiTokenTemplatizer(
-        template=args['template'],
-        tokenizer=tokenizer,
-        label_field=args['label_field'],
-        label_map=label_map,
-        add_padding=args['add_padding'],
-    )
-    train_loader, dev_loader, test_loader, checklist_test_loader = data.load_datasets(
-        args,
-        templatizer=templatizer,
-        distributed_config=distributed_config,
-    )
-
+def train(
+    args,
+    config,
+    tokenizer,
+    templatizer,
+    label_map,
+    distributed_config,
+    train_loader,
+    dev_loader,
+    writer
+):
+    if not os.path.exists(args['ckpt_dir']):
+        os.makedirs(args['ckpt_dir'])
     # Setup model
     logger.info('Initializing model.')
+    base_model = transformers.AutoModelForMaskedLM.from_pretrained(args['model_name'], config=config)
     initial_trigger_ids = utils.get_initial_trigger_ids(args['initial_trigger'], tokenizer)
     if args['linear']:
         model = LinearComboMLM(
@@ -138,7 +126,6 @@ def main(args):
 
     # Setup optimizer
     optimizer = get_optimizer(model, args)
-
     if distributed_config.world_size != -1:
         model = torch.nn.parallel.DistributedDataParallel(
             model,
@@ -178,7 +165,6 @@ def main(args):
                 loss /= args['accumulation_steps']
                 loss.backward()
                 if (i % args['accumulation_steps']) == (args['accumulation_steps'] - 1):
-                    logger.debug('Optimizer step.')
                     if args['clip'] is not None:
                         torch.nn.utils.clip_grad_norm_(model.parameters(), args['clip'])
                     optimizer.step()
@@ -260,12 +246,34 @@ def main(args):
                         tokenizer.save_pretrained(args['ckpt_dir'])
                         config.save_pretrained(args['ckpt_dir'])
 
-    if not args['skip_test']:
-        logger.info('Testing...')
         if os.path.exists(ckpt_path) and not args['skip_eval']:
             logger.info('Restoring checkpoint.')
             state_dict = torch.load(ckpt_path, map_location=distributed_config.device)
             model.load_state_dict(state_dict)
+
+    return model, best_score
+
+
+def test(
+    model,
+    args,
+    config,
+    tokenizer,
+    templatizer,
+    label_map,
+    distributed_config,
+    test_loader,
+    writer
+):
+    if not args['skip_test']:
+        ckpt_path = os.path.join(args['ckpt_dir'], 'pytorch_model.bin')
+        evaluator = MLM_EVALUATORS[args['evaluation_strategy']](
+            model=model,
+            tokenizer=tokenizer,
+            label_map=label_map,
+            decoding_strategy=args['decoding_strategy'],
+        )
+        score_fn = METRICS[args['evaluation_metric']]
         output_fname = os.path.join(args['ckpt_dir'], 'predictions')
         model.eval()
         total_metrics = {}
@@ -299,82 +307,66 @@ def main(args):
         writer.add_scalar(f'{args["evaluation_metric"].capitalize()}/test', score.item(), 0)
         logger.info(f'Metric: {score: 0.4f}')
 
+        return score
 
-        # TODO(rloganiv): The checklist stuff seems different enough that it warrants being its own
-        # subroutine, if not split into another file.
 
-        # TODO, verify this works for QQP also
-        # if args['checklist']:
-            # output_fname = os.path.join(args['ckpt_dir'], 'predictions_checklist')
-            # all_checklist_preds = []
-            # all_checklist_probs = []
-            # with torch.no_grad(), open(output_fname, 'w') as f:
-                # for model_inputs, labels in checklist_test_loader:
-                    # model_inputs = {k: v.to(distributed_config.device) for k, v in model_inputs.items()}
-                    # labels = labels.to(distributed_config.device)
-                    # _, _, preds, probs = evaluator(model_inputs, labels, train=False,
-                                            # evaluation_metric=args['evaluation_metric'], return_probs=True)
-                    # batch_size = 1.0 if args['evaluation_strategy'] == 'multiple-choice' else labels.size(0)
-                    # # Serialize output
-                    # for index, pred in enumerate(preds):
-                        # if pred == '1':
-                            # pred = '2' # checklist considers '2' to be positive
-                        # else:
-                            # pred = '0'
-                        # print(str(pred) + ' ' + str(probs[index][0].item()) + ' ' + "0.0" + ' ' + str(probs[index][1].item()), file=f)
-                        # all_checklist_preds.append(int(pred))
-                        # current_probs = probs[index].cpu().numpy()
-                        # current_probs = np.array([current_probs[0], 0.0, current_probs[1]]) # inserted a 0.0 for the neutral prob
-                        # all_checklist_probs.append(current_probs)
+def main(args):
+    # pylint: disable=C0116,E1121,R0912,R0915
+    utils.set_seed(args['seed'])
+    utils.check_args(args)
+    utils.serialize_args(args)
+    distributed_config = utils.distributed_setup(args['local_rank'])
+    if not args['debug']:
+        logging.basicConfig(level=logging.INFO if distributed_config.is_main_process else logging.WARN)
+        logger.info('Suppressing subprocess logging. If this is not desired enable debug mode.')
+    if distributed_config.is_main_process:
+        writer = torch.utils.tensorboard.SummaryWriter(log_dir=args['ckpt_dir'])
+    else:
+        writer = utils.NullWriter()
+    config = transformers.AutoConfig.from_pretrained(args['model_name'])
+    tokenizer = transformers.AutoTokenizer.from_pretrained(
+        args['model_name'],
+        add_prefix_space=True,
+        additional_special_tokens=('[T]', '[P]'),
+    )
 
-            # # load checklist test suite
-            # # TODO: make an argument.
-            # suite_path = 'checklist/release_data/sentiment/sentiment_suite.pkl'
-            # suite = TestSuite.from_file(suite_path)
+    logger.info('Loading data.')
+    label_map = utils.load_label_map(args['label_map'])
+    templatizer = templatizers.MultiTokenTemplatizer(
+        template=args['template'],
+        tokenizer=tokenizer,
+        label_field=args['label_field'],
+        label_map=label_map,
+        add_padding=args['add_padding'],
+    )
+    train_loader, dev_loader, test_loader, checklist_test_loader = data.load_datasets(
+        args,
+        templatizer=templatizer,
+        distributed_config=distributed_config,
+    )
 
-            # # run checklist and save its printed output
-            # suite.run_from_preds_confs(all_checklist_preds, all_checklist_probs, overwrite=True)
-            # f = io.StringIO()
-            # with contextlib.redirect_stdout(f):
-                # suite.summary()
-            # checklist_stdout = f.getvalue()
-
-            # # ignore tests that assume neutral labels.
-            # # TODO, add the ones for QQP also
-            # neutral_tests = [
-            # 'single neutral words',
-            # 'neutral words in context',
-            # 'protected: race',
-            # 'protected: sexual',
-            # 'protected: religion',
-            # 'protected: nationality',
-            # 'simple negations: not neutral is still neutral',
-            # 'simple negations: but it was not (neutral) should still be neutral',
-            # 'negation of neutral with neutral in the middle, should still neutral',
-            # 'Q & A: yes (neutral)',
-            # 'Q & A: no (neutral)']
-
-            # total_incorrect = 0.0
-            # total = 0.0
-            # all_lines = []
-            # for index, line in enumerate(checklist_stdout.split('\n')):
-                # all_lines.append(line.strip())
-                # if 'Fails' in line:
-                    # # get the name of the test, which is either 2 or 3 lines back
-                    # if 'Test cases:' in all_lines[index - 2]:
-                        # test_name = all_lines[index - 3]
-                        # total += int(all_lines[index - 1].split(' ')[-1])
-                    # elif 'Test cases:' in all_lines[index - 3]:
-                        # test_name = all_lines[index - 4]
-                        # total += int(all_lines[index - 1].split(' ')[-2])
-                    # else:
-                        # test_name = all_lines[index - 2]
-                        # total += int(all_lines[index - 1].split(' ')[-1])
-                    # if test_name in neutral_tests:
-                        # continue
-                    # total_incorrect += int(all_lines[index].split(' ')[-2])
-
-            # logger.info(f'Checklist accuracy: {1 - (total_incorrect / total)}')
+    model, _ = train(
+        args=args,
+        config=config,
+        tokenizer=tokenizer,
+        templatizer=templatizer,
+        label_map=label_map,
+        distributed_config=distributed_config,
+        train_loader=train_loader,
+        dev_loader=dev_loader,
+        writer=writer
+    )
+    test(
+        model=model,
+        args=args,
+        config=config,
+        tokenizer=tokenizer,
+        templatizer=templatizer,
+        label_map=label_map,
+        distributed_config=distributed_config,
+        test_loader=test_loader,
+        writer=writer
+    )
 
 
 if __name__ == '__main__':
@@ -489,7 +481,6 @@ if __name__ == '__main__':
                              'be set automatically.')
 
     args = vars(parser.parse_args())
-    print(args)
 
     if args['debug']:
         level = logging.DEBUG
