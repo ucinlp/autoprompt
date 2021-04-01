@@ -99,6 +99,10 @@ def get_optimizer(model, args):
 
 class ContinuousMLMTrainer(Trainer):
     def train(self, train_loader, dev_loader):
+
+        # TODO(rloganiv): This is lazy.
+        args = self.args
+
         if not os.path.exists(args['ckpt_dir']):
             os.makedirs(args['ckpt_dir'])
         # Setup model
@@ -257,6 +261,10 @@ class ContinuousMLMTrainer(Trainer):
         return model, best_score.item()
 
     def test(self, model, test_loader):
+
+        # TODO(rloganiv): This is lazy.
+        args = self.args
+
         if not args['skip_test']:
             ckpt_path = os.path.join(args['ckpt_dir'], 'pytorch_model.bin')
             evaluator = MLM_EVALUATORS[args['evaluation_strategy']](

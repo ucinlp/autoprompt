@@ -104,6 +104,10 @@ class DiscreteOptimizer:
 
 class DiscreteMLMTrainer(Trainer):
     def train(self, train_loader, dev_loader):
+
+        # TODO(rloganiv): This is lazy.
+        args = self.args
+
         # Setup model
         logger.info('Initializing model.')
         base_model = transformers.AutoModelForMaskedLM.from_pretrained(args['model_name'],
@@ -332,6 +336,10 @@ class DiscreteMLMTrainer(Trainer):
         return model, best_score.item()
 
     def test(self, model, test_loader):
+
+        # TODO(rloganiv): This is lazy.
+        args = self.args
+
         if not args['skip_test']:
             ckpt_path = os.path.join(args['ckpt_dir'], 'pytorch_model.bin')
             evaluator = MLM_EVALUATORS[args['evaluation_strategy']](

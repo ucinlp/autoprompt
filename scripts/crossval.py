@@ -158,32 +158,32 @@ def main(args):
                 best_score = mean
                 best_args = train_args
 
-    # Retrain and evaluate best model
-    model, final_score = evaluate(best_args, trainer_class)
-    
-    # Write model weights, args, and score
-    logger.info('Serializing best model + results')
-    logger.info(f'Best args: {best_args}')
-    logger.info(f'Final score: {final_score}')
-
+    # Retrain and evaluate best model w/ multiple random seeds
+    logger.info(f'Serializing Best config: {best_args}')
     config = proto_config.copy()
     config['args'] = best_args
     del config['parameters']
     with open(args.dir / 'best_config.yaml', 'w') as f:
         yaml.dump(config, f)
 
-    with open(args.dir / 'final_score.txt', 'w') as f:
-        print(final_score, file=f)
+    logger.info('Evaluating')
+    with open(args.dir / 'best_model_scores.csv', 'w') as f:
+        writer = csv.DictWriter(f, fieldnames=['seed', 'score'])
+        writer.writeheader()
+        for i in range(args.num_seeds):
+            model, score = evaluate(best_args, trainer_class)
+            del model
+            torch.cuda.empty_cache()
+            logger.info(f'Score for seed {i}: {score}')
+            writer.writerow({'seed': i, 'score': score})
 
-    ckpt_path = args.dir / 'best_model.bin'
-    state_dict = model.state_dict()
-    torch.save(state_dict, ckpt_path)
 
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
     parser.add_argument('input', type=pathlib.Path, help='JSONL file containing jobs.')
     parser.add_argument('-k', '--num_folds', type=int, default=4)
+    parser.add_argument('-n', '--num_seeds', type=int, default=10)
     parser.add_argument('--logdir', type=pathlib.Path, default='results/')
     parser.add_argument('--debug', action='store_true')
     parser.add_argument('-f', '--force_overwrite', action='store_true')
