@@ -11,10 +11,9 @@ import torch
 import transformers
 import yaml
 
-# TODO(rloganiv): create trainers in __init__
-import autoprompt.continuous_trigger_mlm as clm
 import autoprompt.data as data
 import autoprompt.templatizers as templatizers
+import autoprompt.trainers as trainers
 import autoprompt.utils as utils
 
 
@@ -29,7 +28,7 @@ def generate_args(proto_config):
         yield {**proto_config['args'], **parameters}
 
 
-def kfold(args, num_folds):
+def kfold(args, trainer_class, num_folds):
     utils.set_seed(args['seed'])
     utils.check_args(args)
     distributed_config = utils.distributed_setup(local_rank=-1)
@@ -55,22 +54,21 @@ def kfold(args, num_folds):
         templatizer,
         distributed_config,
     )
+    trainer = trainer_class(
+        args=args,
+        config=config,
+        tokenizer=tokenizer,
+        templatizer=templatizer,
+        label_map=label_map,
+        distributed_config=distributed_config,
+        writer=writer,
+    )
     for train_loader, dev_loader in splits:
         # Use a temporary directory for k-fold experiments to ensure proper cleanup.
         with tempfile.TemporaryDirectory() as tmpdir:
-            args['ckpt_dir'] = tmpdir
-            model, score = clm.train(
-                args=args,
-                config=config,
-                tokenizer=tokenizer,
-                templatizer=templatizer,
-                label_map=label_map,
-                distributed_config=distributed_config,
-                train_loader=train_loader,
-                dev_loader=dev_loader,
-                writer=writer
-            )
-        scores.append(score.item())
+            args['ckpt_dir'] = tmpdir  # NOTE: This is implicitly modifying the trainer. Sorry.
+            model, score = trainer.train(train_loader, dev_loader)
+        scores.append(score)
 
         del model
         torch.cuda.empty_cache()
@@ -78,7 +76,7 @@ def kfold(args, num_folds):
     return scores
 
 
-def evaluate(args):
+def evaluate(args, trainer_class):
     # TODO(rloganiv): Instead of copying this over and over, replace w/ a more robust
     # config/initialization thingy.
     utils.set_seed(args['seed'])
@@ -106,35 +104,29 @@ def evaluate(args):
         templatizer=templatizer,
         distributed_config=distributed_config
     )
-    model, _ = clm.train(
+
+    trainer = trainer_class(
         args=args,
         config=config,
         tokenizer=tokenizer,
         templatizer=templatizer,
         label_map=label_map,
         distributed_config=distributed_config,
-        train_loader=train_loader,
-        dev_loader=dev_loader,
         writer=writer
     )
-    final_score = clm.test(
-        model,
-        args=args,
-        config=config,
-        tokenizer=tokenizer,
-        templatizer=templatizer,
-        label_map=label_map,
-        distributed_config=distributed_config,
-        test_loader=test_loader,
-        writer=writer
-    )
-    return model, final_score.item()
+    model, _ = trainer.train(train_loader, dev_loader)
+    final_score = trainer.test(model, test_loader)
+    return model, final_score
 
 
 def main(args):
     logger.info('Loading jobs from: %s', args.input)
     with open(args.input, 'r') as f:
         proto_config = yaml.load(f, Loader=yaml.SafeLoader)
+    if proto_config['trainer'] == 'continuous_mlm':
+        trainer_class = trainers.ContinuousMLMTrainer
+    elif proto_config['trainer'] == 'discrete_mlm':
+        trainer_class = trainers.DiscreteMLMTrainer
 
     # K-Fold Step
     best_score = float('-inf')
@@ -150,7 +142,7 @@ def main(args):
         for train_args in generate_args(proto_config):
             # Train
             logger.debug(f'Args: {train_args}')
-            scores = kfold(train_args, args.num_folds)
+            scores = kfold(train_args, trainer_class, args.num_folds)
             mean = statistics.mean(scores)
             stdev = statistics.stdev(scores)
             logger.debug(f'Mean: {mean}, Std Dev: {stdev}')
@@ -167,7 +159,7 @@ def main(args):
                 best_args = train_args
 
     # Retrain and evaluate best model
-    model, final_score = evaluate(best_args)
+    model, final_score = evaluate(best_args, trainer_class)
     
     # Write model weights, args, and score
     logger.info('Serializing best model + results')
