@@ -210,7 +210,7 @@ if __name__ == '__main__':
     if not args.dir.exists():
         logging.debug(f'Creating directory: {args.dir}')
         args.dir.mkdir(parents=True)
-    fh = logging.FileHandler(args.logdir / 'info.log', mode='w')
+    fh = logging.FileHandler(args.dir / 'info.log', mode='w')
     fh.setLevel(logging.INFO)
     fh.setFormatter(formatter)
     root_logger.addHandler(fh)

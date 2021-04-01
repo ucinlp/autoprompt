@@ -70,7 +70,7 @@ def load_transformers(model_name, skip_model=False):
 
 def get_initial_trigger_ids(initial_trigger, tokenizer):
     """Converts a list of trigger tokens to a tensor of trigger token ids."""
-    if initial_trigger is None:
+    if not initial_trigger:
         return None
     initial_trigger_ids = torch.tensor(
         tokenizer.convert_tokens_to_ids(initial_trigger)
