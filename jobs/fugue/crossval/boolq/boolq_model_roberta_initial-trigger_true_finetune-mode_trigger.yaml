@@ -1,4 +1,6 @@
+trainer: 'continuous_mlm'
 args:
+    seed: 0
     model_name: 'roberta-large'
     train: 'data/SuperFUGUE/BoolQ/train.jsonl'
     dev: 'data/SuperFUGUE/BoolQ/dev.jsonl'
@@ -12,14 +14,15 @@ args:
     preprocessor: null
     evaluation_strategy: 'classification'
     decoding_strategy: null
-    finetune_mode: 'partial'
+    finetune_mode:
+        - 'trigger'
     evaluation_metric: 'accuracy'
     linear: False
     skip_train: False
     skip_eval: False
     skip_test: False
     bsz: 2
-    epochs: 3
+    epochs: 30
     disable_dropout: False
     clip: 1.0
     limit: null
@@ -29,7 +32,5 @@ args:
     quiet: False
     tmp: True
 parameters:
-    accumulation_steps: [4]
-    lr:  [0.01]
-    finetune_lr: [2.0e-5, 5.0e-5]
-    seed: [1234]
+    accumulation_steps: [1, 2, 4]
+    lr:  [0.01, 0.005, 0.001]
