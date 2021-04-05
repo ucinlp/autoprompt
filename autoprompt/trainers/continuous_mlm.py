@@ -77,7 +77,6 @@ def get_optimizer(model, args):
                     'params': module.parameters(),
                     'lr': args['finetune_lr'] if args['finetune_lr'] else args['lr']
                 })
-    logger.debug(f'Params: {params}')
 
     # print parameter counts.
     # TODO(ewallace): The count for partial will be inaccurate since we count *all* of the LM head

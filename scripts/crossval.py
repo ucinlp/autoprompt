@@ -171,6 +171,7 @@ def main(args):
         writer = csv.DictWriter(f, fieldnames=['seed', 'score'])
         writer.writeheader()
         for i in range(args.num_seeds):
+            best_args['seed'] = i
             model, score = evaluate(best_args, trainer_class)
             del model
             torch.cuda.empty_cache()
@@ -210,8 +211,8 @@ if __name__ == '__main__':
     if not args.dir.exists():
         logging.debug(f'Creating directory: {args.dir}')
         args.dir.mkdir(parents=True)
-    fh = logging.FileHandler(args.dir / 'info.log', mode='w')
-    fh.setLevel(logging.INFO)
+    fh = logging.FileHandler(args.dir / 'debug.log', mode='w')
+    fh.setLevel(logging.DEBUG)
     fh.setFormatter(formatter)
     root_logger.addHandler(fh)
 
