@@ -216,7 +216,7 @@ def run_model(args):
     # Obtain the initial trigger tokens and label mapping
     if args['initial_trigger']:
         trigger_ids = tokenizer.convert_tokens_to_ids(args['initial_trigger'])
-        logger.debug(f'Initial trigger: {args['initial_trigger']}')
+        logger.debug(f'Initial trigger: {args["initial_trigger"]}')
         logger.debug(f'Trigger ids: {trigger_ids}')
         assert len(trigger_ids) == templatizer.num_trigger_tokens
     else:
