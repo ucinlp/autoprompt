@@ -77,18 +77,19 @@ def get_optimizer(model, args):
                     'params': module.parameters(),
                     'lr': args['finetune_lr'] if args['finetune_lr'] else args['lr']
                 })
+    if 'calibration' in args['finetune_mode']:
+        label_map = utils.load_label_map(args['label_map'])
+        num_labels = len(list(label_map.keys()))
+        model.calibration_layer = torch.nn.Linear(num_labels, num_labels)
+        # initialize so the layer is the identity
+        model.calibration_layer.weight = torch.nn.Parameter(torch.eye(num_labels))
+        model.calibration_layer.bias = torch.nn.Parameter(torch.zeros(num_labels))
+        model.calibration_layer.to(model.word_embeddings.weight.device)
+        params.append({
+            'params': model.calibration_layer.parameters(),
+            'lr': args['finetune_lr'] if args['finetune_lr'] else args['lr']
+        })
     logger.debug(f'Params: {params}')
-
-    # print parameter counts.
-    # TODO(ewallace): The count for partial will be inaccurate since we count *all* of the LM head
-    # params, whereas we are actually only updating the few that correspond to the label token
-    # names.
-    total = 0
-    for param in params:
-        for tensor in param['params']:
-            total += tensor.numel()
-    logger.info(f'Using finetuning mode: {args["finetune_mode"]}')
-    logger.info(f'Updating {total} / {sum(p.numel() for p in model.parameters())} params.')
 
     return optimizer(
         params,
@@ -133,6 +134,16 @@ class ContinuousMLMTrainer(Trainer):
 
         # Setup optimizer
         optimizer = get_optimizer(model, args)
+ 
+         # TODO(ewallace): The count for partial will be inaccurate since we count *all* of the LM head
+         # params, whereas we are actually only updating the few that correspond to the label token names.
+        total = 0
+        for param_group in optimizer.param_groups:
+             for tensor in param_group['params']:
+                 total += tensor.numel()
+        logger.info(f'Using finetuning mode: {args["finetune_mode"]}')
+        logger.info(f'Updating {total} / {sum(p.numel() for p in model.parameters())} params.')
+
         if self.distributed_config.world_size != -1:
             model = torch.nn.parallel.DistributedDataParallel(
                 model,
