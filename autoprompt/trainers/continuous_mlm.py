@@ -134,6 +134,16 @@ class ContinuousMLMTrainer(Trainer):
 
         # Setup optimizer
         optimizer = get_optimizer(model, args)
+ 
+         # TODO(ewallace): The count for partial will be inaccurate since we count *all* of the LM head
+         # params, whereas we are actually only updating the few that correspond to the label token names.
+        total = 0
+        for param_group in optimizer.param_groups:
+             for tensor in param_group['params']:
+                 total += tensor.numel()
+        logger.info(f'Using finetuning mode: {args["finetune_mode"]}')
+        logger.info(f'Updating {total} / {sum(p.numel() for p in model.parameters())} params.')
+
         if self.distributed_config.world_size != -1:
             model = torch.nn.parallel.DistributedDataParallel(
                 model,
