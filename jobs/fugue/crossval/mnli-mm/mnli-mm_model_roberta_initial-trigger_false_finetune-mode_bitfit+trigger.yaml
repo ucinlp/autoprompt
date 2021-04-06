@@ -2,12 +2,12 @@ trainer: 'continuous_mlm'
 args:
     seed: 0
     model_name: 'roberta-large'
-    train: 'data/SuperFUGUE/BoolQ/train.jsonl'
-    dev: 'data/SuperFUGUE/BoolQ/dev.jsonl'
-    test: 'data/SuperFUGUE/BoolQ/dev_all.jsonl'
+    train: 'data/LittleGLUE/MNLI_mismatched/train.jsonl'
+    dev: 'data/LittleGLUE/MNLI_mismatched/dev.jsonl'
+    test: 'data/LittleGLUE/MNLI_mismatched/dev_all.jsonl'
     checklist: null
-    template: '{passage} [T] [T] [T] {question} [T] [T] [T] [P] [T]'
-    label_map: '{"True": "Yes", "False": "No"}'
+    template: '{sentence2} [T] [T] [P] [T] {sentence1}'
+    label_map: '{"entailment": "Yes", "contradiction": "No", "neutral": "Maybe"}'
     initial_trigger: []
     label_field: 'label'
     add_padding: False
@@ -16,7 +16,7 @@ args:
     decoding_strategy: null
     finetune_mode:
         - 'trigger'
-        - 'layernorm'
+        - 'bitfit'
     evaluation_metric: 'accuracy'
     linear: False
     skip_train: False

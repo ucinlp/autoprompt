@@ -85,6 +85,8 @@ class ContinuousTriggerMLM(torch.nn.Module):
         if initial_trigger_ids is not None:
             self.trigger_embeddings.data.copy_(self.word_embeddings(initial_trigger_ids))
 
+        self.calibration_layer = None
+
     def forward(self, model_inputs, labels=None):
         """
         Run model forward w/ preprocessing for continuous triggers.

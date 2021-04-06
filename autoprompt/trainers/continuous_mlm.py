@@ -30,6 +30,11 @@ def get_optimizer(model, args):
     if 'bitfit' in args['finetune_mode'] and 'layernorm' in args['finetune_mode']:
         raise ValueError('Cannot finetune both bitfit and layernorm due to overlapping '
                          'parameters.')
+    if args['finetune_mode']:
+        choices={'trigger', 'top-layer', 'bitfit', 'layernorm', 'adapter', 'calibration'}
+        for x in args['finetune_mode']:
+            if x not in choices:
+                raise ValueError(f'Unsupported finetune mode: {x}')
 
     # Default optimizer and kwargs
     optimizer = transformers.AdamW
@@ -77,17 +82,27 @@ def get_optimizer(model, args):
                     'params': module.parameters(),
                     'lr': args['finetune_lr'] if args['finetune_lr'] else args['lr']
                 })
-
-    # print parameter counts.
-    # TODO(ewallace): The count for partial will be inaccurate since we count *all* of the LM head
-    # params, whereas we are actually only updating the few that correspond to the label token
-    # names.
-    total = 0
-    for param in params:
-        for tensor in param['params']:
-            total += tensor.numel()
-    logger.info(f'Using finetuning mode: {args["finetune_mode"]}')
-    logger.info(f'Updating {total} / {sum(p.numel() for p in model.parameters())} params.')
+    if 'calibration' in args['finetune_mode']:
+        label_map = utils.load_label_map(args['label_map'])
+        num_labels = len(list(label_map.keys()))
+        model.calibration_layer = torch.nn.Linear(num_labels, num_labels)
+        # initialize so the layer is the identity
+        model.calibration_layer.weight = torch.nn.Parameter(torch.eye(num_labels))
+        model.calibration_layer.bias = torch.nn.Parameter(torch.zeros(num_labels))
+        model.calibration_layer.to(model.word_embeddings.weight.device)
+        params.append({
+            'params': model.calibration_layer.parameters(),
+            'lr': args['finetune_lr'] if args['finetune_lr'] else args['lr']
+        })
+    if 'adapter' in args['finetune_mode']:
+        for module in model.modules():
+            p = []
+            if isinstance(module, transformers.adapter_modeling.Adapter):
+                p.extend(module.parameters())
+            params.append({
+                'params': p,
+                'lr': args['finetune_lr'] if args['finetune_lr'] else args['lr']
+            })
 
     return optimizer(
         params,
@@ -108,6 +123,27 @@ class ContinuousMLMTrainer(Trainer):
         logger.info('Initializing model.')
         base_model = transformers.AutoModelForMaskedLM.from_pretrained(args['model_name'],
                                                                        config=self.config)
+        if 'adapter' in args['finetune_mode']:
+            logger.info('Adding adapter.')
+            assert isinstance(
+                base_model,
+                (
+                    transformers.BertPreTrainedModel,
+                    transformers.modeling_roberta.RobertaPreTrainedModel,
+                )
+            )
+            adapter_config = transformers.AdapterConfig.load(
+                'houlsby',
+                reduction_factor=args['reduction_factor'],
+            )
+            base_model.add_adapter(
+                'adapter',
+                adapter_type=transformers.AdapterType.text_task,
+                config=adapter_config,
+            )
+            base_model.train_adapter(['adapter'])
+            base_model.set_active_adapters(['adapter'])
+
         initial_trigger_ids = utils.get_initial_trigger_ids(args['initial_trigger'], self.tokenizer)
         if args['linear']:
             model = LinearComboMLM(
@@ -132,6 +168,16 @@ class ContinuousMLMTrainer(Trainer):
 
         # Setup optimizer
         optimizer = get_optimizer(model, args)
+ 
+         # TODO(ewallace): The count for partial will be inaccurate since we count *all* of the LM head
+         # params, whereas we are actually only updating the few that correspond to the label token names.
+        total = 0
+        for param_group in optimizer.param_groups:
+             for tensor in param_group['params']:
+                 total += tensor.numel()
+        logger.info(f'Using finetuning mode: {args["finetune_mode"]}')
+        logger.info(f'Updating {total} / {sum(p.numel() for p in model.parameters())} params.')
+
         if self.distributed_config.world_size != -1:
             model = torch.nn.parallel.DistributedDataParallel(
                 model,
@@ -244,18 +290,34 @@ class ContinuousMLMTrainer(Trainer):
                             logger.info('Best performance so far.')
                             best_score = score
                             if self.distributed_config.world_size != -1:
-                                state_dict = model.module.state_dict()
+                                model_to_save = model.module
                             else:
-                                state_dict = model.state_dict()
+                                model_to_save = model
+
                             if self.distributed_config.is_main_process:
+                                state_dict = model_to_save.state_dict()
                                 torch.save(state_dict, ckpt_path)
                             self.tokenizer.save_pretrained(args['ckpt_dir'])
                             self.config.save_pretrained(args['ckpt_dir'])
-
+                            if 'adapter' in args['finetune_mode']:
+                                model_to_save.base_model.save_adapter(
+                                    args['ckpt_dir'],
+                                    adapter_name='adapter',
+                                )
             if os.path.exists(ckpt_path) and not args['skip_eval']:
                 logger.info('Restoring checkpoint.')
+                if self.distributed_config.world_size != -1:
+                    model_to_load = model.module
+                else:
+                    model_to_load = model
                 state_dict = torch.load(ckpt_path, map_location=self.distributed_config.device)
-                model.load_state_dict(state_dict)
+                model_to_load.load_state_dict(state_dict)
+                if 'adapter' in args['finetune_mode']:
+                    model_to_load.base_model.load_adapter(
+                        args['ckpt_dir'],
+                        adapter_type=transformers.AdapterType.text_task,
+                        config=adapter_config,
+                    )
 
         return model, best_score.item()
 
@@ -404,7 +466,6 @@ if __name__ == '__main__':
                         help='Decoding strategy for generative tasks. For more '
                              'details refer to the PET paper.')
     parser.add_argument('--finetune-mode', type=str, nargs='*',
-                        choices=['trigger', 'top-layer', 'bitfit', 'layernorm'],
                         help='Components of model to finetune (multiple can be specified). If '
                              'nothing is specified then all parameters will be tuned. '
                              'Options: '
@@ -437,6 +498,8 @@ if __name__ == '__main__':
     parser.add_argument('--finetune-lr', type=float, default=None,
                         help='Optional learning rate used when optimizing '
                              'non-trigger weights')
+    parser.add_argument('--reduction-factor', type=int, default=16,
+                        help='Reduction factor if using adapters')
     parser.add_argument('--disable-dropout', action='store_true',
                         help='Disable dropout during training.')
     parser.add_argument('--clip', type=float, default=None,

@@ -239,11 +239,17 @@ class ClassificationEvaluator:
         predict_mask = model_inputs['predict_mask']
         labels = labels[predict_mask].unsqueeze(-1)
         logits, *_ = self._model(model_inputs, **kwargs)
+        # TODO, this might not work for LAMA
         predict_logits = torch.gather(
             logits[predict_mask],
             dim=-1,
             index=label_tokens.repeat(labels.size(0), 1)
         )
+
+        # calibration, if enabled
+        if self._model.calibration_layer is not None:
+            predict_logits = self._model.calibration_layer(predict_logits) 
+
         preds = predict_logits.argmax(dim=-1, keepdims=True)
 
         # Convert label tokens to their indices in the label map.

@@ -8,14 +8,13 @@ args:
     checklist: null
     template: '{passage} [T] [T] [T] {question} [T] [T] [T] [P] [T]'
     label_map: '{"True": "Yes", "False": "No"}'
-    initial_trigger: ['.', 'ĠQuestion', ':', 'Ġ?', 'ĠAnswer', ':', 'Ġ.']
+    initial_trigger: []
     label_field: 'label'
     add_padding: False
-    preprocessor: null
+    preprocessor: null 
     evaluation_strategy: 'classification'
     decoding_strategy: null
-    finetune_mode:
-        - 'trigger'
+    finetune_mode: []
     evaluation_metric: 'accuracy'
     linear: False
     skip_train: False
@@ -26,6 +25,7 @@ args:
     disable_dropout: False
     clip: 1.0
     limit: null
+    reduction_factor: 16
     l1decay: 0.0
     theta: 1.0e32
     force_overwrite: True
@@ -33,4 +33,4 @@ args:
     tmp: True
 parameters:
     accumulation_steps: [1, 2, 4]
-    lr:  [0.01, 0.005, 0.001]
+    lr: [1.0e-5, 5.0e-5, 1.0e-4, 5.0e-4]

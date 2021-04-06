@@ -2,13 +2,13 @@ trainer: 'continuous_mlm'
 args:
     seed: 0
     model_name: 'roberta-large'
-    train: 'data/SuperFUGUE/BoolQ/train.jsonl'
-    dev: 'data/SuperFUGUE/BoolQ/dev.jsonl'
-    test: 'data/SuperFUGUE/BoolQ/dev_all.jsonl'
+    train: 'data/LittleGLUE/WNLI/train.jsonl'
+    dev: 'data/LittleGLUE/WNLI/dev.jsonl'
+    test: 'data/LittleGLUE/WNLI/dev_all.jsonl'
     checklist: null
-    template: '{passage} [T] [T] [T] {question} [T] [T] [T] [P] [T]'
-    label_map: '{"True": "Yes", "False": "No"}'
-    initial_trigger: []
+    template: '{sentence1} [T] {sentence2} [T] [P] [T] [T]'
+    label_map: '{"0": "similar", "1": "different"}'
+    initial_trigger: ['Ġand', 'Ġhave', 'Ġmeanings', '.']
     label_field: 'label'
     add_padding: False
     preprocessor: null
@@ -16,7 +16,7 @@ args:
     decoding_strategy: null
     finetune_mode:
         - 'trigger'
-        - 'layernorm'
+        - 'layerNorm'
     evaluation_metric: 'accuracy'
     linear: False
     skip_train: False
