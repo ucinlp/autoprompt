@@ -147,7 +147,9 @@ class DiscreteMLMTrainer(Trainer):
             label_map=self.label_map,
             decoding_strategy=args['decoding_strategy'],
         )
-        score_fn = METRICS[args['evaluation_metric']]
+        metric = METRICS[args['evaluation_metric']](
+            label_map=self.label_map
+        )
 
         best_score = 0
         if not args['skip_train']:
@@ -164,8 +166,8 @@ class DiscreteMLMTrainer(Trainer):
                     iter_ = train_loader
                 iter_ = iter(iter_)
                 total_loss = torch.tensor(0.0, device=self.distributed_config.device)
-                total_metrics = {}
                 denom = torch.tensor(0.0, device=self.distributed_config.device)
+                metric.reset()
 
                 if cinf_optimizer is not None:
                     cinf_optimizer.zero_grad()
@@ -202,6 +204,7 @@ class DiscreteMLMTrainer(Trainer):
 
                     # Evaluate candidates
                     logger.debug('Evaluating candidates...')
+                    # !!!
                     current_total_metrics = {}
                     candidate_total_metrics = [{} for _ in range(args['num_candidates'])]
                     denom = torch.tensor(0.0, device=self.distributed_config.device)

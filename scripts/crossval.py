@@ -1,4 +1,5 @@
 import argparse
+import collections
 import csv
 import itertools
 import logging
@@ -15,6 +16,7 @@ import autoprompt.data as data
 import autoprompt.templatizers as templatizers
 import autoprompt.trainers as trainers
 import autoprompt.utils as utils
+from autoprompt.metrics import METRICS
 
 
 logger = logging.getLogger(__name__)
@@ -47,7 +49,7 @@ def kfold(args, trainer_class, num_folds):
         add_padding=args['add_padding'],
     )
     writer = utils.NullWriter()
-    scores = []
+    all_metrics = collections.defaultdict(list)
     splits = data.generate_splits(
         args,
         num_folds,
@@ -67,13 +69,14 @@ def kfold(args, trainer_class, num_folds):
         # Use a temporary directory for k-fold experiments to ensure proper cleanup.
         with tempfile.TemporaryDirectory() as tmpdir:
             args['ckpt_dir'] = tmpdir  # NOTE: This is implicitly modifying the trainer. Sorry.
-            model, score = trainer.train(train_loader, dev_loader)
-        scores.append(score)
+            model, metric_dict = trainer.train(train_loader, dev_loader)
+        for k, v in metric_dict.items():
+            all_metrics[k].append(v)
 
         del model
         torch.cuda.empty_cache()
 
-    return scores
+    return all_metrics
 
 
 def evaluate(args, trainer_class):
@@ -97,7 +100,6 @@ def evaluate(args, trainer_class):
         add_padding=args['add_padding'],
     )
     writer = utils.NullWriter()
-    scores = []
 
     train_loader, dev_loader, test_loader, _ = data.load_datasets(
         args,
@@ -115,8 +117,8 @@ def evaluate(args, trainer_class):
         writer=writer
     )
     model, _ = trainer.train(train_loader, dev_loader)
-    final_score = trainer.test(model, test_loader)
-    return model, final_score
+    metric_dict = trainer.test(model, test_loader)
+    return model, metric_dict
 
 
 def main(args):
@@ -128,34 +130,41 @@ def main(args):
     elif proto_config['trainer'] == 'discrete_mlm':
         trainer_class = trainers.DiscreteMLMTrainer
 
+
     # K-Fold Step
     best_score = float('-inf')
     best_args = None
+
+
     # Serialize result
     with open(args.dir / 'cross_validation_results.csv', 'w') as f:
-        # TODO(rloganiv): Is there a less ugly way of writing this?
-        fieldnames = list(proto_config['args'].keys()) + \
-            list(proto_config['parameters'].keys()) + \
-            ['mean', 'stdev']
+
+        metric = METRICS[proto_config['args']['evaluation_metric']]
+
+        fieldnames = list(proto_config['args'].keys())
+        fieldnames.extend(proto_config['parameters'].keys())
+        for key in metric.keys:
+            fieldnames.extend([f'{key}_mean', f'{key}_stdev'])
+
         writer = csv.DictWriter(f, fieldnames, delimiter=',')
         writer.writeheader()
         for train_args in generate_args(proto_config):
             # Train
             logger.debug(f'Args: {train_args}')
-            scores = kfold(train_args, trainer_class, args.num_folds)
-            mean = statistics.mean(scores)
-            stdev = statistics.stdev(scores)
-            logger.debug(f'Mean: {mean}, Std Dev: {stdev}')
 
             row = {k: v for k, v in train_args.items() if k in fieldnames}
-            row['mean'] = mean
-            row['stdev'] = stdev
+            all_metrics = kfold(train_args, trainer_class, args.num_folds)
+            for key, value in all_metrics:
+                row[f'{key}_mean'] = statistics.mean(value)
+                row[f'{key}_stdev'] = statistics.stdev(value)
+            logger.debug(f'All metrics: {all_metrics}')
             writer.writerow(row)
 
             # Update if best
-            if mean > best_score:
+            score = row[f'{metric.score_key}_mean']
+            if score > best_score:
                 logger.debug('Best model so far.')
-                best_score = mean
+                best_score = score
                 best_args = train_args
 
     # Retrain and evaluate best model w/ multiple random seeds
@@ -168,16 +177,15 @@ def main(args):
 
     logger.info('Evaluating')
     with open(args.dir / 'best_model_scores.csv', 'w') as f:
-        writer = csv.DictWriter(f, fieldnames=['seed', 'score'])
+        writer = csv.DictWriter(f, fieldnames=['seed', *metric.keys])
         writer.writeheader()
         for i in range(args.num_seeds):
             best_args['seed'] = i
-            model, score = evaluate(best_args, trainer_class)
+            model, metric_dict = evaluate(best_args, trainer_class)
             del model
             torch.cuda.empty_cache()
             logger.info(f'Score for seed {i}: {score}')
-            writer.writerow({'seed': i, 'score': score})
-
+            writer.writerow({'seed': i, **metric_dict})
 
 
 if __name__ == '__main__':
