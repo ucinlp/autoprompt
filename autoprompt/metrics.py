@@ -113,6 +113,12 @@ class MacroF1(Metric):
         self.fn = torch.zeros(len(self.label_map))
 
     def update(self, labels, predictions):
+        # TODO(rloganiv): This is kind of hacky, but idk if there's a better
+        # way.
+        self.tp = self.tp.to(labels.device)
+        self.fp = self.fp.to(labels.device)
+        self.fn = self.fn.to(labels.device)
+
         for i in range(len(self.label_map)):
             self.tp[i] += torch.sum(labels.eq(i) & predictions.eq(i))
             self.fp[i] += torch.sum(labels.ne(i) & predictions.eq(i))
@@ -124,9 +130,9 @@ class MacroF1(Metric):
         torch.distributed.reduce(self.fn, 0)
 
     def get(self):
-        precision = self.tp / (self.tp + self.fp)
-        recall = self.tp / (self.tp + self.fp)
-        f1 = 2 * precision * recall / (precision + recall)
+        precision = self.tp / (self.tp + self.fp + 1e-13)
+        recall = self.tp / (self.tp + self.fn + 1e-13)
+        f1 = 2 * precision * recall / (precision + recall + 1e-13)
         return {
             'precision': precision.mean().item(),
             'recall': recall.mean().item(),

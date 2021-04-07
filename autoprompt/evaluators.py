@@ -256,7 +256,7 @@ class ClassificationEvaluator:
         # Convert label tokens to their indices in the label map.
         _, label_inds = torch.where(labels.eq(label_tokens))
         
-        metric.update(label_inds.squeeze(), preds.squeeze())
+        metric.update(label_inds, preds.squeeze(1))
 
         predictions = [self._label_keys[i] for i in preds.squeeze(1).tolist()]
 

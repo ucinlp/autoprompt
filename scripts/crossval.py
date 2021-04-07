@@ -130,11 +130,9 @@ def main(args):
     elif proto_config['trainer'] == 'discrete_mlm':
         trainer_class = trainers.DiscreteMLMTrainer
 
-
     # K-Fold Step
     best_score = float('-inf')
     best_args = None
-
 
     # Serialize result
     with open(args.dir / 'cross_validation_results.csv', 'w') as f:
@@ -154,7 +152,7 @@ def main(args):
 
             row = {k: v for k, v in train_args.items() if k in fieldnames}
             all_metrics = kfold(train_args, trainer_class, args.num_folds)
-            for key, value in all_metrics:
+            for key, value in all_metrics.items():
                 row[f'{key}_mean'] = statistics.mean(value)
                 row[f'{key}_stdev'] = statistics.stdev(value)
             logger.debug(f'All metrics: {all_metrics}')
@@ -184,7 +182,7 @@ def main(args):
             model, metric_dict = evaluate(best_args, trainer_class)
             del model
             torch.cuda.empty_cache()
-            logger.info(f'Score for seed {i}: {score}')
+            logger.info(f'Metrics for seed {i}: {metric_dict}')
             writer.writerow({'seed': i, **metric_dict})
 
 

@@ -52,6 +52,7 @@ def get_optimizer(model, args):
         )
 
     params = []
+    verboten_modules = []
     if 'trigger' in args['finetune_mode']:
         if isinstance(model, ContinuousTriggerMLM):
             params.append({'params': [model.trigger_embeddings]})
@@ -68,8 +69,21 @@ def get_optimizer(model, args):
             'params': model.lm_head.parameters(),
             'lr': args['finetune_lr'] if args['finetune_lr'] else args['lr']
         })
+        verboten_modules.extend(model.lm_head.modules())
+    if 'adapter' in args['finetune_mode']:
+        p = []
+        for module in model.modules():
+            if isinstance(module, transformers.adapter_modeling.Adapter):
+                p.extend(module.parameters())
+                verboten_modules.extend(module.modules())
+        params.append({
+            'params': p,
+            'lr': args['finetune_lr'] if args['finetune_lr'] else args['lr']
+        })
     if 'bitfit' in args['finetune_mode']:
         for module in model.modules():
+            if module in verboten_modules:
+                continue
             if isinstance(module, (torch.nn.LayerNorm, torch.nn.Linear)):
                 params.append({
                     'params': [module.bias],
@@ -77,6 +91,8 @@ def get_optimizer(model, args):
                 })
     if 'layernorm' in args['finetune_mode']:
         for module in model.modules():
+            if module in verboten_modules:
+                continue
             if isinstance(module, torch.nn.LayerNorm):
                 params.append({
                     'params': module.parameters(),
@@ -94,15 +110,6 @@ def get_optimizer(model, args):
             'params': model.calibration_layer.parameters(),
             'lr': args['finetune_lr'] if args['finetune_lr'] else args['lr']
         })
-    if 'adapter' in args['finetune_mode']:
-        for module in model.modules():
-            p = []
-            if isinstance(module, transformers.adapter_modeling.Adapter):
-                p.extend(module.parameters())
-            params.append({
-                'params': p,
-                'lr': args['finetune_lr'] if args['finetune_lr'] else args['lr']
-            })
 
     return optimizer(
         params,
@@ -143,6 +150,8 @@ class ContinuousMLMTrainer(Trainer):
             )
             base_model.train_adapter(['adapter'])
             base_model.set_active_adapters(['adapter'])
+            for parameter in base_model.parameters():
+                parameter.requires_grad = True
 
         initial_trigger_ids = utils.get_initial_trigger_ids(args['initial_trigger'], self.tokenizer)
         if args['linear']:
