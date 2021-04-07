@@ -52,6 +52,7 @@ def get_optimizer(model, args):
         )
 
     params = []
+    verboten_modules = []
     if 'trigger' in args['finetune_mode']:
         if isinstance(model, ContinuousTriggerMLM):
             params.append({'params': [model.trigger_embeddings]})
@@ -68,8 +69,21 @@ def get_optimizer(model, args):
             'params': model.lm_head.parameters(),
             'lr': args['finetune_lr'] if args['finetune_lr'] else args['lr']
         })
+        verboten_modules.extend(model.lm_head.modules())
+    if 'adapter' in args['finetune_mode']:
+        p = []
+        for module in model.modules():
+            if isinstance(module, transformers.adapter_modeling.Adapter):
+                p.extend(module.parameters())
+                verboten_modules.extend(module.modules())
+        params.append({
+            'params': p,
+            'lr': args['finetune_lr'] if args['finetune_lr'] else args['lr']
+        })
     if 'bitfit' in args['finetune_mode']:
         for module in model.modules():
+            if module in verboten_modules:
+                continue
             if isinstance(module, (torch.nn.LayerNorm, torch.nn.Linear)):
                 params.append({
                     'params': [module.bias],
@@ -77,6 +91,8 @@ def get_optimizer(model, args):
                 })
     if 'layernorm' in args['finetune_mode']:
         for module in model.modules():
+            if module in verboten_modules:
+                continue
             if isinstance(module, torch.nn.LayerNorm):
                 params.append({
                     'params': module.parameters(),
@@ -94,15 +110,6 @@ def get_optimizer(model, args):
             'params': model.calibration_layer.parameters(),
             'lr': args['finetune_lr'] if args['finetune_lr'] else args['lr']
         })
-    if 'adapter' in args['finetune_mode']:
-        for module in model.modules():
-            p = []
-            if isinstance(module, transformers.adapter_modeling.Adapter):
-                p.extend(module.parameters())
-            params.append({
-                'params': p,
-                'lr': args['finetune_lr'] if args['finetune_lr'] else args['lr']
-            })
 
     return optimizer(
         params,
@@ -143,6 +150,8 @@ class ContinuousMLMTrainer(Trainer):
             )
             base_model.train_adapter(['adapter'])
             base_model.set_active_adapters(['adapter'])
+            for parameter in base_model.parameters():
+                parameter.requires_grad = True
 
         initial_trigger_ids = utils.get_initial_trigger_ids(args['initial_trigger'], self.tokenizer)
         if args['linear']:
@@ -169,8 +178,8 @@ class ContinuousMLMTrainer(Trainer):
         # Setup optimizer
         optimizer = get_optimizer(model, args)
  
-         # TODO(ewallace): The count for partial will be inaccurate since we count *all* of the LM head
-         # params, whereas we are actually only updating the few that correspond to the label token names.
+        # TODO(ewallace): The count for partial will be inaccurate since we count *all* of the LM head
+        # params, whereas we are actually only updating the few that correspond to the label token names.
         total = 0
         for param_group in optimizer.param_groups:
              for tensor in param_group['params']:
@@ -189,7 +198,9 @@ class ContinuousMLMTrainer(Trainer):
             label_map=self.label_map,
             decoding_strategy=args['decoding_strategy'],
         )
-        score_fn = METRICS[args['evaluation_metric']]
+        metric = METRICS[args['evaluation_metric']](
+            label_map=self.label_map
+        )
 
         best_score = 0
         if not args['skip_train']:
@@ -205,15 +216,14 @@ class ContinuousMLMTrainer(Trainer):
                 else:
                     iter_ = train_loader
                 total_loss = torch.tensor(0.0, device=self.distributed_config.device)
-                total_metrics = {}
                 denom = torch.tensor(0.0, device=self.distributed_config.device)
+                metric.reset()
 
                 optimizer.zero_grad()
                 for i, (model_inputs, labels) in enumerate(iter_):
                     model_inputs = utils.to_device(model_inputs, self.distributed_config.device)
                     labels = utils.to_device(labels, self.distributed_config.device)
-                    loss, metrics, preds = evaluator(model_inputs, labels, train=True,
-                                            evaluation_metric=args['evaluation_metric'])
+                    loss, preds = evaluator(model_inputs, labels, metric=metric, train=True)
                     loss /= args['accumulation_steps']
                     loss.backward()
                     if (i % args['accumulation_steps']) == (args['accumulation_steps'] - 1):
@@ -225,33 +235,35 @@ class ContinuousMLMTrainer(Trainer):
                     batch_size = 1.0 if args['evaluation_strategy'] == 'multiple-choice' else labels.size(0)
                     total_loss += loss.detach() * batch_size
                     denom += batch_size
-                    utils.update_metrics(total_metrics, metrics)
 
                     # NOTE: This loss/accuracy is only on the subset of training data
                     # in the main process.
+
                     if self.distributed_config.is_main_process and not args['quiet']:
-                        score = score_fn(total_metrics, denom)
+                        metric_dict = metric.get()
+                        metric_string = ' '.join(f'{k}: {v:0.4f}' for k, v in metric_dict.items())
                         iter_.set_description(
-                            f'Loss: {total_loss / (denom + 1e-13): 0.4f}, '
-                            f'Metric: {score: 0.4f}'
+                            f'loss: {total_loss / (denom + 1e-13): 0.4f}, ' +
+                            metric_string
                         )
 
                 if self.distributed_config.world_size != -1:
                     torch.distributed.reduce(total_loss, 0)
-                    for metric in total_metrics:
-                        torch.distributed.reduce(total_metrics[metric], 0)
                     torch.distributed.reduce(denom, 0)
+                    metric.reduce()
                 if self.distributed_config.is_main_process:
                     self.writer.add_scalar('Loss/train', (total_loss / (denom + 1e-13)).item(), epoch)
-                    score = score_fn(total_metrics, denom)
-                    self.writer.add_scalar(f'{args["evaluation_metric"].capitalize()}/train', score.item(), epoch)
+                    metric_dict = metric.get()
+                    for key, value in metric_dict.items():
+                        self.writer.add_scalar(f'{key.capitalize()}/train', value, epoch)
 
                 if not args['skip_eval']:
                     logger.info('Evaluating...')
                     model.eval()
                     total_loss = torch.tensor(0.0, device=self.distributed_config.device)
-                    total_metrics = {}
                     denom = torch.tensor(0.0, device=self.distributed_config.device)
+                    metric.reset()
+
                     if self.distributed_config.is_main_process and not args['quiet']:
                         iter_ = tqdm(dev_loader)
                     else:
@@ -260,35 +272,38 @@ class ContinuousMLMTrainer(Trainer):
                         for model_inputs, labels in iter_:
                             model_inputs = utils.to_device(model_inputs, self.distributed_config.device)
                             labels = utils.to_device(labels, self.distributed_config.device)
-                            loss, metrics, preds = evaluator(model_inputs, labels,
-                                train=False, evaluation_metric=args['evaluation_metric'])
+                            loss, preds = evaluator(model_inputs, labels, metric=metric, train=False)
                             batch_size = 1.0 if args['evaluation_strategy'] == 'multiple-choice' else labels.size(0)
                             total_loss += loss.detach() * batch_size
-                            utils.update_metrics(total_metrics, metrics)
                             denom += batch_size
 
                             if self.distributed_config.world_size != -1:
                                 torch.distributed.reduce(total_loss, 0)
-                                for metric in total_metrics:
-                                    torch.distributed.reduce(total_metrics[metric], 0)
                                 torch.distributed.reduce(denom, 0)
+                                metric.reduce()
                             if self.distributed_config.is_main_process and not args['quiet']:
-                                score = score_fn(total_metrics, denom)
+                                metric_dict = metric.get()
+                                metric_string = ' '.join(f'{k}: {v:0.4f}' for k, v in metric_dict.items())
                                 iter_.set_description(
-                                    f'Loss: {total_loss / (denom + 1e-13): 0.4f}, '
-                                    f'Metric: {score: 0.4f}'
+                                    f'loss: {total_loss / (denom + 1e-13): 0.4f}, ' +
+                                    metric_string
                                 )
                     if self.distributed_config.is_main_process:
+                        # !!!
                         self.writer.add_scalar('Loss/dev', (total_loss / (denom + 1e-13)).item(), epoch)
-                        score = score_fn(total_metrics, denom)
-                        self.writer.add_scalar(f'{args["evaluation_metric"].capitalize()}/dev', score.item(), epoch)
+                        metric_dict = metric.get()
+                        for key, value in metric_dict.items():
+                            self.writer.add_scalar(f'{key.capitalize()}/dev', value, epoch)
+
                         if args['linear']:
                             zero_frac = model.trigger_projection.eq(0.0).sum() / torch.numel(model.trigger_projection)
                             logger.info(f'Fraction of Zero Weights: {zero_frac}')
 
+                        score = metric_dict[metric.score_key]
                         if score > best_score:
                             logger.info('Best performance so far.')
                             best_score = score
+                            best_metric_dict = metric_dict
                             if self.distributed_config.world_size != -1:
                                 model_to_save = model.module
                             else:
@@ -304,6 +319,7 @@ class ContinuousMLMTrainer(Trainer):
                                     args['ckpt_dir'],
                                     adapter_name='adapter',
                                 )
+
             if os.path.exists(ckpt_path) and not args['skip_eval']:
                 logger.info('Restoring checkpoint.')
                 if self.distributed_config.world_size != -1:
@@ -319,7 +335,7 @@ class ContinuousMLMTrainer(Trainer):
                         config=adapter_config,
                     )
 
-        return model, best_score.item()
+        return model, best_metric_dict
 
     def test(self, model, test_loader):
 
@@ -334,27 +350,25 @@ class ContinuousMLMTrainer(Trainer):
                 label_map=self.label_map,
                 decoding_strategy=args['decoding_strategy'],
             )
-            score_fn = METRICS[args['evaluation_metric']]
+            metric = METRICS[args['evaluation_metric']](
+                label_map=self.label_map,
+            )
             output_fname = os.path.join(args['ckpt_dir'], 'predictions')
             model.eval()
-            total_metrics = {}
-            denom = torch.tensor(0.0, device=self.distributed_config.device)
+
             with torch.no_grad(), open(output_fname, 'w') as f:
                 for model_inputs, labels in test_loader:
                     model_inputs = {k: v.to(self.distributed_config.device) for k, v in model_inputs.items()}
                     labels = labels.to(self.distributed_config.device)
-                    _, metrics, preds = evaluator(model_inputs, labels, train=False,
-                                            evaluation_metric=args['evaluation_metric'])
-                    batch_size = 1.0 if args['evaluation_strategy'] == 'multiple-choice' else labels.size(0)
-                    utils.update_metrics(total_metrics, metrics)
-                    denom += batch_size
+                    _, preds = evaluator(model_inputs, labels, metric=metric, train=False)
+
                     # Serialize output
                     for pred in preds:
                         print(pred, file=f)
+
+            # TODO: Update metric...
             if self.distributed_config.world_size != -1:
-                for metric in total_metrics:
-                    torch.distributed.reduce(metrics[metric], 0)
-                torch.distributed.reduce(denom, 0)
+                metric.reduce()
 
             if args['tmp']:
                 if os.path.exists(ckpt_path):
@@ -364,11 +378,14 @@ class ContinuousMLMTrainer(Trainer):
             if args['linear']:
                 zero_frac = model.trigger_projection.eq(0.0).sum() / torch.numel(model.trigger_projection)
                 logger.info(f'Fraction of Zero Weights: {zero_frac}')
-            score = score_fn(total_metrics, denom)
-            self.writer.add_scalar(f'{args["evaluation_metric"].capitalize()}/test', score.item(), 0)
-            logger.info(f'Metric: {score: 0.4f}')
 
-            return score.item()
+            metric_dict = metric.get()
+            for key, value in metric_dict.items():
+                self.writer.add_scalar(f'{key.capitalize()}/test', value, 0)
+            metric_string = ' '.join(f'{k}: {v:0.4f}' for k, v in metric_dict.items())
+            logger.info(metric_string)
+
+            return metric_dict
 
 
 def main(args):

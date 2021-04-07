@@ -20,11 +20,12 @@ class MultipleChoiceEvaluator:
             decoding_strategy,
             **kwargs
     ):
+        raise NotImplementedError('MultipleChoiceEvaluator not updated to use new metrics')
         self._model = model
         self._tokenizer = tokenizer
         self._decoding_strategy = decoding_strategy
 
-    def __call__(self, model_inputs, labels, train=True, evaluation_metric='accuracy', **kwargs):
+    def __call__(self, model_inputs, labels, metric, train=True, **kwargs):
         if train:
             _, logits, *_ = self._model(model_inputs, labels, **kwargs)
             logits = logits.transpose(1, -1)  # Class probs need to be dim 1 for CE
@@ -32,13 +33,13 @@ class MultipleChoiceEvaluator:
             log_p = log_p.mean(dim=-1)
             loss = 1 - log_p[0] + log_p[1]
             loss[loss < 0] = 0.0
-            metrics = {'accuracy': log_p[0] > log_p[1]} # TODO: do we need a metric other than accuracy?
+            # metrics = {'accuracy': log_p[0] > log_p[1]} # TODO: do we need a metric other than accuracy?
             predictions = None  # Too lazy to support ATM
         else:
             loss = torch.tensor(0.0, device=labels.device)
             prediction_idx = self._decode(model_inputs, labels, **kwargs)
             logger.debug(f'Prediction idx: {prediction_idx}')
-            metrics = {'accuracy': (prediction_idx == 0).sum()}
+            # metrics = {'accuracy': (prediction_idx == 0).sum()}
             predicted_instance = labels[prediction_idx]
             prediction_mask = model_inputs['predict_mask'][prediction_idx]
             predicted_label_ids = predicted_instance[prediction_mask]
@@ -108,11 +109,12 @@ class GenerativeEvaluator:
             decoding_strategy,
             **kwargs
     ):
+        raise NotImplementedError('GenerativeEvaluator not updated to use new metrics')
         self._model = model
         self._tokenizer = tokenizer
         self._decoding_strategy = decoding_strategy
 
-    def __call__(self, model_inputs, labels, train=True, evaluation_metric='accuracy', **kwargs):
+    def __call__(self, model_inputs, labels, metric, train=True, **kwargs):
         predict_mask = model_inputs['predict_mask']
         if train:
             loss, logits, *_ = self._model(model_inputs, labels, **kwargs)
@@ -121,7 +123,7 @@ class GenerativeEvaluator:
         else:
             loss = torch.tensor(0.0, device=labels.device)
             prediction_ids = self._decode(model_inputs, **kwargs)
-        metrics = {'accuracy': (prediction_ids == labels).all(dim=-1).sum()} # TODO: do we need a metric other than accuracy?
+        # metrics = {'accuracy': (prediction_ids == labels).all(dim=-1).sum()} # TODO: do we need a metric other than accuracy?
 
         # Debug printing of predictions.
         predictions = []
@@ -230,8 +232,7 @@ class ClassificationEvaluator:
         self._label_tokens = label_tokens.view(1, -1)
         self._label_keys = list(label_map.keys())
 
-    def __call__(self, model_inputs, labels, train=True, evaluation_metric='accuracy', return_probs=False, **kwargs):
-
+    def __call__(self, model_inputs, labels, metric, train=True, return_probs=False, **kwargs):
         # Ensure everything is on the same device
         label_tokens = self._label_tokens.to(labels.device)
 
@@ -254,10 +255,10 @@ class ClassificationEvaluator:
 
         # Convert label tokens to their indices in the label map.
         _, label_inds = torch.where(labels.eq(label_tokens))
-        if not train:
-            predictions = [self._label_keys[i] for i in preds.squeeze(1).tolist()]
-        else:
-            predictions = None  # TODO: Maybe not be lazy? Th
+        
+        metric.update(label_inds, preds.squeeze(1))
+
+        predictions = [self._label_keys[i] for i in preds.squeeze(1).tolist()]
 
         # Get loss
         probs = F.softmax(predict_logits, dim=-1)
@@ -265,20 +266,10 @@ class ClassificationEvaluator:
         label_inds = label_inds.unsqueeze(-1)
         loss = -predict_logp.gather(-1, label_inds).mean()
 
-        # Get evaluation score
-        if evaluation_metric == 'accuracy':
-            metrics = {'accuracy': preds.eq(label_inds).sum()}
-        else:
-            tp = torch.sum((label_inds == 1) & (preds == 1))
-            fp = torch.sum((label_inds == 0) & (preds == 1))
-            tn = torch.sum((label_inds == 0) & (preds == 0))
-            fn = torch.sum((label_inds == 1) & (preds == 0))
-            metrics = {"TP": tp, "FP": fp, "TN": tn, "FN": fn}
-
         if return_probs:
-            return loss, metrics, predictions, probs
+            return loss, predictions, probs
         else:
-            return loss, metrics, predictions
+            return loss, predictions
 
 
 MLM_EVALUATORS = {
