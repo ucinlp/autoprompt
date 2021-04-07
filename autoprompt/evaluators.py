@@ -248,16 +248,15 @@ class ClassificationEvaluator:
         )
 
         # calibration, if enabled
-        if self._model.calibration_layer is not None:
-            predict_logits = self._model.calibration_layer(predict_logits) 
+        if hasattr(self._model, 'calibration_layer'):
+            if self._model.calibration_layer is not None:
+                predict_logits = self._model.calibration_layer(predict_logits) 
 
         preds = predict_logits.argmax(dim=-1, keepdims=True)
 
         # Convert label tokens to their indices in the label map.
         _, label_inds = torch.where(labels.eq(label_tokens))
-        
         metric.update(label_inds, preds.squeeze(1))
-
         predictions = [self._label_keys[i] for i in preds.squeeze(1).tolist()]
 
         # Get loss

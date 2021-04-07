@@ -24,14 +24,14 @@ logger = logging.getLogger(__name__)
 def get_cinf_optimizer(model, args):
     """Handles setting the optimizer up for different finetuning modes."""
     params = []
-    if args['finetune_mode'] == 'partial':
-        params.append({
-            'params': model.lm_head.parameters(),
-            'lr': args['finetune_lr'] if args['finetune_lr'] else args['lr']
-        })
-    elif args['finetune_mode'] == 'all':
+    if args['finetune_mode'] == []:
         params.append({
             'params': model.parameters(),
+            'lr': args['finetune_lr'] if args['finetune_lr'] else args['lr']
+        })
+    elif 'partial' in args['finetune_mode']:
+        params.append({
+            'params': model.lm_head.parameters(),
             'lr': args['finetune_lr'] if args['finetune_lr'] else args['lr']
         })
     return transformers.AdamW(
@@ -147,9 +147,11 @@ class DiscreteMLMTrainer(Trainer):
             label_map=self.label_map,
             decoding_strategy=args['decoding_strategy'],
         )
-        metric = METRICS[args['evaluation_metric']](
-            label_map=self.label_map
-        )
+
+        # The multi-candidate evaluation does not play nicely with having a
+        # single metric, so we instantiate them whenever we need them instead
+        # of carrying just one around.
+        metric_cls = METRICS[args['evaluation_metric']]
 
         best_score = 0
         if not args['skip_train']:
@@ -167,7 +169,6 @@ class DiscreteMLMTrainer(Trainer):
                 iter_ = iter(iter_)
                 total_loss = torch.tensor(0.0, device=self.distributed_config.device)
                 denom = torch.tensor(0.0, device=self.distributed_config.device)
-                metric.reset()
 
                 if cinf_optimizer is not None:
                     cinf_optimizer.zero_grad()
@@ -177,6 +178,7 @@ class DiscreteMLMTrainer(Trainer):
                 while running:
                     # Get candidates
                     logger.debug('Measuring loss...')
+                    metric = metric_cls(label_map=self.label_map)
                     for _ in range(args['accumulation_steps']):
                         try:
                             model_inputs, labels = next(iter_)
@@ -189,8 +191,8 @@ class DiscreteMLMTrainer(Trainer):
                             loss, *_ = evaluator(
                                 model_inputs,
                                 labels,
+                                metric=metric,
                                 train=True,
-                                evaluation_metric=args['evaluation_metric'],
                             )
                             loss /= args['accumulation_steps']
                             loss.backward()
@@ -204,9 +206,8 @@ class DiscreteMLMTrainer(Trainer):
 
                     # Evaluate candidates
                     logger.debug('Evaluating candidates...')
-                    # !!!
-                    current_total_metrics = {}
-                    candidate_total_metrics = [{} for _ in range(args['num_candidates'])]
+                    current_metric = metric_cls(label_map=self.label_map)
+                    candidate_metrics = [metric_cls(label_map=self.label_map) for _ in range(args['num_candidates'])]
                     denom = torch.tensor(0.0, device=self.distributed_config.device)
                     for _ in range(args['accumulation_steps']):
                         try:
@@ -220,42 +221,40 @@ class DiscreteMLMTrainer(Trainer):
                             batch_size = 1.0 if args['evaluation_strategy'] == 'multiple-choice' else labels.size(0)
                             denom += batch_size
 
-                            # Current trigger
+                            # Current metric update
                             with torch.no_grad():
-                                _, metrics, _ = evaluator(
+                                evaluator(
                                     model_inputs,
                                     labels,
+                                    metric=current_metric,
                                     train=True,
-                                    evaluation_metric=args['evaluation_metric'],
                                 )
-                            utils.update_metrics(current_total_metrics, metrics)
 
-                            # Candidate triggers
-                            for candidate, total_metrics in zip(candidates, candidate_total_metrics): 
+                            # Candidate metrics update
+                            for candidate, candidate_metric in zip(candidates, candidate_metrics): 
                                 with torch.no_grad():
                                     candidate_trigger_ids = model.trigger_ids.clone()
                                     candidate_trigger_ids[update_idx] = candidate
-                                    _, metrics, _ = evaluator(
+                                    evaluator(
                                         model_inputs,
                                         labels,
+                                        metric=candidate_metric,
                                         train=True,
-                                        evaluation_metric=args['evaluation_metric'],
                                         trigger_ids=candidate_trigger_ids,
                                     )
-                                    utils.update_metrics(total_metrics, metrics)
 
                     # If terminated early just break
                     if not running:
                         logger.debug('Breaking early...')
                         break
 
-                    # Compare metrics and potentially update the trigger
+                    # TODO(rloganiv): Make a method to clean this up.
                     current_score = torch.tensor(
-                        score_fn(current_total_metrics, denom),
+                        current_metric.get()[current_metric.score_key],
                         device=self.distributed_config.device,
                     )
                     candidate_scores = torch.tensor(
-                        [score_fn(x, denom) for x in candidate_total_metrics],
+                        [c.get()[c.score_key] for c in candidate_metrics],
                         device=self.distributed_config.device,
                     )
                     best_candidate_score = candidate_scores.max()
@@ -283,8 +282,9 @@ class DiscreteMLMTrainer(Trainer):
                     logger.info('Evaluating...')
                     model.eval()
                     total_loss = torch.tensor(0.0, device=self.distributed_config.device)
-                    total_metrics = {}
                     denom = torch.tensor(0.0, device=self.distributed_config.device)
+                    metric = metric_cls(label_map=self.label_map)
+
                     if self.distributed_config.is_main_process and not args['quiet']:
                         iter_ = tqdm(dev_loader)
                     else:
@@ -293,35 +293,37 @@ class DiscreteMLMTrainer(Trainer):
                         for model_inputs, labels in iter_:
                             model_inputs = utils.to_device(model_inputs, self.distributed_config.device)
                             labels = utils.to_device(labels, self.distributed_config.device)
-                            loss, metrics, _ = evaluator(
+                            loss, *_ = evaluator(
                                 model_inputs,
                                 labels,
+                                metric=metric,
                                 train=False,
-                                evaluation_metric=args['evaluation_metric'],
                             )
                             batch_size = 1.0 if args['evaluation_strategy'] == 'multiple-choice' else labels.size(0)
                             total_loss += loss.detach() * batch_size
-                            utils.update_metrics(total_metrics, metrics)
                             denom += batch_size
                             if self.distributed_config.world_size != -1:
                                 torch.distributed.reduce(total_loss, 0)
-                                for metric in total_metrics:
-                                    torch.distributed.reduce(total_metrics[metric], 0)
                                 torch.distributed.reduce(denom, 0)
+                                metric.reduce()
                             if self.distributed_config.is_main_process and not args['quiet']:
-                                score = score_fn(total_metrics, denom)
+                                metric_dict = metric.get()
+                                metric_string = ' '.join(f'{k}: {v:0.4f}' for k, v in metric_dict.items())
                                 iter_.set_description(
-                                    f'Loss: {total_loss / (denom + 1e-13): 0.4f}, '
-                                    f'Metric: {score: 0.4f}'
+                                    f'loss: {total_loss / (denom + 1e-13): 0.4f}, ' +
+                                    metric_string
                                 )
                     if self.distributed_config.is_main_process:
                         self.writer.add_scalar('Loss/dev', (total_loss / (denom + 1e-13)).item(), epoch)
-                        score = score_fn(total_metrics, denom)
-                        self.writer.add_scalar(f'{args["evaluation_metric"].capitalize()}/dev', score.item(), epoch)
+                        metric_dict = metric.get()
+                        for key, value in metric_dict.items():
+                            self.writer.add_scalar(f'{key.capitalize()}/train', value, epoch)
 
+                        score = metric_dict[metric.score_key]
                         if score > best_score:
                             logger.info('Best performance so far.')
                             best_score = score
+                            best_metric_dict = metric_dict
                             if self.distributed_config.world_size != -1:
                                 state_dict = model.module.state_dict()
                             else:
@@ -336,7 +338,7 @@ class DiscreteMLMTrainer(Trainer):
                 state_dict = torch.load(ckpt_path, map_location=self.distributed_config.device)
                 model.load_state_dict(state_dict)
 
-        return model, best_score.item()
+        return model, best_metric_dict
 
     def test(self, model, test_loader):
 
@@ -351,40 +353,40 @@ class DiscreteMLMTrainer(Trainer):
                 label_map=self.label_map,
                 decoding_strategy=args['decoding_strategy'],
             )
-            score_fn = METRICS[args['evaluation_metric']]
+            metric = METRICS[args['evaluation_metric']](
+                label_map=self.label_map,
+            )
             output_fname = os.path.join(args['ckpt_dir'], 'predictions')
             model.eval()
-            total_metrics = {}
-            denom = torch.tensor(0.0, device=self.distributed_config.device)
+
             with torch.no_grad(), open(output_fname, 'w') as f:
                 for model_inputs, labels in test_loader:
                     model_inputs = {k: v.to(self.distributed_config.device) for k, v in model_inputs.items()}
                     labels = labels.to(self.distributed_config.device)
-                    _, metrics, preds = evaluator(
+                    _, preds = evaluator(
                         model_inputs,
                         labels,
+                        metric=metric,
                         train=False,
-                        evaluation_metric=args['evaluation_metric'],
                     )
-                    batch_size = 1.0 if args['evaluation_strategy'] == 'multiple-choice' else labels.size(0)
-                    utils.update_metrics(total_metrics, metrics)
-                    denom += batch_size
+
                     # Serialize output
                     for pred in preds:
                         print(pred, file=f)
+
             if self.distributed_config.world_size != -1:
-                for metric in total_metrics:
-                    torch.distributed.reduce(metrics[metric], 0)
-                torch.distributed.reduce(denom, 0)
+                metric.reduce()
 
             if args['tmp']:
                 if os.path.exists(ckpt_path):
                     logger.info('Temporary mode enabled, deleting checkpoint.')
                     os.remove(ckpt_path)
 
-            score = score_fn(total_metrics, denom)
-            self.writer.add_scalar(f"{args['evaluation_metric'].capitalize()}/test", score.item(), 0)
-            logger.info(f'Metric: {score: 0.4f}')
+            metric_dict = metric.get()
+            for key, value in metric_dict.items():
+                self.writer.add_scalar(f'{key.capitalize()}/test', value, 0)
+            metric_string = ' '.join(f'{k}: {v:0.4f}' for k, v in metric_dict.items())
+            logger.info(metric_string)
 
             return score.item()
 
