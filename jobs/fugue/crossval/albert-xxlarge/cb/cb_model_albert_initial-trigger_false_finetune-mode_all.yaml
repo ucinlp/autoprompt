@@ -2,9 +2,9 @@ trainer: 'continuous_mlm'
 args:
     seed: 0
     model_name: 'albert-xxlarge-v2'
-    train: 'data/SuperFUGUE/BoolQ/train.jsonl'
-    dev: 'data/SuperFUGUE/BoolQ/dev.jsonl'
-    test: 'data/SuperFUGUE/BoolQ/dev_all.jsonl'
+    train: 'data/SuperFUGUE/CB/train.jsonl'
+    dev: 'data/SuperFUGUE/CB/dev.jsonl'
+    test: 'data/SuperFUGUE/CB/dev_all.jsonl'
     checklist: null
     template: '{hypothesis} [T] [T] [P] [T] {premise}'
     label_map: '{"entailment": "yes", "contradiction": "no", "neutral": "maybe"}'
@@ -15,7 +15,7 @@ args:
     evaluation_strategy: 'classification'
     decoding_strategy: null
     finetune_mode: []
-    evaluation_metric: 'accuracy-f1'
+    evaluation_metric: 'accuracy-macro-f1'
     linear: False
     skip_train: False
     skip_eval: False

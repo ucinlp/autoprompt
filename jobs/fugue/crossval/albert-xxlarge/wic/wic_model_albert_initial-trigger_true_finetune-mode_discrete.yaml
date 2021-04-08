@@ -1,22 +1,21 @@
-trainer: 'continuous_mlm'
+trainer: 'discrete_mlm'
 args:
     seed: 0
     model_name: 'albert-xxlarge-v2'
-    train: 'data/SuperFUGUE/CB/train.jsonl'
-    dev: 'data/SuperFUGUE/CB/dev.jsonl'
-    test: 'data/SuperFUGUE/CB/dev_all.jsonl'
+    train: 'data/SuperFUGUE/WiC/train.jsonl'
+    dev: 'data/SuperFUGUE/WiC/dev.jsonl'
+    test: 'data/SuperFUGUE/WiC/dev_all.jsonl'
     checklist: null
-    template: '{hypothesis} [T] [T] [P] [T] {premise}'
-    label_map: '{"entailment": "yes", "contradiction": "no", "neutral": "maybe"}'
-    initial_trigger: []
+    template: '{sentence1} {sentence2} [T] {word} [T] [T] [T] [T] [T] [T] [T] [T] [P]'
+    label_map: '{"True": "Yes", "False": "No"}'
+    initial_trigger: ['▁does', '▁have', '▁the', '▁same', '▁meaning', '▁in', '▁both', '▁sentences', '?']
     label_field: 'label'
     add_padding: False
-    preprocessor: null
+    preprocessor: null 
     evaluation_strategy: 'classification'
     decoding_strategy: null
-    finetune_mode:
-        - 'trigger'
-    evaluation_metric: 'accuracy-macro-f1'
+    finetune_mode: 'trigger'
+    evaluation_metric: 'accuracy'
     linear: False
     skip_train: False
     skip_eval: False

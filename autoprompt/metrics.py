@@ -140,6 +140,31 @@ class MacroF1(Metric):
         }
 
 
+class AccuracyMacroF1(Metric):
+    score_key = 'f1'
+    keys = [*Accuracy.keys, *MacroF1.keys]
+
+    def __init__(self, label_map):
+        self.label_map = label_map  # TODO(rloganiv): IDK
+        self.accuracy = Accuracy(label_map)
+        self.f1 = MacroF1(label_map)
+
+    def reset(self):
+        self.accuracy.reset()
+        self.f1.reset()
+
+    def update(self, labels, predictions):
+        self.accuracy.update(labels, predictions)
+        self.f1.update(labels, predictions)
+
+    def reduce(self):
+        self.accuracy.reduce()
+        self.f1.reduce()
+
+    def get(self):
+        return {**self.accuracy.get(), **self.f1.get()}
+
+
 class MatthewsCorrelation(Metric):
     score_key = 'matthews_correlation'
     keys = ['matthews_correlation']
@@ -179,5 +204,6 @@ METRICS = {
     'accuracy-f1': AccuracyF1,
     'binary-f1': BinaryF1,
     'macro-f1': MacroF1,
+    'accuracy-macro-f1': AccuracyMacroF1,
     'matthews-correlation': MatthewsCorrelation,
 }

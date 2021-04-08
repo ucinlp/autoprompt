@@ -1,22 +1,21 @@
-trainer: 'continuous_mlm'
+trainer: 'discrete_mlm'
 args:
     seed: 0
     model_name: 'albert-xxlarge-v2'
-    train: 'data/SuperFUGUE/CB/train.jsonl'
-    dev: 'data/SuperFUGUE/CB/dev.jsonl'
-    test: 'data/SuperFUGUE/CB/dev_all.jsonl'
+    train: 'data/LittleGLUE/QQP/train.jsonl'
+    dev: 'data/LittleGLUE/QQP/dev.jsonl'
+    test: 'data/LittleGLUE/QQP/dev_all.jsonl'
     checklist: null
-    template: '{hypothesis} [T] [T] [P] [T] {premise}'
-    label_map: '{"entailment": "yes", "contradiction": "no", "neutral": "maybe"}'
+    template: '{sentence1} [T] {sentence2} [T] [P] [T] [T] [T]'
+    label_map: '{"0": "different", "1": "similar"}'
     initial_trigger: []
     label_field: 'label'
     add_padding: False
-    preprocessor: null
+    preprocessor: null 
     evaluation_strategy: 'classification'
     decoding_strategy: null
-    finetune_mode:
-        - 'trigger'
-    evaluation_metric: 'accuracy-macro-f1'
+    finetune_mode: 'trigger'
+    evaluation_metric: 'accuracy-f1'
     linear: False
     skip_train: False
     skip_eval: False

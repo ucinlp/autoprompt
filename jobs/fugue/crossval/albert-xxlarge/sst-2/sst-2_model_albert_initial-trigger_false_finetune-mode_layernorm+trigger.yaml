@@ -2,12 +2,12 @@ trainer: 'continuous_mlm'
 args:
     seed: 0
     model_name: 'albert-xxlarge-v2'
-    train: 'data/SuperFUGUE/CB/train.jsonl'
-    dev: 'data/SuperFUGUE/CB/dev.jsonl'
-    test: 'data/SuperFUGUE/CB/dev_all.jsonl'
+    train: 'data/LittleGLUE/SST-2/train.jsonl'
+    dev: 'data/LittleGLUE/SST-2/dev.jsonl'
+    test: 'data/LittleGLUE/SST-2/dev_all.jsonl'
     checklist: null
-    template: '{hypothesis} [T] [T] [P] [T] {premise}'
-    label_map: '{"entailment": "yes", "contradiction": "no", "neutral": "maybe"}'
+    template: '{sentence} [T] [T] [P] [T]'
+    label_map: '{"0": "terrible", "1": "great"}'
     initial_trigger: []
     label_field: 'label'
     add_padding: False
@@ -16,7 +16,8 @@ args:
     decoding_strategy: null
     finetune_mode:
         - 'trigger'
-    evaluation_metric: 'accuracy-macro-f1'
+        - 'layernorm'
+    evaluation_metric: 'accuracy'
     linear: False
     skip_train: False
     skip_eval: False
@@ -35,3 +36,4 @@ args:
 parameters:
     accumulation_steps: [1, 2, 4]
     lr: [1.0e-5, 5.0e-5, 1.0e-4, 5.0e-4]
+    finetune_lr: [1.0e-5, 5.0e-5, 1.0e-4, 5.0e-4]

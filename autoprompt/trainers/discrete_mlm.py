@@ -24,12 +24,12 @@ logger = logging.getLogger(__name__)
 def get_cinf_optimizer(model, args):
     """Handles setting the optimizer up for different finetuning modes."""
     params = []
-    if args['finetune_mode'] == []:
+    if args['finetune_mode'] == 'all':
         params.append({
             'params': model.parameters(),
             'lr': args['finetune_lr'] if args['finetune_lr'] else args['lr']
         })
-    elif 'partial' in args['finetune_mode']:
+    elif args['finetune_mode'] == 'partial':
         params.append({
             'params': model.lm_head.parameters(),
             'lr': args['finetune_lr'] if args['finetune_lr'] else args['lr']
