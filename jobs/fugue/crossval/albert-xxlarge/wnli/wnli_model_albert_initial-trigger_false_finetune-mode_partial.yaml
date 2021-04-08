@@ -7,7 +7,7 @@ args:
     test: 'data/LittleGLUE/WNLI/dev_all.jsonl'
     checklist: null
     template: '{sentence1} [T] {sentence2} [T] [P] [T] [T] [T]'
-    label_map: '{"0": "similar", "1": "different"}'
+    label_map: '{"0": "different", "1": "similar"}'
     initial_trigger: []
     label_field: 'label'
     add_padding: False
