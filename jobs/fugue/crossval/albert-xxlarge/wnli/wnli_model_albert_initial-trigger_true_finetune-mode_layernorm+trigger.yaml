@@ -16,7 +16,7 @@ args:
     decoding_strategy: null
     finetune_mode:
         - 'trigger'
-        - 'layerNorm'
+        - 'layernorm'
     evaluation_metric: 'accuracy'
     linear: False
     skip_train: False
