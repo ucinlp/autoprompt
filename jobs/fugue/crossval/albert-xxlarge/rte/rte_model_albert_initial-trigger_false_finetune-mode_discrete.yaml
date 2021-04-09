@@ -6,7 +6,7 @@ args:
     dev: 'data/SuperFUGUE/RTE/dev.jsonl'
     test: 'data/SuperFUGUE/RTE/dev_all.jsonl'
     checklist: null
-    template: '{sentence2} [T] [T] [P] [T] {sentence1}'
+    template: '{hypothesis} [T] [T] [P] [T] {premise}'
     label_map: '{"entailment": "Yes", "not_entailment": "No"}'
     initial_trigger: []
     label_field: 'label'
