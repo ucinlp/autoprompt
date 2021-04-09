@@ -6,7 +6,7 @@ args:
     dev: 'data/LittleGLUE/QQP/dev.jsonl'
     test: 'data/LittleGLUE/QQP/dev_all.jsonl'
     checklist: null
-    template: '{sentence1} [T] {sentence2} [T] [P] [T] [T] [T]'
+    template: '{question1} [T] {question2} [T] [P] [T] [T] [T]'
     label_map: '{"0": "different", "1": "similar"}'
     initial_trigger: []
     label_field: 'label'
