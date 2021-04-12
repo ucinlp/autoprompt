@@ -64,7 +64,7 @@ python -m autoprompt.create_trigger \
 
 ### Natural Language Inference
 ```
-Coming soon
+python  -m autoprompt.create_trigger  --train SICK_TRAIN_ALL_S.tsv --dev SICK_DEV_ALL_S.tsv --template '<s> {sentence_A} [P] [T] [T] [T] [T] {sentence_B} </s>'  --label-map '{"ENTAILMENT": ["\u0120Taiwan", "\u0120Ara", "abet"], "CONTRADICTION": ["\u0120Only", "\u0120Didn", "\u0120BUT"], "NEUTRAL": ["icy", "oder", "agna"]}' --bsz 120  --model-name roberta-large
 ```
 
 ### Fact Retrieval
