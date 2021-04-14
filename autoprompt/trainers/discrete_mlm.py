@@ -108,6 +108,9 @@ class DiscreteMLMTrainer(Trainer):
         # TODO(rloganiv): This is lazy.
         args = self.args
 
+        if not os.path.exists(args['ckpt_dir']):
+            os.makedirs(args['ckpt_dir'])
+
         # Setup model
         logger.info('Initializing model.')
         base_model = transformers.AutoModelForMaskedLM.from_pretrained(args['model_name'],
