@@ -1,5 +1,6 @@
 """Data loading utilities."""
 import logging
+import warnings
 import random
 
 import torch
@@ -310,6 +311,9 @@ def generate_splits(args, num_folds, templatizer, distributed_config):
     # TODO(rloganiv): Need to work something out for multiple choice...
     if args['evaluation_strategy'] != 'classification':
         raise NotImplementedError('Ugh...')
+
+    assert num_folds > 0, 'Number of folds must be a positive integer.'
+
     dataset_constructor = DATASET_CONSTRUCTORS[args['evaluation_strategy']]
     collator = Collator(pad_token_id=templatizer.pad_token_id)
 
@@ -328,8 +332,14 @@ def generate_splits(args, num_folds, templatizer, distributed_config):
     )
     combined = train_dataset + dev_dataset
     logger.debug(f'Combined Size: {len(combined)}')
-    assert len(combined) % num_folds == 0, 'Folds must evenly divide data'
     chunk_size = len(combined) // num_folds
+    if len(combined) % num_folds != 0:
+        warnings.warn(
+            'Folds do not evenly divide data. Ignoring last incomplete fold.',
+            RuntimeWarning
+        )
+        num_folds -= 1
+
     for k in range(num_folds):
         train_dataset = combined[:k*chunk_size] + combined[(k+1)*chunk_size:]
         train_sampler = get_sampler(train_dataset, args['evaluation_strategy'], distributed_config, train=True)

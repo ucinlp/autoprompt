@@ -209,6 +209,7 @@ if __name__ == '__main__':
         )
 
     # Setup logging
+    logging.captureWarnings(True)
     formatter = logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s')
     root_logger = logging.getLogger()
     root_logger.setLevel(logging.DEBUG)
