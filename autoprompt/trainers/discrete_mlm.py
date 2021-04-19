@@ -156,7 +156,7 @@ class DiscreteMLMTrainer(Trainer):
         # of carrying just one around.
         metric_cls = METRICS[args['evaluation_metric']]
 
-        best_score = 0
+        best_score = -float('inf')
         if not args['skip_train']:
             for epoch in range(args['epochs']):
                 logger.info(f'Epoch: {epoch}')
@@ -391,7 +391,7 @@ class DiscreteMLMTrainer(Trainer):
             metric_string = ' '.join(f'{k}: {v:0.4f}' for k, v in metric_dict.items())
             logger.info(metric_string)
 
-            return score.item()
+            return metric_dict
 
 
 def main(args):

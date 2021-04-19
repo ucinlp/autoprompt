@@ -72,9 +72,13 @@ def kfold(args, trainer_class, num_folds):
             model, metric_dict = trainer.train(train_loader, dev_loader)
         for k, v in metric_dict.items():
             all_metrics[k].append(v)
-
         del model
         torch.cuda.empty_cache()
+
+        # HOTFIX: Don't mutate my config bro.
+        if hasattr(trainer.config, 'adapters'):
+            logger.debug('Unmutating config')
+            delattr(trainer.config, 'adapters')
 
     return all_metrics
 

@@ -202,7 +202,7 @@ class ContinuousMLMTrainer(Trainer):
             label_map=self.label_map
         )
 
-        best_score = 0
+        best_score = -float('inf')
         if not args['skip_train']:
             for epoch in range(args['epochs']):
                 logger.info(f'Epoch: {epoch}')
@@ -374,6 +374,13 @@ class ContinuousMLMTrainer(Trainer):
                 if os.path.exists(ckpt_path):
                     logger.info('Temporary mode enabled, deleting checkpoint.')
                     os.remove(ckpt_path)
+                    if 'adapter' in args['finetune_mode']:
+                        adapter_path = os.path.join(args['ckpt_dir'], 'pytorch_adapter.bin')
+                        adapter_head_path = os.path.join(args['ckpt_dir'], 'pytorch_model_head.bin')
+                        if os.path.exists(adapter_path):
+                            os.remove(adapter_path)
+                        if os.path.exists(adapter_head_path):
+                            os.remove(adapter_head_path)
 
             if args['linear']:
                 zero_frac = model.trigger_projection.eq(0.0).sum() / torch.numel(model.trigger_projection)

@@ -68,9 +68,9 @@ class BinaryF1(Metric):
         torch.distributed.reduce(self.fn, 0)
 
     def get(self):
-        precision = self.tp / (self.tp + self.fp)
-        recall = self.tp / (self.tp + self.fn)
-        f1 = 2 * precision * recall / (precision + recall)
+        precision = self.tp / (self.tp + self.fp + 1e-13)
+        recall = self.tp / (self.tp + self.fn + 1e-13)
+        f1 = 2 * precision * recall / (precision + recall + 1e-13)
         return {
             'precision': precision.item(),
             'recall': recall.item(),
