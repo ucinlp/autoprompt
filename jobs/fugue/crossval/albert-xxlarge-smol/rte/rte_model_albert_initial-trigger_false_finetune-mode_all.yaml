@@ -4,7 +4,7 @@ args:
     model_name: 'albert-xxlarge-v2'
     train: 'data/SuperFUGUE/RTE/train_4.jsonl'
     dev: 'data/SuperFUGUE/RTE/dev_4.jsonl'
-    test: 'data/SuperFUGUE/RTE/dev_all_4.jsonl'
+    test: 'data/SuperFUGUE/RTE/dev_all.jsonl'
     checklist: null
     template: '{hypothesis} [T] [T] [P] [T] {premise}'
     label_map: '{"entailment": "Yes", "not_entailment": "No"}'

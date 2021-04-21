@@ -4,7 +4,7 @@ args:
     model_name: 'albert-xxlarge-v2'
     train: 'data/LittleGLUE/MNLI_mismatched/train_4.jsonl'
     dev: 'data/LittleGLUE/MNLI_mismatched/dev_4.jsonl'
-    test: 'data/LittleGLUE/MNLI_mismatched/dev_all_4.jsonl'
+    test: 'data/LittleGLUE/MNLI_mismatched/dev_all.jsonl'
     checklist: null
     template: '{sentence2} [T] [T] [P] [T] {sentence1}'
     label_map: '{"entailment": "Yes", "contradiction": "No", "neutral": "Maybe"}'

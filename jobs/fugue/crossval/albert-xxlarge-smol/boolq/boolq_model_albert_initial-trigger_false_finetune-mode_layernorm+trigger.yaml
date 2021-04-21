@@ -4,7 +4,7 @@ args:
     model_name: 'albert-xxlarge-v2'
     train: 'data/SuperFUGUE/BoolQ/train_4.jsonl'
     dev: 'data/SuperFUGUE/BoolQ/dev_4.jsonl'
-    test: 'data/SuperFUGUE/BoolQ/dev_all_4.jsonl'
+    test: 'data/SuperFUGUE/BoolQ/dev_all.jsonl'
     checklist: null
     template: '{passage} [T] [T] [T] {question} [T] [T] [T] [P] [T]'
     label_map: '{"True": "Yes", "False": "No"}'
