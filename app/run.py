@@ -22,6 +22,22 @@ import autoprompt.create_trigger as ct
 logger = logging.getLogger(__name__)
 
 
+def css_hack():
+    st.markdown(
+        """
+        <style>
+            code {
+                color: #eec66d;
+            }
+            .css-gtmd9c a {
+                color: #6f98af;
+            }
+        </style>
+        """,
+        unsafe_allow_html=True
+    )
+
+
 # Setting eq and frozen ensures that a __hash__ method is generated which is needed for caching to
 # properly respond to changed args.
 @dataclass(eq=True, frozen=True)
@@ -417,6 +433,7 @@ def csv_dataset():
 
 
 def run():
+    css_hack()
     st.title('AutoPrompt Demo')
     st.write("Give some examples, get a model!")
     st.markdown("See https://ucinlp.github.io/autoprompt/ for more details.")
@@ -438,7 +455,7 @@ def run():
         st.write("### Let's test it ourselves!")
         sentence = st.text_input("Sentence", dataset.dev[1]['sentence'])
         pred_output = predict_test([sentence], label_map ,templatizer, best_trigger_ids, tokenizer, predictor, args)
-        st.dataframe(pd.DataFrame(pred_output).style.highlight_min(axis=1))
+        st.dataframe(pd.DataFrame(pred_output).style.highlight_min(axis=1, color='#94666b'))
 
 
 if __name__ == '__main__':
