@@ -46,23 +46,6 @@ class Args:
     @classmethod
     def from_streamlit(cls):
         st.sidebar.image('assets/icon.png', width=150)
-        st.sidebar.markdown(
-            """
-            ### Template
-
-            Templates define how task-specific inputs are combined with trigger tokens to create the
-            prompt. They should contain the following placeholders:
-            - `{sentence}`: Placeholders for the task-specific input fields contain the field name
-              between curly brackets. For manually entered data the field name is `{sentence}`. For
-              uploaded csv's, field names should correspond to columns in the csv.
-            - `[T]`: Placeholder for a trigger token. These are learned from the training data.
-            - `[P]`: Placeholder for where to insert the [MASK] token that the model will predict on.
-
-            Templates can also include manually written text (e.g., `[CLS]` and `[SEP]` in the
-            default input).
-            """
-        )
-        template = st.sidebar.text_input("Template", "[CLS] {sentence} [T] [T] [T] [P] . [SEP]")
         st.sidebar.markdown('### Training Parameters')
         model_name = st.sidebar.selectbox(
             "Model",
@@ -92,6 +75,24 @@ class Args:
             help="Number of gradient accumulation steps used during training. Larger values may yield "
                  "better results. Cannot be larger than half the dataset size."
         ))
+        st.sidebar.markdown(
+            """
+            ### Template
+
+            Templates define how task-specific inputs are combined with trigger tokens to create
+            the prompt. They should contain the following placeholders:
+            - `{sentence}`: Placeholders for the task-specific input fields contain the field name
+              between curly brackets. For manually entered data the field name is `{sentence}`. For
+              uploaded csv's, field names should correspond to columns in the csv.
+            - `[T]`: Placeholder for a trigger token. These are learned from the training data.
+            - `[P]`: Placeholder for where to insert the [MASK] token that the model will predict
+              on.
+
+            Templates can also include manually written text (e.g., `[CLS]` and `[SEP]` in the
+            default input).
+            """
+        )
+        template = st.sidebar.text_input("Template", "[CLS] {sentence} [T] [T] [T] [P] . [SEP]")
         return cls(
             template=template,
             model_name=model_name,
