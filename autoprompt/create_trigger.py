@@ -61,12 +61,14 @@ class AccuracyFn:
     compare the target logp to the logp of all labels. If target logp is greater than all (but)
     one of the label logps we know we are accurate.
     """
-    def __init__(self, tokenizer, label_map, device):
+    def __init__(self, tokenizer, label_map, device, tokenize_labels=False):
         self._all_label_ids = []
         self._pred_to_label = []
+        logger.info(label_map)
         for label, label_tokens in label_map.items():
-            self._all_label_ids.append(utils.encode_label(tokenizer, label_tokens).to(device))
+            self._all_label_ids.append(utils.encode_label(tokenizer, label_tokens, tokenize_labels).to(device))
             self._pred_to_label.append(label)
+        logger.info(self._all_label_ids)
 
     def __call__(self, predict_logits, gold_label_ids):
         # Get total log-probability for the true label
@@ -206,6 +208,7 @@ def run_model(args):
         logger.info(f"Label map: {label_map}")
     else:
         label_map = None
+        logger.info('No label map')
 
     templatizer = utils.TriggerTemplatizer(
         args.template,

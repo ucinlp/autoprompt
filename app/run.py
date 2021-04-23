@@ -1,6 +1,7 @@
 import csv
 from dataclasses import dataclass
 import io
+import json
 import logging
 import random
 import sys
@@ -20,6 +21,13 @@ import autoprompt.create_trigger as ct
 # logging.getLogger("streamlit.caching").setLevel(logging.DEBUG)
 
 logger = logging.getLogger(__name__)
+
+
+with open('assets/sst2_train.jsonl', 'r') as f:
+    DEFAULT_TRAIN = [json.loads(line) for line in f]
+
+with open('assets/sst2_dev.jsonl', 'r') as f:
+    DEFAULT_DEV = [json.loads(line) for line in f]
 
 
 def css_hack():
@@ -65,19 +73,19 @@ class Args:
         st.sidebar.markdown('### Training Parameters')
         model_name = st.sidebar.selectbox(
             "Model",
-            options=['bert-base-cased', 'roberta-large'],
+            options=['roberta-large', 'bert-base-cased'],
             help="Language model used for training and evaluation."
         )
         iters = int(st.sidebar.number_input(
             "Iterations",
-            value=3,
+            value=10,
             min_value=1,
             max_value=100,
             help="Number of trigger search iterations. Larger values may yield better results."
         ))
         num_cand = int(st.sidebar.number_input(
             "Number of Candidates",
-            value=10,
+            value=25,
             min_value=1,
             max_value=100,
             help="Number of candidate trigger token replacements to evaluate during each search "
@@ -104,11 +112,10 @@ class Args:
             - `[P]`: Placeholder for where to insert the [MASK] token that the model will predict
               on.
 
-            Templates can also include manually written text (e.g., `[CLS]` and `[SEP]` in the
-            default input).
+            Templates can also include manually written text.
             """
         )
-        template = st.sidebar.text_input("Template", "[CLS] {sentence} [T] [T] [T] [P] . [SEP]")
+        template = st.sidebar.text_input("Template", "{sentence}. [T] [T] [P].")
         return cls(
             template=template,
             model_name=model_name,
@@ -176,9 +183,10 @@ def run_autoprompt(args, dataset):
         label_field=args.label_field,
         label_map=dataset.label_map,
         tokenize_labels=args.tokenize_labels,
-        add_special_tokens=False,
+        add_special_tokens=True,
     )
-    evaluation_fn = ct.AccuracyFn(global_data.tokenizer, dataset.label_map, global_data.device)
+    evaluation_fn = ct.AccuracyFn(global_data.tokenizer, dataset.label_map, global_data.device,
+                                  tokenize_labels=args.tokenize_labels)
 
     # Do not allow for initial trigger specification.
     trigger_ids = [global_data.tokenizer.mask_token_id] * templatizer.num_trigger_tokens
@@ -283,7 +291,7 @@ def run_autoprompt(args, dataset):
 
                 candidate_scores[i] += eval_metric.sum()
 
-        if (candidate_scores > current_score).any():
+        if (candidate_scores >= current_score).any():
             logger.info('Better trigger detected.')
             best_candidate_score = candidate_scores.max()
             best_candidate_idx = candidate_scores.argmax()
@@ -298,15 +306,16 @@ def run_autoprompt(args, dataset):
             labels = labels.to(global_data.device)
             with torch.no_grad():
                 predict_logits = global_data.predictor(model_inputs, trigger_ids)
+            logger.info(predict_logits)
             numerator += evaluation_fn(predict_logits, labels).sum().item()
             denominator += labels.size(0)
         dev_metric = numerator / (denominator + 1e-13)
+        logger.info(f'Dev metric: {dev_metric}')
 
         if dev_metric > best_dev_metric:
             logger.info('Best performance so far')
             best_trigger_ids = trigger_ids.clone()
             best_dev_metric = dev_metric
-
 
     progress.progress(1.0)
     current_trigger = ','.join(global_data.tokenizer.convert_ids_to_tokens(best_trigger_ids.squeeze(0)))
@@ -315,7 +324,7 @@ def run_autoprompt(args, dataset):
     best_trigger_tokens = global_data.tokenizer.convert_ids_to_tokens(best_trigger_ids.squeeze(0))
     dev_output = predict_test(map(lambda x: x['sentence'], dataset.dev), dataset.label_map,
                               templatizer, best_trigger_ids, global_data.tokenizer, global_data.predictor, args)
-    st.dataframe(pd.DataFrame(dev_output).style.highlight_min(axis=1))
+    st.dataframe(pd.DataFrame(dev_output).style.highlight_min(axis=1, color='#94666b'))
     return best_trigger_tokens, best_dev_metric, dataset.label_map, templatizer, best_trigger_ids, global_data.tokenizer, global_data.predictor, args
 
 
@@ -333,8 +342,6 @@ def predict_test(sentences, label_map, templatizer, best_trigger_ids, tokenizer,
 
         prompt_ids = ct.replace_trigger_tokens(
             model_inputs, best_trigger_ids, model_inputs['trigger_mask'])
-        # st.write(prompt_ids)
-        # st.write(prompt_ids.shape)
 
         prompt = ' '.join(tokenizer.convert_ids_to_tokens(prompt_ids['input_ids'][0]))
         output['prompt'].append(prompt)
@@ -350,33 +357,40 @@ def predict_test(sentences, label_map, templatizer, best_trigger_ids, tokenizer,
     return output
 
 
-def manual_dataset():
-    num_train_instances = st.slider("Number of Train Instances", 4, 50)
+def manual_dataset(use_defaults):
+
+    num_train_instances = st.slider("Number of Train Instances", 4, 32, 8)
     any_empty = False
     dataset = []
     data_col, label_col = st.beta_columns([3,1])
     for i in range(num_train_instances):
+        default_data = DEFAULT_TRAIN[i]['sentence'] if use_defaults else ''
+        default_label = DEFAULT_TRAIN[i]['label'] if use_defaults else ''
         with data_col:
-            data = st.text_input("Train Instance " + str(i+1))
+            data = st.text_input("Train Instance " + str(i+1), default_data)
         with label_col:
-            label = st.text_input("Train Label " + str(i+1), max_chars=20)
+            label = st.text_input("Train Label " + str(i+1), default_label, max_chars=20)
         if data == "" or label == "":
             any_empty = True
         dataset.append({'sentence': data, 'label': label})
 
-    num_eval_instances = st.slider("Number of Evaluation Instances", 2, 50)
+    label_set = list(set(map(lambda x: x['label'], dataset)))
+    label_idx = {x: i for i, x in enumerate(label_set)}
+
+    num_eval_instances = st.slider("Number of Evaluation Instances", 4, 32, 8)
     eval_dataset = []
     data_col, label_col = st.beta_columns([3,1])
     for i in range(num_eval_instances):
+        default_data = DEFAULT_DEV[i]['sentence'] if use_defaults else ''
+        default_label = DEFAULT_DEV[i]['label'] if use_defaults else ''
         with data_col:
-            data = st.text_input("Eval Instance " + str(i+1))
+            data = st.text_input("Eval Instance " + str(i+1), default_data)
         with label_col:
-            label = st.text_input("Eval Label " + str(i+1), max_chars=20)
+            label = st.selectbox("Eval Label " + str(i+1), label_set, label_idx[default_label])
         if data == "" or label == "":
             any_empty = True
         eval_dataset.append({'sentence': data, 'label': label})
 
-    label_set = set(map(lambda x: x['label'], dataset))
     label_map = dict(map(lambda x: (x, x), label_set))
 
     if any_empty:
@@ -440,22 +454,22 @@ def run():
 
     args = Args.from_streamlit()
     dataset_mode = st.radio('How would you like to input your training data?',
-                            options=['Manual Input', 'From CSV'])
+                            options=['Example Data', 'Manual Input', 'From CSV'])
 
-    if dataset_mode == 'Manual Input':
-        dataset = manual_dataset()
+    if dataset_mode == 'Example Data':
+        dataset = manual_dataset(use_defaults=True)
+    elif dataset_mode == 'Manual Input':
+        dataset = manual_dataset(use_defaults=False)
     else:
         dataset = csv_dataset()
 
-    # TODO(rloganiv): Way too many arguments...
-    if st.button('Train'):
-        trigger_tokens, dev_metric, label_map, templatizer, best_trigger_ids, tokenizer, predictor, args = run_autoprompt(args, dataset)
-        logger.debug('Dev metric')
-        st.write('Train accuracy: ' + str(round(dev_metric*100, 1)))
-        st.write("### Let's test it ourselves!")
-        sentence = st.text_input("Sentence", dataset.dev[1]['sentence'])
-        pred_output = predict_test([sentence], label_map ,templatizer, best_trigger_ids, tokenizer, predictor, args)
-        st.dataframe(pd.DataFrame(pred_output).style.highlight_min(axis=1, color='#94666b'))
+    trigger_tokens, dev_metric, label_map, templatizer, best_trigger_ids, tokenizer, predictor, args = run_autoprompt(args, dataset)
+    logger.debug('Dev metric')
+    st.write('Train accuracy: ' + str(round(dev_metric*100, 1)))
+    st.write("### Let's test it ourselves!")
+    sentence = st.text_input("Sentence", dataset.dev[1]['sentence'])
+    pred_output = predict_test([sentence], label_map ,templatizer, best_trigger_ids, tokenizer, predictor, args)
+    st.dataframe(pd.DataFrame(pred_output).style.highlight_min(axis=1, color='#94666b'))
 
 
 if __name__ == '__main__':
