@@ -465,7 +465,7 @@ def run():
 
     trigger_tokens, dev_metric, label_map, templatizer, best_trigger_ids, tokenizer, predictor, args = run_autoprompt(args, dataset)
     logger.debug('Dev metric')
-    st.write('Train accuracy: ' + str(round(dev_metric*100, 1)))
+    st.write('Evaluation accuracy: ' + str(round(dev_metric*100, 1)))
     st.write("### Let's test it ourselves!")
     sentence = st.text_input("Sentence", dataset.dev[1]['sentence'])
     pred_output = predict_test([sentence], label_map ,templatizer, best_trigger_ids, tokenizer, predictor, args)
