@@ -1,0 +1,36 @@
+trainer: 'continuous_mlm'
+args:
+    seed: 0
+    model_name: 'albert-xxlarge-v2'
+    train: 'data/LittleGLUE/SST-2/train.jsonl'
+    dev: 'data/LittleGLUE/SST-2/dev.jsonl'
+    test: 'data/LittleGLUE/SST-2/dev_all.jsonl'
+    checklist: null
+    template: '{sentence} [P] '
+    label_map: '{"0": "terrible", "1": "great"}'
+    initial_trigger: []
+    label_field: 'label'
+    add_padding: False
+    preprocessor: null 
+    evaluation_strategy: 'classification'
+    decoding_strategy: null
+    finetune_mode: []
+    evaluation_metric: 'accuracy'
+    linear: False
+    skip_train: False
+    skip_eval: False
+    skip_test: False
+    bsz: 2
+    epochs: 30
+    disable_dropout: False
+    clip: 1.0
+    limit: null
+    reduction_factor: 16
+    l1decay: 0.0
+    theta: 1.0e32
+    force_overwrite: True
+    quiet: False
+    tmp: True
+parameters:
+    accumulation_steps: [1, 2, 4]
+    lr: [1.0e-5, 5.0e-5, 1.0e-4, 5.0e-4]
