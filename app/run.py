@@ -324,8 +324,25 @@ def run_autoprompt(args, dataset):
     best_trigger_tokens = global_data.tokenizer.convert_ids_to_tokens(best_trigger_ids.squeeze(0))
     dev_output = predict_test(map(lambda x: x['sentence'], dataset.dev), dataset.label_map,
                               templatizer, best_trigger_ids, global_data.tokenizer, global_data.predictor, args)
-    st.dataframe(pd.DataFrame(dev_output).style.highlight_min(axis=1, color='#94666b'))
-    return best_trigger_tokens, best_dev_metric, dataset.label_map, templatizer, best_trigger_ids, global_data.tokenizer, global_data.predictor, args
+
+    # Streamlit does not like accessing widgets across functions, which is
+    # problematic for this "live updating" widget which we want to still
+    # display even if the train output is cached. To get around this, we're
+    # going to delete the widget and replace it with a very similar looking
+    # widget outside the function...no one will ever notice ;)
+    trigger_placeholder.empty()
+
+    return (
+        best_trigger_tokens,
+        best_dev_metric,
+        dataset.label_map,
+        templatizer,
+        best_trigger_ids,
+        global_data.tokenizer,
+        global_data.predictor,
+        args,
+        dev_output
+    )
 
 
 def predict_test(sentences, label_map, templatizer, best_trigger_ids, tokenizer, predictor, args):
@@ -382,11 +399,11 @@ def manual_dataset(use_defaults):
     data_col, label_col = st.beta_columns([3,1])
     for i in range(num_eval_instances):
         default_data = DEFAULT_DEV[i]['sentence'] if use_defaults else ''
-        default_label = DEFAULT_DEV[i]['label'] if use_defaults else ''
+        default_label_idx = label_idx[DEFAULT_DEV[i]['label']] if use_defaults else 0
         with data_col:
             data = st.text_input("Eval Instance " + str(i+1), default_data)
         with label_col:
-            label = st.selectbox("Eval Label " + str(i+1), label_set, label_idx[default_label])
+            label = st.selectbox("Eval Label " + str(i+1), label_set, default_label_idx)
         if data == "" or label == "":
             any_empty = True
         eval_dataset.append({'sentence': data, 'label': label})
@@ -463,7 +480,9 @@ def run():
     else:
         dataset = csv_dataset()
 
-    trigger_tokens, dev_metric, label_map, templatizer, best_trigger_ids, tokenizer, predictor, args = run_autoprompt(args, dataset)
+    trigger_tokens, dev_metric, label_map, templatizer, best_trigger_ids, tokenizer, predictor, args, dev_output = run_autoprompt(args, dataset)
+    st.markdown(f'**Current trigger**: {", ".join(trigger_tokens)}')
+    st.dataframe(pd.DataFrame(dev_output).style.highlight_min(axis=1, color='#94666b'))
     logger.debug('Dev metric')
     st.write('Evaluation accuracy: ' + str(round(dev_metric*100, 1)))
     st.write("### Let's test it ourselves!")
