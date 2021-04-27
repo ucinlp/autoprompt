@@ -112,10 +112,11 @@ class Args:
             - `[P]`: Placeholder for where to insert the [MASK] token that the model will predict
               on.
 
-            Templates can also include manually written text.
+            Templates can also include manually written text (such as the
+            period in the default example below).
             """
         )
-        template = st.sidebar.text_input("Template", "{sentence}. [T] [T] [P].")
+        template = st.sidebar.text_input("Template", "{sentence} [T] [T] [T] [P].")
         return cls(
             template=template,
             model_name=model_name,
@@ -394,7 +395,7 @@ def manual_dataset(use_defaults):
     label_set = list(set(map(lambda x: x['label'], dataset)))
     label_idx = {x: i for i, x in enumerate(label_set)}
 
-    num_eval_instances = st.slider("Number of Evaluation Instances", 4, 32, 8)
+    num_eval_instances = st.slider("Number of Evaluation Instances", 4, 32, 4)
     eval_dataset = []
     data_col, label_col = st.beta_columns([3,1])
     for i in range(num_eval_instances):
@@ -466,9 +467,76 @@ def csv_dataset():
 def run():
     css_hack()
     st.title('AutoPrompt Demo')
-    st.write("Give some examples, get a model!")
-    st.markdown("See https://ucinlp.github.io/autoprompt/ for more details.")
+    st.markdown('''
+    For many years, the predominant approach for training machine learning
+    models to solve NLP tasks has been to use supervised training data to
+    estimate model parameters using maximum likelihood estimation or some
+    similar paradigm.  Whether fitting a logistic regression model over a
+    bag-of-words, an LSTM over a sequence of GloVe embeddings, or finetuning a
+    language model such as ELMo or BERT, the approach is essentially the same.
+    However, as language models have become more and more capable of accurately
+    generating plausible text a new possibility for solving classification
+    tasks has emerged...
 
+    ## Prompting
+
+    Prompting is the method of converting classification tasks into
+    *fill-in-the-blanks* problems that can be solved by a language model **without
+    modifying the model's internals**. For example, to perform sentiment analysis,
+    we may take the sentence we wish to classify and append the text "Overall, this
+    movie was ____." and feed it into a language model like so:
+    ''')
+    st.image('assets/bert-mouth.png', use_column_width=True)
+    st.markdown('''
+    By measuring whether the language model assigns a higher probability to
+    words that are associated with a **positive** sentiment ("good", "great",
+    and "fantastic") vs. words that are associated with a **negative**
+    sentiment ("bad", "terrible", or "awful") we can infer the
+    predicted label for the given input. So in this example, because the word "good"
+    has a higher probability than "bad", the predicted label is **positive**.
+
+    ## AutoPrompt
+
+    One issue that arises when using prompts is that it is not usually clear
+    how to best pose a task as a fill-in-the-blanks problem in a way that gets
+    the most performance from the language model. Even for a simple problem
+    like sentiment analysis, we don't know whether it is better to ask whether
+    a movie is good/bad, or whether you feel great/terrible about it, and for
+    more abstract problems like natural language inference it is difficult to
+    even know where to start.
+
+    To cure this writer's block we introduce **AutoPrompt**, a data-driven
+    approach for automatic prompt construction. The basic idea is
+    straightfoward: instead of writing a prompt, a user need only write a
+    **template** that specfies where the *task inputs* go along with placeholders for
+    a number of *trigger tokens* that will automatically be learned by the
+    model and the *predict token* that the model will fill in:
+    ''')
+    st.image('assets/template.png', use_column_width=True)
+    st.markdown(
+    '''
+    In each iteration of the search process:
+    1. The template is instantiated using a batch of training inputs.
+    2. The loss of the model on each input is measured and used to identify a
+    number of candidate replacements for the current trigger tokens.
+    3. The performance of each candidate is measured on another batch of
+    training data, and the best performing candidate is used in the next
+    iteration.
+
+    During this process, performance is also periodically measured on a held-out
+    evaluation set, which is used to revert the prompt back to a more
+    successful state if the search process starts to head in a bad direction.
+
+    ### Demo
+
+    To give a better sense of how AutoPrompt works, we have provided a simple
+    interactive demo. You can generate a prompt using the training data we have
+    pre-populated for you, or alternatively write your own training/evaluation
+    instances or upload them using a csv below. In addition, you can vary
+    some of the training parameters, as well as the template using the sidebar
+    on the left.
+    '''
+    )
     args = Args.from_streamlit()
     dataset_mode = st.radio('How would you like to input your training data?',
                             options=['Example Data', 'Manual Input', 'From CSV'])
@@ -481,14 +549,30 @@ def run():
         dataset = csv_dataset()
 
     trigger_tokens, dev_metric, label_map, templatizer, best_trigger_ids, tokenizer, predictor, args, dev_output = run_autoprompt(args, dataset)
-    st.markdown(f'**Current trigger**: {", ".join(trigger_tokens)}')
+    st.markdown(f'**Final trigger**: {", ".join(trigger_tokens)}')
     st.dataframe(pd.DataFrame(dev_output).style.highlight_min(axis=1, color='#94666b'))
     logger.debug('Dev metric')
     st.write('Evaluation accuracy: ' + str(round(dev_metric*100, 1)))
-    st.write("### Let's test it ourselves!")
-    sentence = st.text_input("Sentence", dataset.dev[1]['sentence'])
+    st.write("""
+    ### Try it out yourself!
+    """)
+    sentence = st.text_input("Sentence", 'Enter a test input here')
     pred_output = predict_test([sentence], label_map ,templatizer, best_trigger_ids, tokenizer, predictor, args)
     st.dataframe(pd.DataFrame(pred_output).style.highlight_min(axis=1, color='#94666b'))
+
+    st.markdown('''
+    ## Where can I learn more?
+
+    If you are interested in learning more about AutoPrompt we recommend
+    [reading our paper](https://arxiv.org/abs/2010.15980) and [checking out our
+    code](https://github.com/ucinlp/autoprompt), or if you'd like you can also
+    watch our presentation at EMNLP 2020:
+    ''')
+    st.components.v1.iframe(
+        src="https://www.youtube.com/embed/IBMT_oOCBbc",
+        height=400,
+    )
+    st.markdown('Thanks!')
 
 
 if __name__ == '__main__':
