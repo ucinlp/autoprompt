@@ -30,6 +30,15 @@ with open('assets/sst2_dev.jsonl', 'r') as f:
     DEFAULT_DEV = [json.loads(line) for line in f]
 
 
+@dataclass
+class CacheTest:
+    is_test: bool
+
+
+class CacheMiss(Exception):
+    pass
+
+
 def css_hack():
     st.markdown(
         """
@@ -172,8 +181,11 @@ def load_trigger_dataset(dataset, templatizer):
     return instances
 
 
-@st.cache(suppress_st_warning=True, allow_output_mutation=True)
-def run_autoprompt(args, dataset):
+@st.cache(suppress_st_warning=True, allow_output_mutation=True, hash_funcs={CacheTest: lambda o: 0})
+def run_autoprompt(args, dataset, cache_test):
+    if cache_test.is_test:
+        raise CacheMiss()
+
     ct.set_seed(args.seed)
     global_data = GlobalData.from_pretrained(args.model_name)
 
@@ -548,7 +560,20 @@ def run():
     else:
         dataset = csv_dataset()
 
-    trigger_tokens, dev_metric, label_map, templatizer, best_trigger_ids, tokenizer, predictor, args, dev_output = run_autoprompt(args, dataset)
+    button = st.empty()
+    clicked = button.button('Train')
+
+    if clicked:
+        trigger_tokens, dev_metric, label_map, templatizer, best_trigger_ids, tokenizer, predictor, args, dev_output = run_autoprompt(args, dataset, cache_test=CacheTest(False))
+    else:
+        try:
+            trigger_tokens, dev_metric, label_map, templatizer, best_trigger_ids, tokenizer, predictor, args, dev_output = run_autoprompt(args, dataset, cache_test=CacheTest(True))
+        except CacheMiss:
+            st.stop()
+        else:
+            button.empty()
+
+
     st.markdown(f'**Final trigger**: {", ".join(trigger_tokens)}')
     st.dataframe(pd.DataFrame(dev_output).style.highlight_min(axis=1, color='#94666b'))
     logger.debug('Dev metric')
