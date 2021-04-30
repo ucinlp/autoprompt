@@ -26,12 +26,13 @@ logger = logging.getLogger(__name__)
 with open('assets/sst2_train.jsonl', 'r') as f:
     DEFAULT_TRAIN = [json.loads(line) for line in f]
 
-with open('assets/sst2_dev.jsonl', 'r') as f:
-    DEFAULT_DEV = [json.loads(line) for line in f]
-
 
 @dataclass
 class CacheTest:
+    """
+    Stores whether the train button has been pressed for a given
+    set of inputs to run_autoprompt.
+    """
     is_test: bool
 
 
@@ -40,6 +41,9 @@ class CacheMiss(Exception):
 
 
 def css_hack():
+    """
+    Inject some style into this app. ヽ(⌐■_■)ノ
+    """
     st.markdown(
         """
         <style>
@@ -170,7 +174,6 @@ class GlobalData:
 @dataclass
 class Dataset:
     train: List[int]
-    dev: List[int]
     label_map: Dict[str, str]
 
 
@@ -209,12 +212,16 @@ def run_autoprompt(args, dataset, cache_test):
     # Load datasets
     logger.info('Loading datasets')
     collator = utils.Collator(pad_token_id=global_data.tokenizer.pad_token_id)
-    train_dataset = load_trigger_dataset(dataset.train, templatizer)
+    try:
+        train_dataset = load_trigger_dataset(dataset.train, templatizer)
+    except KeyError as e:
+        raise RuntimeError(
+            'A field in your template is not present in the uploaded dataset. '
+            f'Check that there is a column with the name: {e}'
+        )
+
     train_loader = torch.utils.data.DataLoader(
         train_dataset, batch_size=args.bsz, shuffle=True, collate_fn=collator)
-    dev_dataset = load_trigger_dataset(dataset.dev, templatizer)
-    dev_loader = torch.utils.data.DataLoader(
-        dev_dataset, batch_size=args.eval_size, shuffle=False, collate_fn=collator)
 
     progress = st.progress(0.0)
     trigger_placeholder = st.empty()
@@ -311,32 +318,17 @@ def run_autoprompt(args, dataset, cache_test):
             trigger_ids[:, token_to_flip] = candidates[best_candidate_idx]
             logger.info(f'Train metric: {best_candidate_score / (denom + 1e-13): 0.4f}')
 
-        logger.info('Evaluating')
-        numerator = 0
-        denominator = 0
-        for model_inputs, labels in tqdm(dev_loader):
-            model_inputs = {k: v.to(global_data.device) for k, v in model_inputs.items()}
-            labels = labels.to(global_data.device)
-            with torch.no_grad():
-                predict_logits = global_data.predictor(model_inputs, trigger_ids)
-            logger.info(predict_logits)
-            numerator += evaluation_fn(predict_logits, labels).sum().item()
-            denominator += labels.size(0)
-        dev_metric = numerator / (denominator + 1e-13)
-        logger.info(f'Dev metric: {dev_metric}')
-
-        if dev_metric > best_dev_metric:
-            logger.info('Best performance so far')
-            best_trigger_ids = trigger_ids.clone()
-            best_dev_metric = dev_metric
+        # Skip eval
+        best_trigger_ids = trigger_ids.clone()
 
     progress.progress(1.0)
     current_trigger = ','.join(global_data.tokenizer.convert_ids_to_tokens(best_trigger_ids.squeeze(0)))
     trigger_placeholder.markdown(f'**Current trigger**: {current_trigger}')
 
     best_trigger_tokens = global_data.tokenizer.convert_ids_to_tokens(best_trigger_ids.squeeze(0))
-    dev_output = predict_test(map(lambda x: x['sentence'], dataset.dev), dataset.label_map,
-                              templatizer, best_trigger_ids, global_data.tokenizer, global_data.predictor, args)
+
+    train_output = predict_test(map(lambda x: x['sentence'], dataset.train), dataset.label_map,
+                                templatizer, best_trigger_ids, global_data.tokenizer, global_data.predictor, args)
 
     # Streamlit does not like accessing widgets across functions, which is
     # problematic for this "live updating" widget which we want to still
@@ -347,14 +339,14 @@ def run_autoprompt(args, dataset, cache_test):
 
     return (
         best_trigger_tokens,
-        best_dev_metric,
+        current_score/denom,
         dataset.label_map,
         templatizer,
         best_trigger_ids,
         global_data.tokenizer,
         global_data.predictor,
         args,
-        dev_output
+        train_output
     )
 
 
@@ -406,21 +398,6 @@ def manual_dataset(use_defaults):
 
     label_set = list(set(map(lambda x: x['label'], dataset)))
     label_idx = {x: i for i, x in enumerate(label_set)}
-
-    num_eval_instances = st.slider("Number of Evaluation Instances", 4, 32, 4)
-    eval_dataset = []
-    data_col, label_col = st.beta_columns([3,1])
-    for i in range(num_eval_instances):
-        default_data = DEFAULT_DEV[i]['sentence'] if use_defaults else ''
-        default_label_idx = label_idx[DEFAULT_DEV[i]['label']] if use_defaults else 0
-        with data_col:
-            data = st.text_input("Eval Instance " + str(i+1), default_data)
-        with label_col:
-            label = st.selectbox("Eval Label " + str(i+1), label_set, default_label_idx)
-        if data == "" or label == "":
-            any_empty = True
-        eval_dataset.append({'sentence': data, 'label': label})
-
     label_map = dict(map(lambda x: (x, x), label_set))
 
     if any_empty:
@@ -433,7 +410,6 @@ def manual_dataset(use_defaults):
 
     return Dataset(
         train=dataset,
-        dev=eval_dataset,
         label_map=label_map
     )
 
@@ -449,29 +425,21 @@ def csv_dataset():
     """)
     train_csv = st.file_uploader('Train', accept_multiple_files=False)
 
-    dev_csv = st.file_uploader('Dev', accept_multiple_files=False)
-
-    if train_csv is None or dev_csv is None:
+    if train_csv is None:
         st.stop()
 
     with io.StringIO(train_csv.getvalue().decode('utf-8')) as f:
         reader = csv.DictReader(f)
         train_dataset = list(reader)
     if len(train_dataset) > 64:
-        raise ValueError('Train dataset is too large')
-
-    with io.StringIO(dev_csv.getvalue().decode('utf-8')) as f:
-        reader = csv.DictReader(f)
-        dev_dataset = list(reader)
-    if len(dev_dataset) > 64:
-        raise ValueError('Dev dataset is too large')
+        raise ValueError('Train dataset is too large. Please limit the number '
+                         'of examples to 64 or less.')
 
     labels = set(x['label'] for x in train_dataset)
     label_map = {x: x for x in labels}
 
     return Dataset(
         train=train_dataset,
-        dev=dev_dataset,
         label_map=label_map
     )
 
@@ -535,10 +503,6 @@ def run():
     training data, and the best performing candidate is used in the next
     iteration.
 
-    During this process, performance is also periodically measured on a held-out
-    evaluation set, which is used to revert the prompt back to a more
-    successful state if the search process starts to head in a bad direction.
-
     ### Demo
 
     To give a better sense of how AutoPrompt works, we have provided a simple
@@ -564,10 +528,10 @@ def run():
     clicked = button.button('Train')
 
     if clicked:
-        trigger_tokens, dev_metric, label_map, templatizer, best_trigger_ids, tokenizer, predictor, args, dev_output = run_autoprompt(args, dataset, cache_test=CacheTest(False))
+        trigger_tokens, eval_metric, label_map, templatizer, best_trigger_ids, tokenizer, predictor, args, train_output = run_autoprompt(args, dataset, cache_test=CacheTest(False))
     else:
         try:
-            trigger_tokens, dev_metric, label_map, templatizer, best_trigger_ids, tokenizer, predictor, args, dev_output = run_autoprompt(args, dataset, cache_test=CacheTest(True))
+            trigger_tokens, eval_metric, label_map, templatizer, best_trigger_ids, tokenizer, predictor, args, train_output = run_autoprompt(args, dataset, cache_test=CacheTest(True))
         except CacheMiss:
             st.stop()
         else:
@@ -575,11 +539,16 @@ def run():
 
 
     st.markdown(f'**Final trigger**: {", ".join(trigger_tokens)}')
-    st.dataframe(pd.DataFrame(dev_output).style.highlight_min(axis=1, color='#94666b'))
+    st.dataframe(pd.DataFrame(train_output).style.highlight_min(axis=1, color='#94666b'))
     logger.debug('Dev metric')
-    st.write('Evaluation accuracy: ' + str(round(dev_metric*100, 1)))
+    st.write('Accuracy: ' + str(round(eval_metric.item()*100, 1)))
     st.write("""
+    Et voila, you've now effectively finetuned a classifier using just a few
+    kilobytes of parameters (the tokens in the prompt). If you like you can
+    write down your "model" on the back of a napkin and take it with you.
+
     ### Try it out yourself!
+
     """)
     sentence = st.text_input("Sentence", 'Enter a test input here')
     pred_output = predict_test([sentence], label_map ,templatizer, best_trigger_ids, tokenizer, predictor, args)
