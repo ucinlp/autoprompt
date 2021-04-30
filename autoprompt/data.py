@@ -46,14 +46,14 @@ class Collator:
 
 # TODO(rloganiv): Better name? Consistency with other MLM datasets?
 def load_classification_dataset(
-        fname,
-        tokenizer,
-        input_field_a,
-        input_field_b=None,
-        label_field='label',
-        label_map=None,
-        limit=None,
-        preprocessor_key=None,
+    fname,
+    tokenizer,
+    input_field_a,
+    input_field_b=None,
+    label_field='label',
+    label_map=None,
+    limit=None,
+    preprocessor_key=None,
 ):
     """
     Loads a sequence classification dataset.
@@ -95,12 +95,53 @@ def load_classification_dataset(
     return instances, label_map
 
 
+def prime(model_inputs, label_id, priming_dataset, model_max_length):
+
+    to_concat = {k: [v] for k, v in model_inputs.items()}
+
+    current_length = model_inputs['input_ids'].size(1)
+
+    for prepended_inputs, label_id_ in priming_dataset:
+
+
+        new_length = current_length + prepended_inputs['input_ids'].size(1)
+
+        if new_length < model_max_length:
+
+            # Clone prepended inputs so that we don't accidentally overwrite
+            # data we care about.
+            prepended_inputs = {k: v.clone() for k, v in prepended_inputs.items()}
+            
+            # Now fill in label and remove predict mask
+            # TODO(rloganiv): Does something bad happen if we have multiple
+            # trigger tokens? Or is there broadcast magic?
+            input_ids = prepended_inputs['input_ids']
+            predict_mask = prepended_inputs['predict_mask']
+            input_ids[predict_mask] = label_id_[predict_mask]
+            predict_mask.zero_()
+
+            for k in prepended_inputs:
+                to_concat[k].insert(0, prepended_inputs[k])
+
+            current_length = new_length
+
+        else:
+            break
+
+    model_inputs = {k: torch.cat(v, dim=1) for k, v in to_concat.items()}
+    new_label_id = torch.zeros_like(model_inputs['input_ids']).fill_(-100)
+    new_label_id[:,-label_id.size(1):] = label_id
+
+    return model_inputs, new_label_id
+
+
 def load_trigger_dataset(
-        fname,
-        templatizer,
-        limit=None,
-        train=False,
-        preprocessor_key=None,
+    fname,
+    templatizer,
+    limit=None,
+    train=False,
+    preprocessor_key=None,
+    priming_dataset=None,
 ):
     """
     Loads a MLM classification dataset.
@@ -126,6 +167,15 @@ def load_trigger_dataset(
     for x in preprocessor(fname, train=train):
         try:
             model_inputs, label_id = templatizer(x, train=train)
+
+            if priming_dataset is not None:
+                model_inputs, label_id = prime(
+                    model_inputs,
+                    label_id,
+                    priming_dataset,
+                    model_max_length=templatizer._tokenizer.model_max_length,
+                )
+
         except ValueError as e:
             logger.warning('Encountered error "%s" when processing "%s".  Skipping.', e, x)
             continue
@@ -228,11 +278,11 @@ class GenerativeDataset(IterableDataset):
     """
     # pylint: disable=abstract-method
     def __init__(
-            self,
-            instances,
-            templatizer,
-            limit=None,
-            train=False,
+        self,
+        instances,
+        templatizer,
+        limit=None,
+        train=False,
     ):
         self._instances = instances
         self._templatizer = templatizer
@@ -241,12 +291,12 @@ class GenerativeDataset(IterableDataset):
 
     @classmethod
     def load(
-            cls,
-            fname,
-            templatizer,
-            limit=None,
-            train=False,
-            preprocessor_key=None,
+        cls,
+        fname,
+        templatizer,
+        limit=None,
+        train=False,
+        preprocessor_key=None,
     ):
         """
         Loads the dataset from a file.
@@ -289,10 +339,10 @@ DATASET_CONSTRUCTORS = {
 
 
 def get_sampler(
-        dataset,
-        evaluation_strategy,
-        distributed_config,
-        train=False,
+    dataset,
+    evaluation_strategy,
+    distributed_config,
+    train=False,
 ):
     """Sets up the metrics sampler for a data loader."""
     # Sampling is handled by data iterator for multiple choice problems.
@@ -355,7 +405,7 @@ def generate_splits(args, num_folds, templatizer, distributed_config):
 
 
 # TODO(rloganiv): Maybe clean up usage of args here, to a more well-defined config.
-def load_datasets(args, templatizer, distributed_config):
+def load_datasets(args, templatizer, distributed_config, prime=False):
     """Loads the training, dev and test datasets."""
     dataset_constructor = DATASET_CONSTRUCTORS[args['evaluation_strategy']]
     collator = Collator(pad_token_id=templatizer.pad_token_id)
@@ -383,6 +433,7 @@ def load_datasets(args, templatizer, distributed_config):
         args['test'],
         templatizer=templatizer,
         preprocessor_key=args['preprocessor'],
+        priming_dataset=train_dataset if args['prime'] else None
     )
     test_sampler = get_sampler(test_dataset, args['evaluation_strategy'], distributed_config, train=False)
     test_loader = DataLoader(test_dataset, batch_size=args['bsz'], collate_fn=collator, sampler=test_sampler)

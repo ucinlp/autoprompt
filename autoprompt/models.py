@@ -111,7 +111,9 @@ class ContinuousTriggerMLM(torch.nn.Module):
 
         # Insert trigger embeddings into input embeddings.
         batch_size = input_ids.size(0)
-        inputs_embeds[trigger_mask] = self.trigger_embeddings.repeat((batch_size, 1))
+        reps = trigger_mask.sum(dim=-1) // self.trigger_embeddings.size(0)
+        for row, t_mask, rep in zip(inputs_embeds, trigger_mask, reps):
+            row[t_mask] = self.trigger_embeddings.repeat((rep.item(), 1))
         model_inputs['inputs_embeds'] = inputs_embeds
 
         return self.base_model(**model_inputs, labels=labels)
