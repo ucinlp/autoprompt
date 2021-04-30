@@ -203,6 +203,7 @@ class ContinuousMLMTrainer(Trainer):
         )
 
         best_score = -float('inf')
+        best_metric_dict = {}
         if not args['skip_train']:
             for epoch in range(args['epochs']):
                 logger.info(f'Epoch: {epoch}')
@@ -539,6 +540,9 @@ if __name__ == '__main__':
                         help='L1 regularization weight (if using linear combination MLM)')
     parser.add_argument('--theta', type=float, default=1e32,
                         help='L1 regularization weight (if using linear combination MLM)')
+
+    # Priming param
+    parser.add_argument('--prime', action='store_true', help='enables priming')
 
     # Additional options
     parser.add_argument('-f', '--force-overwrite', action='store_true',
