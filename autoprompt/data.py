@@ -15,6 +15,8 @@ logger = logging.getLogger(__name__)
 
 def pad_squeeze_sequence(sequence, *args, **kwargs):
     """Squeezes fake batch dimension added by tokenizer before padding sequence."""
+    if sequence[0].size() == (1,):  # Labels aren't a token sequence
+        return torch.cat(sequence, dim=0)
     return pad_sequence([x.squeeze(0) for x in sequence], *args, **kwargs)
 
 
@@ -44,63 +46,12 @@ class Collator:
         return padded_inputs, labels
 
 
-# TODO(rloganiv): Better name? Consistency with other MLM datasets?
-def load_classification_dataset(
-        fname,
-        tokenizer,
-        input_field_a,
-        input_field_b=None,
-        label_field='label',
-        label_map=None,
-        limit=None,
-        preprocessor_key=None,
-):
-    """
-    Loads a sequence classification dataset.
-
-    Parameters
-    ==========
-    tokenizer : transformers.PretrainedTokenizer
-        Maps text to id tensors.
-    sentence1 :
-    """
-    instances = []
-    label_map = label_map or {}
-    if preprocessor_key is None:
-        preprocessor = PREPROCESSORS[fname.split('.')[-1]]
-    else:
-        preprocessor = PREPROCESSORS[preprocessor_key]
-    for instance in preprocessor(fname):
-        logger.debug(instance)
-        model_inputs = tokenizer(
-            instance[input_field_a],
-            instance[input_field_b] if input_field_b else None,
-            add_special_tokens=True,
-            truncation=True,
-            padding='max_length',
-            max_length=64,  # TODO: Don't hardcode, base on # triggers.
-            return_tensors='pt'
-        )
-        logger.debug(model_inputs)
-        label = instance[label_field]
-        if label not in label_map:
-            label_map[label] = len(label_map)
-        label_id = label_map[label]
-        label_id = torch.tensor([[label_id]])  # To make collator expectation
-        logger.debug(f'Label id: {label_id}')
-        instances.append((model_inputs, label_id))
-    if limit:
-        limit = min(len(instances), limit)
-        instances = random.sample(instances, limit)
-    return instances, label_map
-
-
 def load_trigger_dataset(
-        fname,
-        templatizer,
-        limit=None,
-        train=False,
-        preprocessor_key=None,
+    fname,
+    templatizer,
+    limit=None,
+    train=False,
+    preprocessor_key=None,
 ):
     """
     Loads a MLM classification dataset.
@@ -344,6 +295,8 @@ def generate_splits(args, num_folds, templatizer, distributed_config):
         train_dataset = combined[:k*chunk_size] + combined[(k+1)*chunk_size:]
         train_sampler = get_sampler(train_dataset, args['evaluation_strategy'], distributed_config, train=True)
         train_loader = DataLoader(train_dataset, batch_size=args['bsz'], collate_fn=collator, sampler=train_sampler)
+        
+        args['train_size'] = len(train_dataset)  # TODO(rloganiv): This is terrible
 
         dev_dataset = combined[k*chunk_size:(k+1)*chunk_size]
         dev_sampler = get_sampler(dev_dataset, args['evaluation_strategy'], distributed_config, train=False)
@@ -354,7 +307,6 @@ def generate_splits(args, num_folds, templatizer, distributed_config):
         yield train_loader, dev_loader
 
 
-# TODO(rloganiv): Maybe clean up usage of args here, to a more well-defined config.
 def load_datasets(args, templatizer, distributed_config):
     """Loads the training, dev and test datasets."""
     dataset_constructor = DATASET_CONSTRUCTORS[args['evaluation_strategy']]
@@ -369,6 +321,9 @@ def load_datasets(args, templatizer, distributed_config):
     )
     train_sampler = get_sampler(train_dataset, args['evaluation_strategy'], distributed_config, train=True)
     train_loader = DataLoader(train_dataset, batch_size=args['bsz'], collate_fn=collator, sampler=train_sampler)
+
+    # TODO(rloganiv): Is there a cleaner way?
+    args['train_size'] = len(train_dataset)
 
     dev_dataset = dataset_constructor(
         args['dev'],
@@ -399,3 +354,5 @@ def load_datasets(args, templatizer, distributed_config):
         checklist_test_loader = None
 
     return train_loader, dev_loader, test_loader, checklist_test_loader
+
+

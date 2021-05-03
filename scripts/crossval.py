@@ -32,22 +32,32 @@ def generate_args(proto_config):
 
 def kfold(args, trainer_class, num_folds):
     utils.set_seed(args['seed'])
-    utils.check_args(args)
+    #  utils.check_args(args)
     distributed_config = utils.distributed_setup(local_rank=-1)
-    config = transformers.AutoConfig.from_pretrained(args['model_name'])
     tokenizer = transformers.AutoTokenizer.from_pretrained(
         args['model_name'],
         add_prefix_space=True,
         additional_special_tokens=('[T]', '[P]'),
     )
     label_map = utils.load_label_map(args['label_map'])
-    templatizer = templatizers.MultiTokenTemplatizer(
-        template=args['template'],
-        tokenizer=tokenizer,
-        label_field=args['label_field'],
-        label_map=label_map,
-        add_padding=args['add_padding'],
-    )
+    if trainer_class == trainers.FinetuneTrainer:
+        templatizer = templatizers.FinetuneTemplatizer(
+            tokenizer=tokenizer,
+            input_field_a=args['input_field_a'],
+            input_field_b=args['input_field_b'],
+            label_field=args['label_field'],
+            label_map=label_map
+        )
+        config = transformers.AutoConfig.from_pretrained(args['model_name'], num_labels=len(label_map))
+    else:
+        templatizer = templatizers.MultiTokenTemplatizer(
+            template=args['template'],
+            tokenizer=tokenizer,
+            label_field=args['label_field'],
+            label_map=label_map,
+            add_padding=args['add_padding'],
+        )
+        config = transformers.AutoConfig.from_pretrained(args['model_name'])
     writer = utils.NullWriter()
     all_metrics = collections.defaultdict(list)
     splits = data.generate_splits(
@@ -95,14 +105,23 @@ def evaluate(args, trainer_class):
         add_prefix_space=True,
         additional_special_tokens=('[T]', '[P]'),
     )
-    label_map = utils.load_label_map(args['label_map'])
-    templatizer = templatizers.MultiTokenTemplatizer(
-        template=args['template'],
-        tokenizer=tokenizer,
-        label_field=args['label_field'],
-        label_map=label_map,
-        add_padding=args['add_padding'],
-    )
+    if isinstance(trainer_class, trainers.FinetuneTrainer):
+        label_map = None
+        templatizer = templatizers.FinetuneTemplatizer(
+            tokenizer=tokenizer,
+            input_field_a=args['input_field_a'],
+            input_field_b=args['input_field_b'],
+            label_field=args['label_field'],
+        )
+    else:
+        label_map = utils.load_label_map(args['label_map'])
+        templatizer = templatizers.MultiTokenTemplatizer(
+            template=args['template'],
+            tokenizer=tokenizer,
+            label_field=args['label_field'],
+            label_map=label_map,
+            add_padding=args['add_padding'],
+        )
     writer = utils.NullWriter()
 
     train_loader, dev_loader, test_loader, _ = data.load_datasets(
@@ -133,6 +152,8 @@ def main(args):
         trainer_class = trainers.ContinuousMLMTrainer
     elif proto_config['trainer'] == 'discrete_mlm':
         trainer_class = trainers.DiscreteMLMTrainer
+    elif proto_config['trainer'] == 'finetune':
+        trainer_class = trainers.FinetuneTrainer
 
     # K-Fold Step
     best_score = float('-inf')

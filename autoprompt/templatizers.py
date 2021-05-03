@@ -123,6 +123,51 @@ class TriggerTemplatizer:
         return model_inputs, label_id
 
 
+class FinetuneTemplatizer:
+    """
+    A wrapper around a transformers tokenizer to facilitate sequence
+    classification w/out messing too much with the API.
+    """
+    def __init__(
+        self,
+        tokenizer,
+        label_map,
+        input_field_a,
+        input_field_b=None,
+        label_field='label',
+    ):
+        for v in label_map.values():
+            assert isinstance(v, int)
+            assert 0 <= v <= len(label_map)-1
+        self._tokenizer = tokenizer
+        self._input_field_a = input_field_a
+        self._input_field_b = input_field_b
+        self._label_field = label_field
+        self._label_map = label_map
+
+    @property
+    def pad_token_id(self):
+        return self._tokenizer.pad_token_id
+
+
+    def __call__(self, format_kwargs, train=False, **kwargs):
+
+        # Convert label to id
+        label = format_kwargs.pop(self._label_field)
+        if label not in self._label_map:
+            self._label_map[label] = len(self._label_map)
+        label_id = torch.tensor([self._label_map[label]])
+
+        model_inputs = self._tokenizer(
+            text=format_kwargs[self._input_field_a],
+            text_pair=format_kwargs.get(self._input_field_b, None),
+            add_special_tokens=True,
+            return_tensors='pt',
+        )
+
+        return model_inputs, label_id
+
+
 class MultiTokenTemplatizer:
     """
     An object to facilitate creating transformers-friendly triggers inputs from
