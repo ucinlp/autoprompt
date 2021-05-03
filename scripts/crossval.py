@@ -99,22 +99,23 @@ def evaluate(args, trainer_class):
     utils.set_seed(args['seed'])
     utils.check_args(args)
     distributed_config = utils.distributed_setup(local_rank=-1)
-    config = transformers.AutoConfig.from_pretrained(args['model_name'])
     tokenizer = transformers.AutoTokenizer.from_pretrained(
         args['model_name'],
         add_prefix_space=True,
         additional_special_tokens=('[T]', '[P]'),
     )
-    if isinstance(trainer_class, trainers.FinetuneTrainer):
-        label_map = None
+    label_map = utils.load_label_map(args['label_map'])
+    if trainer_class == trainers.FinetuneTrainer:
         templatizer = templatizers.FinetuneTemplatizer(
             tokenizer=tokenizer,
             input_field_a=args['input_field_a'],
             input_field_b=args['input_field_b'],
             label_field=args['label_field'],
+            label_map=label_map,
         )
+        config = transformers.AutoConfig.from_pretrained(args['model_name'],
+                                                         num_labels=len(label_map))
     else:
-        label_map = utils.load_label_map(args['label_map'])
         templatizer = templatizers.MultiTokenTemplatizer(
             template=args['template'],
             tokenizer=tokenizer,
@@ -122,6 +123,7 @@ def evaluate(args, trainer_class):
             label_map=label_map,
             add_padding=args['add_padding'],
         )
+        config = transformers.AutoConfig.from_pretrained(args['model_name'])
     writer = utils.NullWriter()
 
     train_loader, dev_loader, test_loader, _ = data.load_datasets(
@@ -129,7 +131,6 @@ def evaluate(args, trainer_class):
         templatizer=templatizer,
         distributed_config=distributed_config
     )
-
     trainer = trainer_class(
         args=args,
         config=config,
