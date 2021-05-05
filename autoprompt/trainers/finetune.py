@@ -381,11 +381,13 @@ def main(args):
         add_prefix_space=True,
         additional_special_tokens=('[T]', '[P]'),
     )
+    label_map = utils.load_label_map(args['label_map'])
     templatizer = templatizers.FinetuneTemplatizer(
         tokenizer=tokenizer,
         input_field_a=args['input_field_a'],
         input_field_b=args['input_field_b'],
         label_field=args['label_field'],
+        label_map=label_map,
     )
 
     logger.info('Loading data.')
@@ -400,7 +402,7 @@ def main(args):
         config=config,
         tokenizer=tokenizer,
         templatizer=templatizer,
-        label_map=templatizer._label_map,
+        label_map=label_map,
         distributed_config=distributed_config,
         writer=writer,
     )
@@ -431,11 +433,14 @@ if __name__ == '__main__':
     parser.add_argument('--label-field', type=str, default='label',
                         help='The name of label field in the instance '
                              'dictionary.')
+    parser.add_argument('--label-map', type=str, default=None,
+                        help='A json-formatted string defining how labels are '
+                             'mapped to strings in the model vocabulary.')
     parser.add_argument('--preprocessor', type=str, default=None,
                         choices=PREPROCESSORS.keys(),
                         help='Data preprocessor. If unspecified a default '
                              'preprocessor will be selected based on filetype.')
-    parser.add_argument('--finetune-mode', type=str, nargs='*',
+    parser.add_argument('--finetune-mode', type=str, nargs='*', default=[],
                         help='Components of model to finetune (multiple can be specified). If '
                              'nothing is specified then all parameters will be tuned. '
                              'Options: '

@@ -163,6 +163,7 @@ class FinetuneTemplatizer:
             text_pair=format_kwargs.get(self._input_field_b, None),
             add_special_tokens=True,
             return_tensors='pt',
+            truncation='longest_first',
         )
 
         return model_inputs, label_id

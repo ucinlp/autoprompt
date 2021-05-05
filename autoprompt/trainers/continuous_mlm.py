@@ -489,7 +489,7 @@ if __name__ == '__main__':
                         choices=['parallel', 'monotonic', 'iterative'],
                         help='Decoding strategy for generative tasks. For more '
                              'details refer to the PET paper.')
-    parser.add_argument('--finetune-mode', type=str, nargs='*',
+    parser.add_argument('--finetune-mode', type=str, nargs='*', default=[],
                         help='Components of model to finetune (multiple can be specified). If '
                              'nothing is specified then all parameters will be tuned. '
                              'Options: '
