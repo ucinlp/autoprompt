@@ -203,6 +203,7 @@ class ContinuousMLMTrainer(Trainer):
         )
 
         best_score = -float('inf')
+        best_metric_dict = {}
         if not args['skip_train']:
             for epoch in range(args['epochs']):
                 logger.info(f'Epoch: {epoch}')
