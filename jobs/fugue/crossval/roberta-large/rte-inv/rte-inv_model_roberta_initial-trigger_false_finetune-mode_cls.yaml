@@ -25,6 +25,7 @@ args:
     force_overwrite: True
     quiet: False
     tmp: True
+    finetune_lr: null
 parameters:
     accumulation_steps: [1, 2, 4]
     lr: [1.0e-5, 2.0e-5, 5.0e-5]

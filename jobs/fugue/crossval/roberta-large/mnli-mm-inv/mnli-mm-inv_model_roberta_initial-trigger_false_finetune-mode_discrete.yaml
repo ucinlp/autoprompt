@@ -31,6 +31,7 @@ args:
     force_overwrite: True
     quiet: False
     tmp: True
+    finetune_lr: null
     num_candidates: 10
 parameters:
     accumulation_steps: [1, 2, 4]
