@@ -26,5 +26,5 @@ args:
     quiet: False
     tmp: True
 parameters:
-    accumulation_steps: [1, 2, 4]
-    lr: [1.0e-5, 5.0e-5, 1.0e-4, 5.0e-4]
+    accumulation_steps: [2]
+    lr: [1.0e-5]
