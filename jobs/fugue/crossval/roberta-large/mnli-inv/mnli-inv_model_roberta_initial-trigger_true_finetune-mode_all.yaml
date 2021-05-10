@@ -3,12 +3,12 @@ args:
     seed: 0
     model_name: 'roberta-large'
     train: 'data/all/MNLI/original/train_small.jsonl'
-    dev: 'data/all/MNLI/original/dev_small.jsonl'
+    dev: 'data/all/MNLI/original/multinli_1.0_dev_matched.jsonl'
     test: 'data/all/MNLI/original/multinli_1.0_dev_matched.jsonl'
     checklist: null
-    template: '{sentence1} [T] [T] [P] [T] {sentence2}'
+    template: '{sentence1} [P] {sentence2}'
     label_map: '{"entailment": "hello", "contradiction": "the", "neutral": "bob"}'
-    initial_trigger: ['?', '</s>', ',']
+    initial_trigger: []
     label_field: 'gold_label'
     add_padding: False
     preprocessor: null 
