@@ -264,6 +264,9 @@ class MultiTokenTemplatizer:
                 f'Double check that label field is correct: {self._label_field}.'
             )
         if self._label_map is not None:
+            if label == '-':
+                label = 'contradiction'
+                print('TODO, you should be ignoring these examples')
             label = self._label_map[label]
         label_tokens = self._tokenizer.encode(
             label,
@@ -331,7 +334,7 @@ class MultiTokenTemplatizer:
         trigger_mask = input_ids.eq(self._trigger_token_id)
         input_ids[trigger_mask] = self._tokenizer.mask_token_id
         predict_mask = input_ids.eq(self._predict_token_id)
-        input_ids[predict_mask] = self._tokenizer.mask_token_id
+        input_ids[predict_mask] = 1337#self._tokenizer.mask_token_id
 
         # EXPERIMENTAL: Handle sep mask.
         if 'token_type_ids' in model_inputs:

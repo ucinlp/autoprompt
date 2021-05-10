@@ -69,6 +69,19 @@ class ContinuousTriggerMLM(torch.nn.Module):
             initial_trigger_ids=None
     ):
         super().__init__()
+        # copy the object for the output head
+        base_model.lm_head.decoder.weight = torch.nn.Parameter(base_model.lm_head.decoder.weight.clone())
+        base_model.lm_head.decoder.bias = torch.nn.Parameter(base_model.lm_head.decoder.bias.clone())
+        
+        # reinitialize the output head
+        base_model.lm_head.decoder.weight.data.normal_(mean=0.0, std=0.02)
+        base_model.lm_head.decoder.weight.data[1].zero_() # 0 is the pad index
+        base_model.lm_head.decoder.bias.data.zero_()
+        
+        # set the embeddings of 1337 to be random
+        # also do 1336 just for my sanity
+        base_model.roberta.embeddings.word_embeddings.weight.data[1337].normal_(mean=0.0, std=0.02)
+        base_model.roberta.embeddings.word_embeddings.weight.data[1336].normal_(mean=0.0, std=0.02)
         self.base_model = base_model
 
         # To deal with inconsistent naming conventions, we give universal names to these modules.

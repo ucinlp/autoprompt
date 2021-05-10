@@ -292,13 +292,13 @@ def generate_splits(args, num_folds, templatizer, distributed_config):
         num_folds -= 1
 
     for k in range(num_folds):
-        train_dataset = combined[:k*chunk_size] + combined[(k+1)*chunk_size:]
+        train_dataset = train_dataset #combined[:k*chunk_size] + combined[(k+1)*chunk_size:]
         train_sampler = get_sampler(train_dataset, args['evaluation_strategy'], distributed_config, train=True)
         train_loader = DataLoader(train_dataset, batch_size=args['bsz'], collate_fn=collator, sampler=train_sampler)
         
         args['train_size'] = len(train_dataset)  # TODO(rloganiv): This is terrible
 
-        dev_dataset = combined[k*chunk_size:(k+1)*chunk_size]
+        dev_dataset = dev_dataset #combined[k*chunk_size:(k+1)*chunk_size]
         dev_sampler = get_sampler(dev_dataset, args['evaluation_strategy'], distributed_config, train=False)
         dev_loader = DataLoader(dev_dataset, batch_size=args['bsz'], collate_fn=collator, sampler=dev_sampler)
 

@@ -2,14 +2,14 @@ trainer: 'continuous_mlm'
 args:
     seed: 0
     model_name: 'roberta-large'
-    train: 'data/LittleGLUE/MNLI_matched/train.jsonl'
-    dev: 'data/LittleGLUE/MNLI_matched/dev.jsonl'
-    test: 'data/LittleGLUE/MNLI_matched/dev_all.jsonl'
+    train: 'data/all/MNLI/original/train_small.jsonl'
+    dev: 'data/all/MNLI/original/multinli_1.0_dev_matched.jsonl'
+    test: 'data/all/MNLI/original/multinli_1.0_dev_matched.jsonl'
     checklist: null
-    template: '{sentence1} [T] [P] [T] {sentence2}'
-    label_map: '{"entailment": "Yes", "contradiction": "No", "neutral": "Maybe"}'
-    initial_trigger: ['?', ',']
-    label_field: 'label'
+    template: '{sentence1} [P] {sentence2}'
+    label_map: '{"entailment": "hello", "contradiction": "the", "neutral": "bob"}'
+    initial_trigger: []
+    label_field: 'gold_label'
     add_padding: False
     preprocessor: null 
     evaluation_strategy: 'classification'
@@ -20,7 +20,7 @@ args:
     skip_train: False
     skip_eval: False
     skip_test: False
-    bsz: 2
+    bsz: 16
     epochs: 30
     disable_dropout: False
     clip: 1.0
@@ -32,5 +32,5 @@ args:
     quiet: False
     tmp: True
 parameters:
-    accumulation_steps: [4]
+    accumulation_steps: [1]
     lr: [1.0e-5]

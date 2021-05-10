@@ -180,7 +180,7 @@ def main(args):
             all_metrics = kfold(train_args, trainer_class, args.num_folds)
             for key, value in all_metrics.items():
                 row[f'{key}_mean'] = statistics.mean(value)
-                row[f'{key}_stdev'] = statistics.stdev(value)
+                row[f'{key}_stdev'] = 0.0#statistics.stdev(value)
             logger.debug(f'All metrics: {all_metrics}')
             writer.writerow(row)
 
@@ -215,8 +215,8 @@ def main(args):
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
     parser.add_argument('input', type=pathlib.Path, help='JSONL file containing jobs.')
-    parser.add_argument('-k', '--num_folds', type=int, default=4)
-    parser.add_argument('-n', '--num_seeds', type=int, default=10)
+    parser.add_argument('-k', '--num_folds', type=int, default=1)
+    parser.add_argument('-n', '--num_seeds', type=int, default=1)
     parser.add_argument('--logdir', type=pathlib.Path, default='results/')
     parser.add_argument('--debug', action='store_true')
     parser.add_argument('-f', '--force_overwrite', action='store_true')
