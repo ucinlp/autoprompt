@@ -1,0 +1,39 @@
+trainer: 'continuous_mlm'
+args:
+    seed: 0
+    model_name: 'roberta-large'
+    train: 'data/SuperFUGUE/RTE/train.jsonl'
+    dev: 'data/SuperFUGUE/RTE/dev.jsonl'
+    test: 'data/SuperFUGUE/RTE/dev_all.jsonl'
+    checklist: null
+    template: '{premise} [T] [P] [T] {hypothesis}'
+    label_map: '{"entailment": "Yes", "not_entailment": "No"}'
+    initial_trigger: ['?', ',']
+    label_field: 'label'
+    add_padding: False
+    preprocessor: 'rte'
+    evaluation_strategy: 'classification'
+    decoding_strategy: null
+    finetune_mode:
+        - 'trigger'
+        - 'top-layer'
+    evaluation_metric: 'accuracy'
+    linear: False
+    skip_train: False
+    skip_eval: False
+    skip_test: False
+    bsz: 2
+    epochs: 30
+    disable_dropout: False
+    clip: 1.0
+    limit: null
+    reduction_factor: 16
+    l1decay: 0.0
+    theta: 1.0e32
+    force_overwrite: True
+    quiet: False
+    tmp: True
+    finetune_lr: null
+parameters:
+    accumulation_steps: [4]
+    lr: [1.0e-5]

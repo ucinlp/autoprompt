@@ -1,8 +1,8 @@
 #!/bin/bash
-#SBATCH --time=1000:00
+#SBATCH --time=100000:00
 #SBATCH --partition=ava_s.p
 #SBATCH --gpus=1
-#SBATCH --cpus-per-task=32
+#SBATCH --cpus-per-task=8
 #SBATCH --mem=50GB
 
 srun /home/rlogan/miniconda3/envs/autoprompt/bin/python3.7 \
