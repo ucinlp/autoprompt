@@ -35,4 +35,4 @@ args:
     finetune_lr: null
 parameters:
     accumulation_steps: [1, 2, 4]
-    lr: [1.0e-5, 2.0e-5, 5.0e-5]
+    lr: [1.0e-4, 5.0e-4, 1.0e-3]
