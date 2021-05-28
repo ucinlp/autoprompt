@@ -17,12 +17,10 @@ from autoprompt import utils
 import autoprompt.create_trigger as ct
 
 
-# logging.getLogger("streamlit.caching").addHandler(logging.StreamHandler(sys.stdout))
-# logging.getLogger("streamlit.caching").setLevel(logging.DEBUG)
-
 logger = logging.getLogger(__name__)
 
 
+HIGHLIGHT_COLOR = '#eec66d'
 with open('assets/sst2_train.jsonl', 'r') as f:
     DEFAULT_TRAIN = [json.loads(line) for line in f]
 
@@ -38,25 +36,6 @@ class CacheTest:
 
 class CacheMiss(Exception):
     pass
-
-
-def css_hack():
-    """
-    Inject some style into this app. ヽ(⌐■_■)ノ
-    """
-    st.markdown(
-        """
-        <style>
-            code {
-                color: #eec66d;
-            }
-            .css-gtmd9c a {
-                color: #6f98af;
-            }
-        </style>
-        """,
-        unsafe_allow_html=True
-    )
 
 
 # Setting eq and frozen ensures that a __hash__ method is generated which is needed for caching to
@@ -82,6 +61,7 @@ class Args:
 
     @classmethod
     def from_streamlit(cls):
+        col1
         st.sidebar.image('assets/icon.png', width=150)
         st.sidebar.markdown('### Training Parameters')
         model_name = st.sidebar.selectbox(
@@ -445,7 +425,7 @@ def csv_dataset():
 
 
 def run():
-    css_hack()
+    #  css_hack()
     st.title('AutoPrompt Demo')
     st.markdown('''
     For many years, the predominant approach for training machine learning
@@ -539,7 +519,7 @@ def run():
 
 
     st.markdown(f'**Final trigger**: {", ".join(trigger_tokens)}')
-    st.dataframe(pd.DataFrame(train_output).style.highlight_min(axis=1, color='#94666b'))
+    st.dataframe(pd.DataFrame(train_output).style.highlight_min(axis=1, color=HIGHLIGHT_COLOR))
     logger.debug('Dev metric')
     st.write('Accuracy: ' + str(round(eval_metric.item()*100, 1)))
     st.write("""
@@ -552,7 +532,7 @@ def run():
     """)
     sentence = st.text_input("Sentence", 'Enter a test input here')
     pred_output = predict_test([sentence], label_map ,templatizer, best_trigger_ids, tokenizer, predictor, args)
-    st.dataframe(pd.DataFrame(pred_output).style.highlight_min(axis=1, color='#94666b'))
+    st.dataframe(pd.DataFrame(pred_output).style.highlight_min(axis=1, color=HIGHLIGHT_COLOR))
 
     st.markdown('''
     ## Where can I learn more?
