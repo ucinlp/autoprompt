@@ -61,7 +61,6 @@ class Args:
 
     @classmethod
     def from_streamlit(cls):
-        col1
         st.sidebar.image('assets/icon.png', width=150)
         st.sidebar.markdown('### Training Parameters')
         model_name = st.sidebar.selectbox(
