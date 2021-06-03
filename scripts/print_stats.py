@@ -8,7 +8,9 @@ import scipy.stats
 
 parser = argparse.ArgumentParser()
 parser.add_argument('inputs', type=str, nargs='+')
-parser.add_argument('--p_cutoff', type=float, default=0.05)
+# NOTE: By performing pairwise test twice we double TYPE I error rate.
+# So to test at p=0.05 level we need to halve the p-value.
+parser.add_argument('--p_cutoff', type=float, default=0.025)
 args = parser.parse_args()
 
 

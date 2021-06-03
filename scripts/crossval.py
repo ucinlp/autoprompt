@@ -40,6 +40,8 @@ def kfold(args, trainer_class, num_folds):
         additional_special_tokens=('[T]', '[P]'),
     )
     label_map = utils.load_label_map(args['label_map'])
+    if args['randomize_labels']:
+        label_map = utils.randomize_label_map(label_map, tokenizer)
     if trainer_class == trainers.FinetuneTrainer:
         templatizer = templatizers.FinetuneTemplatizer(
             tokenizer=tokenizer,
@@ -56,6 +58,7 @@ def kfold(args, trainer_class, num_folds):
             label_field=args['label_field'],
             label_map=label_map,
             add_padding=args['add_padding'],
+            randomize_mask=args['randomize_mask']
         )
         config = transformers.AutoConfig.from_pretrained(args['model_name'])
     writer = utils.NullWriter()
@@ -105,6 +108,8 @@ def evaluate(args, trainer_class):
         additional_special_tokens=('[T]', '[P]'),
     )
     label_map = utils.load_label_map(args['label_map'])
+    if args['randomize_labels']:
+        label_map = utils.randomize_label_map(label_map, tokenizer)
     if trainer_class == trainers.FinetuneTrainer:
         templatizer = templatizers.FinetuneTemplatizer(
             tokenizer=tokenizer,
@@ -122,6 +127,7 @@ def evaluate(args, trainer_class):
             label_field=args['label_field'],
             label_map=label_map,
             add_padding=args['add_padding'],
+            randomize_mask=args['randomize_mask'],
         )
         config = transformers.AutoConfig.from_pretrained(args['model_name'])
     writer = utils.NullWriter()
