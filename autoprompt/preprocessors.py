@@ -160,6 +160,15 @@ def preprocess_kilt(fname):
                 }
 
 
+def preprocess_rte(fname):
+    with open(fname, 'r') as f:
+        for line in f:
+            data = json.loads(line)
+            data['sentence1'] = data['sentence1'][:-1]  # Remove punct.
+            data['sentence2'] = data['sentence2'][0].lower() + data['sentence2'][1:] # Lowercase
+            yield data
+
+
 # REMINDER: You need to add whatever preprocessing functions you've written to
 # this dict to make them available to the training scripts.
 PREPROCESSORS = {
@@ -172,4 +181,5 @@ PREPROCESSORS = {
     'copa': preprocess_copa,
     'record': preprocess_record,
     'kilt': preprocess_kilt,
+    'rte': preprocess_rte
 }
