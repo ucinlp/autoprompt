@@ -64,3 +64,7 @@ target/
 .vscode/
 out/
 #data/
+crossval-results*
+fabio-results*
+slurm-logs/
+slurm-*.out
