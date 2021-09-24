@@ -1,0 +1,30 @@
+trainer: 'finetune'
+args:
+    seed: 0
+    model_name: 'albert-xxlarge-v2'
+    train: 'data/SuperFUGUE/BoolQ/train.jsonl'
+    dev: 'data/SuperFUGUE/BoolQ/dev.jsonl'
+    test: 'data/SuperFUGUE/BoolQ/dev_all.jsonl'
+    checklist: null
+    input_field_a: 'passage'
+    input_field_b: 'question'
+    label_map: '{"True": 0, "False": 1}'
+    label_field: 'label'
+    preprocessor: null 
+    evaluation_strategy: 'classification'
+    finetune_mode: []
+    evaluation_metric: 'accuracy'
+    skip_train: False
+    skip_eval: False
+    skip_test: False
+    bsz: 2
+    epochs: 30
+    disable_dropout: False
+    clip: 1.0
+    limit: null
+    force_overwrite: True
+    quiet: False
+    tmp: True
+parameters:
+    accumulation_steps: [2]
+    lr: [1.0e-5]

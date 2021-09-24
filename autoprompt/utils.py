@@ -56,6 +56,23 @@ def load_label_map(label_map):
     return None
 
 
+def randomize_label_map(label_map, tokenizer):
+    while True:
+        new_ids = torch.randint(
+            low=1000,  # To avoid special tokens
+            high=len(tokenizer),
+            size=(len(label_map),)
+        )
+        new_tokens = [tokenizer.decode(idx) for idx in new_ids]
+        lens = [len(tokenizer.encode(tok, add_special_tokens=False)) for tok in new_tokens]
+        # Continue choosing random tokens until they are all unique and will not be split into
+        # multiple tokens.
+        if all(l == 1 for l in lens) and len(set(new_tokens)) == len(new_tokens):
+            break
+    out = {k: v for k, v in zip(label_map.keys(), new_tokens)}
+    return out
+
+
 def load_transformers(model_name, skip_model=False):
     """Loads transformers config, tokenizer, and model."""
     config = AutoConfig.from_pretrained(model_name)

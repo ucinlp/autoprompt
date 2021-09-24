@@ -418,12 +418,15 @@ def main(args):
 
     logger.info('Loading data.')
     label_map = utils.load_label_map(args['label_map'])
+    if args['randomize_labels']:
+        label_map = utils.randomize_label_map(label_map, tokenizer)
     templatizer = templatizers.MultiTokenTemplatizer(
         template=args['template'],
         tokenizer=tokenizer,
         label_field=args['label_field'],
         label_map=label_map,
         add_padding=args['add_padding'],
+        randomize_mask=args['randomize_mask'],
     )
     train_loader, dev_loader, test_loader, checklist_test_loader = data.load_datasets(
         args,
@@ -490,7 +493,7 @@ if __name__ == '__main__':
                         choices=['parallel', 'monotonic', 'iterative'],
                         help='Decoding strategy for generative tasks. For more '
                              'details refer to the PET paper.')
-    parser.add_argument('--finetune-mode', type=str, nargs='*',
+    parser.add_argument('--finetune-mode', type=str, nargs='*', default=[],
                         help='Components of model to finetune (multiple can be specified). If '
                              'nothing is specified then all parameters will be tuned. '
                              'Options: '
@@ -502,6 +505,8 @@ if __name__ == '__main__':
                         choices=list(METRICS.keys()),
                         help='Evaluation metric to use.')
     parser.add_argument('--linear', action='store_true', help='Enables using linear combo MLM')
+    parser.add_argument('--randomize-labels', action='store_true', help='Randomize labels.')
+    parser.add_argument('--randomize-mask', action='store_true', help='Randomize mask.')
 
     # Skips
     parser.add_argument('--skip-train', action='store_true',

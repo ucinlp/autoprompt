@@ -123,6 +123,52 @@ class TriggerTemplatizer:
         return model_inputs, label_id
 
 
+class FinetuneTemplatizer:
+    """
+    A wrapper around a transformers tokenizer to facilitate sequence
+    classification w/out messing too much with the API.
+    """
+    def __init__(
+        self,
+        tokenizer,
+        label_map,
+        input_field_a,
+        input_field_b=None,
+        label_field='label',
+    ):
+        for v in label_map.values():
+            assert isinstance(v, int)
+            assert 0 <= v <= len(label_map)-1
+        self._tokenizer = tokenizer
+        self._input_field_a = input_field_a
+        self._input_field_b = input_field_b
+        self._label_field = label_field
+        self._label_map = label_map
+
+    @property
+    def pad_token_id(self):
+        return self._tokenizer.pad_token_id
+
+
+    def __call__(self, format_kwargs, train=False, **kwargs):
+
+        # Convert label to id
+        label = format_kwargs.pop(self._label_field)
+        if label not in self._label_map:
+            self._label_map[label] = len(self._label_map)
+        label_id = torch.tensor([self._label_map[label]])
+
+        model_inputs = self._tokenizer(
+            text=format_kwargs[self._input_field_a],
+            text_pair=format_kwargs.get(self._input_field_b, None),
+            add_special_tokens=True,
+            return_tensors='pt',
+            truncation='longest_first',
+        )
+
+        return model_inputs, label_id
+
+
 class MultiTokenTemplatizer:
     """
     An object to facilitate creating transformers-friendly triggers inputs from
@@ -149,18 +195,24 @@ class MultiTokenTemplatizer:
         label_field='label',
         label_map=None,
         add_padding=False,
+        randomize_mask=False,
     ):
         self._template = template
         self._tokenizer = tokenizer
         self._label_field = label_field
         self._label_map = label_map
         self._add_padding = add_padding
+        self._randomize_mask = randomize_mask
 
         trigger_token_id, predict_token_id = _get_special_ids(tokenizer)
         self._trigger_token_id = trigger_token_id
         self._predict_token_id = predict_token_id
 
         if label_map is not None:
+            logger.debug(
+                'Label map (tokenized): %s',
+                {k: tokenizer.encode(v, add_special_tokens=False) for k, v in label_map.items()}
+            )
             logger.debug(
                 'Label map (detokenized): %s',
                 {k: tokenizer.decode(tokenizer.encode(v, add_special_tokens=False)) for k, v in label_map.items()}
@@ -285,7 +337,11 @@ class MultiTokenTemplatizer:
         trigger_mask = input_ids.eq(self._trigger_token_id)
         input_ids[trigger_mask] = self._tokenizer.mask_token_id
         predict_mask = input_ids.eq(self._predict_token_id)
-        input_ids[predict_mask] = self._tokenizer.mask_token_id
+        if self._randomize_mask:
+            input_ids[predict_mask] = random.randrange(1000, len(self._tokenizer))
+        else:
+            input_ids[predict_mask] = self._tokenizer.mask_token_id
+
 
         # EXPERIMENTAL: Handle sep mask.
         if 'token_type_ids' in model_inputs:
