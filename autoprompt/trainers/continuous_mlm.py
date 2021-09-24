@@ -546,6 +546,9 @@ if __name__ == '__main__':
     parser.add_argument('--theta', type=float, default=1e32,
                         help='L1 regularization weight (if using linear combination MLM)')
 
+    # Priming param
+    parser.add_argument('--prime', action='store_true', help='enables priming')
+
     # Additional options
     parser.add_argument('-f', '--force-overwrite', action='store_true',
                         help='Allow overwriting an existing model checkpoint.')
