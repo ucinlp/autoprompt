@@ -10,6 +10,7 @@ jobs:
         parallelism: 1
         steps:
             - checkout
+            - run: conda init
             - run: conda create -n autoprompt python=3.7
             - run: conda activate autoprompt
             - run: conda install pytorch==1.4.0 cpuonly -c pytorch -y
