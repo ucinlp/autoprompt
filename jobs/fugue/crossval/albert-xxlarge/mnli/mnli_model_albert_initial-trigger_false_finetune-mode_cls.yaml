@@ -1,0 +1,30 @@
+trainer: 'finetune'
+args:
+    seed: 0
+    model_name: 'albert-xxlarge-v2'
+    train: 'data/LittleGLUE/MNLI_matched/train.jsonl'
+    dev: 'data/LittleGLUE/MNLI_matched/dev.jsonl'
+    test: 'data/LittleGLUE/MNLI_matched/dev_all.jsonl'
+    checklist: null
+    input_field_a: 'sentence1'
+    input_field_b: 'sentence2'
+    label_map: '{"entailment": 0, "contradiction": 1, "neutral": 2}'
+    label_field: 'label'
+    preprocessor: null 
+    evaluation_strategy: 'classification'
+    finetune_mode: []
+    evaluation_metric: 'accuracy'
+    skip_train: False
+    skip_eval: False
+    skip_test: False
+    bsz: 2
+    epochs: 30
+    disable_dropout: False
+    clip: 1.0
+    limit: null
+    force_overwrite: True
+    quiet: False
+    tmp: True
+parameters:
+    accumulation_steps: [1, 2, 4]
+    lr: [1.0e-5, 5.0e-5, 1.0e-4, 5.0e-4]

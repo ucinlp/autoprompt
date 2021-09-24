@@ -1,0 +1,29 @@
+trainer: 'finetune'
+args:
+    seed: 0
+    model_name: 'albert-xxlarge-v2'
+    train: 'data/LittleGLUE/WNLI/train_4.jsonl'
+    dev: 'data/LittleGLUE/WNLI/dev_4.jsonl'
+    test: 'data/LittleGLUE/WNLI/dev_all.jsonl'
+    checklist: null
+    template: '{sentence1} [T] {sentence2} [T] [P] [T] [T] [T]'
+    label_map: '{"0": "different", "1": "similar"}'
+    label_field: 'label'
+    preprocessor: null 
+    evaluation_strategy: 'classification'
+    finetune_mode: []
+    evaluation_metric: 'accuracy'
+    skip_train: False
+    skip_eval: False
+    skip_test: False
+    bsz: 2
+    epochs: 30
+    disable_dropout: False
+    clip: 1.0
+    limit: null
+    force_overwrite: True
+    quiet: False
+    tmp: True
+parameters:
+    accumulation_steps: [1, 2, 4]
+    lr: [1.0e-5, 5.0e-5, 1.0e-4, 5.0e-4]

@@ -15,6 +15,8 @@ logger = logging.getLogger(__name__)
 
 def pad_squeeze_sequence(sequence, *args, **kwargs):
     """Squeezes fake batch dimension added by tokenizer before padding sequence."""
+    if sequence[0].size() == (1,):  # Labels aren't a token sequence
+        return torch.cat(sequence, dim=0)
     return pad_sequence([x.squeeze(0) for x in sequence], *args, **kwargs)
 
 
@@ -394,6 +396,8 @@ def generate_splits(args, num_folds, templatizer, distributed_config):
         train_dataset = combined[:k*chunk_size] + combined[(k+1)*chunk_size:]
         train_sampler = get_sampler(train_dataset, args['evaluation_strategy'], distributed_config, train=True)
         train_loader = DataLoader(train_dataset, batch_size=args['bsz'], collate_fn=collator, sampler=train_sampler)
+        
+        args['train_size'] = len(train_dataset)  # TODO(rloganiv): This is terrible
 
         dev_dataset = combined[k*chunk_size:(k+1)*chunk_size]
         dev_sampler = get_sampler(dev_dataset, args['evaluation_strategy'], distributed_config, train=False)
@@ -404,8 +408,7 @@ def generate_splits(args, num_folds, templatizer, distributed_config):
         yield train_loader, dev_loader
 
 
-# TODO(rloganiv): Maybe clean up usage of args here, to a more well-defined config.
-def load_datasets(args, templatizer, distributed_config, prime=False):
+def load_datasets(args, templatizer, distributed_config):
     """Loads the training, dev and test datasets."""
     dataset_constructor = DATASET_CONSTRUCTORS[args['evaluation_strategy']]
     collator = Collator(pad_token_id=templatizer.pad_token_id)
@@ -419,6 +422,9 @@ def load_datasets(args, templatizer, distributed_config, prime=False):
     )
     train_sampler = get_sampler(train_dataset, args['evaluation_strategy'], distributed_config, train=True)
     train_loader = DataLoader(train_dataset, batch_size=args['bsz'], collate_fn=collator, sampler=train_sampler)
+
+    # TODO(rloganiv): Is there a cleaner way?
+    args['train_size'] = len(train_dataset)
 
     dev_dataset = dataset_constructor(
         args['dev'],
@@ -450,3 +456,5 @@ def load_datasets(args, templatizer, distributed_config, prime=False):
         checklist_test_loader = None
 
     return train_loader, dev_loader, test_loader, checklist_test_loader
+
+
