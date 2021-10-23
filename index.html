@@ -1,0 +1,294 @@
+<!DOCTYPE html>
+
+<html>
+<head>
+  <meta charset="utf-8" />
+  <title>Eric Wallace &mdash; Home</title>
+  <link rel="stylesheet" href="master.css" />
+  <link href="https://fonts.googleapis.com/css?family=Roboto+Slab:300,400,700" rel="stylesheet">
+
+  <script>
+      function unhide(divID) {
+          var item = document.getElementById(divID);
+          if (item) {
+              item.className=(item.className=='hidden')?'unhidden':'hidden';
+          }
+      }
+  </script>
+
+    <link rel="icon" href="berkeley_nlp_logo.png" />
+    <meta name="author" content="Eric Wallace">
+    <meta name="keywords" content="Eric Wallace Berkeley NLP">
+    <meta name="robots" content="index,follow">
+    <meta name="description" content="Homepage of Eric Wallace Berkeley NLP">
+
+</head>
+
+<body>
+<div class="wrapper">
+
+  <div class="posts-wrapper">
+    <div class="post">
+      <img src='full.jpg' style="float:right; width:325px"/>
+
+      <h1>Eric Wallace</h1>
+
+      <h2>ericwallace@berkeley.edu | <a style="font-size: 0.95em; font-weight:700" href="https://www.twitter.com/Eric_Wallace_" target="_blank">Twitter</a> | <a style="font-size: 0.95em; font-weight:700" href="https://scholar.google.com/citations?user=SgST3LkAAAAJ" target="_blank"> Scholar </a> | <a style="font-size: 0.95em; font-weight:700" href="https://www.github.com/Eric-Wallace" target="_blank">GitHub</a> |
+       <a style="font-size: 0.95em; font-weight:700" href="CV.pdf" target="_blank">CV</a></h2>
+      <br>
+      <br>
+
+            <p>Hi! I am a third-year PhD student at UC Berkeley working on Machine Learning and Natural Language Processing. I am advised by <a href="https://people.eecs.berkeley.edu/~klein/" target="_blank">Dan Klein</a> and <a href="https://people.eecs.berkeley.edu/~dawnsong/" target="_blank">Dawn Song</a>, and I have affiliations with <a href="https://bair.berkeley.edu" target="_blank">BAIR</a>, <a href="http://nlp.cs.berkeley.edu/" target="_blank">Berkeley NLP</a>, and <a href="https://security.cs.berkeley.edu/" target="_blank">Berkeley Security</a>.
+            <br> <br>
+
+            I interned at <a href="https://ai.facebook.com/" target="_blank">FAIR</a> in 2021 with <a href="https://robinjia.github.io/" target="_blank">Robin Jia</a> and <a href="https://douwekiela.github.io/" target="_blank">Douwe Kiela</a>, and also at <a href="https://allenai.org/" target="_blank">AI2</a> in 2019 with <a href="https://matt-gardner.github.io/" target="_blank">Matt Gardner</a> and <a href="http://sameersingh.org/" target="_blank">Sameer Singh</a>. I did my undergrad at the University of Maryland, where I worked with <a href="http://www.umiacs.umd.edu/~jbg/" target="_blank">Jordan Boyd-Graber</a>. 
+            <br><br>
+
+            <h3 style="margin-bottom:0.75em;">Current Research Interests</h3>
+
+            <p><b>Security & Privacy</b> We study vulnerabilities of NLP systems from various adversarial perspectives, including <a href="https://arxiv.org/abs/2004.15015" target="_blank" style="font-size: 0.95em">stealing</a> model weights, <a href="https://arxiv.org/abs/2012.07805" target="_blank" style="font-size: 0.95em">extracting</a> private training data, <a target="_blank" href="https://arxiv.org/abs/2010.12563" style="font-size: 0.95em">poisoning</a> training sets, and <a href="https://arxiv.org/abs/1908.07125" target="_blank" style="font-size: 0.95em">manipulating</a> test predictions. Our current research develops <a target="_blank" href="https://arxiv.org/abs/2010.12563" style="font-size: 0.95em">defenses</a> <a href="https://arxiv.org/abs/2004.15015" target="_blank" style="font-size: 0.95em">against</a> these vulnerabilities.
+        
+            <p><b>Large Language Models</b> We use large language models for few-shot learning by "prompting" them with training examples. We've shown that few-shot learning can be highly <a href="https://arxiv.org/abs/2102.09690" target="_blank" style="font-size: 0.95em">sensitive</a> to the choice of the prompt, and we've mitigated this sensitivity and improved model accuracy by <a href="https://arxiv.org/abs/2010.15980" target="_blank" style="font-size: 0.95em">automatic</a> prompt design and <a href="https://arxiv.org/abs/2102.09690" target="_blank" style="font-size: 0.95em">calibration</a>. Our current research focuses on making few-shot finetuning <a href="https://arxiv.org/abs/2106.13353" target="_blank" style="font-size: 0.95em">simple and efficient</a>.</p> 
+        
+            <p><b>Robustness & Generalization</b> We analyze the robustness of models to test-time distribution shift. We have shown models are brittle to <a href="https://arxiv.org/abs/2004.06100" target="_blank" style="font-size: 0.95em">natural</a>, <a href="https://arxiv.org/abs/2004.02709" target="_blank" style="font-size: 0.95em">expert</a>-<a href="https://arxiv.org/abs/1809.02701" target="_blank" style="font-size: 0.95em">designed</a>, and <a href="https://arxiv.org/abs/1908.07125" target="_blank" style="font-size: 0.95em">adversarial</a> shifts. We attribute many of these failures to issues in the training data, e.g., spurious correlations in <a href="https://arxiv.org/abs/1908.07125" target="_blank" style="font-size: 0.95em">classification</a> and <a href="https://arxiv.org/abs/1906.02900" target="_blank" style="font-size: 0.95em">question answering</a> datasets. Our recent work develops new methods for <a href="https://arxiv.org/abs/2110.08514" target="_blank" style="font-size: 0.95em">training data collection</a>.
+
+    </p>
+          <br>
+      </div>
+  </div>
+
+  <div class="posts-wrapper" style="clear:both">
+      <h3 style="margin-bottom:0.75em;">Publications</h3>
+    </i>
+    <p>
+
+    <ul class="pubs">
+
+    <li>        
+          <a href="https://arxiv.org/abs/2102.09690" target="_blank" style="color:black;font-size:1.0em">
+          Calibrate Before Use: Improving Few-shot Performance of Language Models</a><br>
+          Tony Z. Zhao*, Eric Wallace*, Shi Feng, Dan Klein, Sameer Singh<br>
+          <i>ICML 2021</i><br>
+          <a href="javascript:unhide('calibration21tldr');">TLDR</a> | <a href="https://twitter.com/Eric_Wallace_/status/1410627135899906060" target="_blank">Twitter</a> <a href="https://twitter.com/arankomatsuzaki/status/1363666486682783744" target="_blank">Discussions</a> | <a href="https://arxiv.org/abs/2102.09690" target="_blank">Paper</a> | <a href="https://github.com/tonyzhaozh/few-shot-learning/" target="_blank">Code</a> | <a href="slides_and_posters/calibration_slides.pdf" target="_blank">Slides</a> | <a href="javascript:unhide('calibration21');">Citation</a>
+          <div id="calibration21tldr" class="hidden"><b>TLDR:</b> We show that GPT-3's few-shot accuracy has high variance across different choices of the prompt. We propose a calibration procedure that reduces this variance and substantially improves average accuracy.<br></div>
+        <div id="calibration21" class="hidden">
+        <pre>@inproceedings{Zhao2021Calibrate,  
+          Title = {Calibrate Before Use: Improving Few-shot Performance of Language Models},
+          Author = {Tony Z. Zhao and Eric Wallace and Shi Feng and Dan Klein and Sameer Singh}, 
+          booktitle={International Conference on Machine Learning},
+          Year = {2021}}
+         </pre>
+         </div>
+    </li>
+
+    <li>        
+          <a href="https://arxiv.org/abs/2012.07805" target="_blank" style="color:black;font-size:1.0em">
+          Extracting Training Data From Large Language Models</a><br>
+          Nicholas Carlini, Florian Tramèr, Eric Wallace, Matthew Jagielski, Ariel Herbert-Voss, Katherine Lee, Adam Roberts, Tom Brown, Dawn Song, Úlfar Erlingsson, Alina Oprea, and Colin Raffel<br>
+          <i>USENIX Security Symposium 2021</i><br>
+          <a href="javascript:unhide('extracting20tldr');">TLDR</a> | <a href="https://bair.berkeley.edu/blog/2020/12/20/lmmem/" target="_blank">Blog</a> | <a href="https://twitter.com/colinraffel/status/1339012222811598848" target="_blank">Twitter</a> <a href="https://twitter.com/Eric_Wallace_/status/1341221479426400256" target="_blank">Discussions</a> | <a href="https://arxiv.org/abs/2012.07805" target="_blank">Paper</a> | <a href="https://github.com/ftramer/LM_Memorization" target="_blank">Code</a> | <a href="javascript:unhide('extracting20');">Citation</a>
+          <div id="extracting20tldr" class="hidden"><b>TLDR:</b> We create a black-box method for extracting verbatim training examples from a language model.<br></div>
+        <div id="extracting20" class="hidden">
+        <pre>@inproceedings{carlini2020extracting,
+            title={Extracting Training Data from Large Language Models},
+            author={Nicholas Carlini and Florian Tram\`er and Eric Wallace and Matthew Jagielski 
+             and Ariel Herbert-Voss and Katherine Lee and Adam Roberts and Tom Brown
+             and Dawn Song and \'Ulfar Erlingsson and Alina Oprea and Colin Raffel},
+            booktitle={USENIX Security Symposium},
+            year={2021}}
+         </pre>
+         </div>
+    </li>
+
+    <li>        
+          <a href="https://arxiv.org/abs/2010.12563" target="_blank" style="color:black;font-size:1.0em">
+          Concealed Data Poisoning Attacks on NLP Models</a><br>
+          Eric Wallace*, Tony Z. Zhao*, Shi Feng, and Sameer Singh<br>
+          <i>NAACL 2021</i><br>
+          <a href="javascript:unhide('poisoning20tldr');">TLDR</a> | <a href="http://ericswallace.com/poisoning" target="_blank">Blog</a> | <a href="https://twitter.com/Eric_Wallace_/status/1319650623705370624" target="_blank">Twitter</a> | <a href="https://arxiv.org/abs/2010.12563" target="_blank">Paper</a> | <a href="https://github.com/Eric-Wallace/data-poisoning" target="_blank">Code</a> |  <a href="slides_and_posters/Poisoning-NAACL-June'21.pdf" target="_blank">Slides</a> | <a href="javascript:unhide('poisoning20');">Citation</a>
+          <div id="poisoning20tldr" class="hidden"><b>TLDR:</b> We develop a new training data poisoning attack that allows an adversary to control model predictions whenever a desired phrase is present in the input.<br></div>
+        <div id="poisoning20" class="hidden">
+        <pre>@InProceedings{wallace2021poisoning,
+            title={Concealed Data Poisoning Attacks on {NLP} Models},
+            author={Eric Wallace and Tony Z. Zhao and Shi Feng and Sameer Singh},
+            booktitle={North American Chapter of the Association for Computational Linguistics},
+            year={2021}}
+         </pre>
+         </div>
+    </li>
+    <li>
+          <a href="https://arxiv.org/abs/2010.15980" target="_blank" style="color:black;font-size:1.0em">
+          AutoPrompt: Eliciting Knowledge from Language Models with Automatically Generated Prompts</a><br>
+          Taylor Shin*, Yasaman Razeghi*, Robert L Logan IV*, Eric Wallace, and Sameer Singh<br>
+          <i>EMNLP 2020</i><br>
+          <a href="javascript:unhide('auto20tldr');">TLDR</a> | <a href="https://twitter.com/rloganiv/status/1321992351649202177" target="_blank">Twitter</a> | <a href="https://arxiv.org/abs/2010.15980" target="_blank">Paper</a> | <a href="https://github.com/ucinlp/autoprompt" target="_blank">Code</a> | <a href="javascript:unhide('auto20');">Citation</a>
+          <div id="auto20tldr" class="hidden"><b>TLDR:</b> We propose a method for automatically designing prompts for large language models.<br></div>
+        <div id="auto20" class="hidden">
+        <pre>@inproceedings{Shin2020Autoprompt,
+          Author = {Taylor Shin and Yasaman Razeghi and Robert L. Logan IV and Eric Wallace and Sameer Singh},    
+          BookTitle={Empirical Methods in Natural Language Processing},
+          Year = {2020},
+          Title = {AutoPrompt: Eliciting Knowledge from Language Models with Automatically Generated Prompts}}
+         </pre>
+         </div>
+    </li>
+
+    <li>
+          <a href="https://arxiv.org/abs/2004.15015" target="_blank" style="color:black;font-size:1.0em">
+          Imitation Attacks and Defenses for Black-box Machine Translation Systems</a><br>
+          Eric Wallace, Mitchell Stern, and Dawn Song<br>
+          <i>EMNLP 2020</i><br>
+          <a href="javascript:unhide('stealing20tldr');">TLDR</a> | <a href="http://ericswallace.com/imitation" target="_blank">Blog</a> | <a href="https://twitter.com/Eric_Wallace_/status/1256227702056595456" target="_blank">Twitter</a> | <a href="https://arxiv.org/abs/2004.15015" target="_blank">Paper</a> | <a href="slides_and_posters/stealing_slides.pdf" target="_blank">Slides</a> | <a href="https://github.com/Eric-Wallace/adversarial-mt" target="_blank">Code</a> | <a href="javascript:unhide('stealing20');">Citation</a>
+          <div id="stealing20tldr" class="hidden"><b>TLDR:</b> We "steal" production NLP systems by training models to imitate their outputs. We then use the imitation models to attack the black-box production systems. We finally propose a defense that mitigates these vulnerabilities.<br></div>
+        <div id="stealing20" class="hidden">
+        <pre>@inproceedings{Wallace2020Stealing,
+          Author = {Eric Wallace and Mitchell Stern and Dawn Song},    
+          BookTitle={Empirical Methods in Natural Language Processing},
+          Year = {2020},
+          Title = {Imitation Attacks and Defenses for Black-box Machine Translation Systems}}
+         </pre>
+         </div>
+    </li>
+
+
+    <li>
+          <a href="https://arxiv.org/abs/2002.11794" target="_blank" style="color:black;font-size:1.0em">
+          Train Large, Then Compress: Rethinking Model Size for Efficient Training and Inference of Transformers</a><br>
+          Zhuohan Li*, Eric Wallace*, Sheng Shen*, Kevin Lin*, Kurt Keutzer, Dan Klein, and Joseph E. Gonzalez<br>
+          <i>ICML 2020</i><br>
+          <a href="javascript:unhide('efficient20tldr');">TLDR</a> | <a href="https://bair.berkeley.edu/blog/2020/03/05/compress/" target="_blank">Blog</a> | <a href="https://twitter.com/Eric_Wallace_/status/1235616760595791872" target="_blank">Twitter</a> | <a href="https://arxiv.org/abs/2002.11794" target="_blank">Paper</a> | <a href="slides_and_posters/train_large.pdf" target="_blank">Slides</a> | <a href="javascript:unhide('efficient20');">Citation</a>
+          <div id="efficient20tldr" class="hidden"><b>TLDR:</b> We show that <i>increasing</i> model size actually speeds up training and inference for Transformer models. The key idea is to use a very large model but perform very few epochs and apply heavy compression.<br></div>
+            <div id="efficient20" class="hidden">
+            <pre>@inproceedings{Li2020Efficient,
+  Author = {Zhuohan Li and Eric Wallace and Sheng Shen and Kevin Lin and Kurt Keutzer and Dan Klein and Joseph E. Gonzalez},
+  Booktitle = {International Conference on Machine Learning},
+  Year = {2020},
+  Title = {Train Large, Then Compress: Rethinking Model Size for Efficient Training and Inference of Transformers}}
+             </pre>
+             </div>
+    </li>
+
+    <li>
+    <a href="https://arxiv.org/abs/2004.06100" target="_blank" style="color:black;font-size:1.0em">Pretrained Transformers Improve Out-of-Distribution Robustness</a><br>
+    Dan Hendrycks*, Xiaoyuan Liu*, Eric Wallace, Adam Dziedzic, Rishabh Krishnan, and Dawn Song<br>
+    <i>ACL 2020</i><br>
+    <a href="javascript:unhide('robust20tldr');">TLDR</a> | <a href="https://arxiv.org/abs/2004.06100" target="_blank">Paper</a> | <a href="https://twitter.com/Eric_Wallace_/status/1250507707674578944" target="_blank">Twitter</a> | <a href="https://github.com/camelop/NLP-Robustness" target="_blank">Code</a> | <a href="slides_and_posters/ood_robustness.pdf" target="_blank">Slides</a> | <a href="javascript:unhide('robust20');">Citation</a>
+    <div id="robust20tldr" class="hidden"><b>TLDR:</b> How does pretraining affect <i>out-of-distribution</i> robustness? We create an OOD benchmark and use it to show that pretraining substantially improves OOD accuracy and detection rates.<br></div>
+  <div id="robust20" class="hidden">
+  <pre>@inproceedings{hendrycks2020pretrained,
+    Author = {Dan Hendrycks and Xiaoyuan Liu and Eric Wallace and Adam Dziedzic and Rishabh Krishnan and Dawn Song},
+    Booktitle = {Association for Computational Linguistics},
+    Year = {2020},
+    Title = {Pretrained Transformers Improve Out-of-Distribution Robustness}}
+   </pre>
+   </div>
+   </li>
+
+
+
+        <li>
+                <a href="https://arxiv.org/abs/1908.07125" target="_blank" style="color:black;font-size:1.0em">Universal Adversarial Triggers for Attacking and Analyzing NLP</a><br>
+                Eric Wallace, Shi Feng, Nikhil Kandpal, Matt Gardner, and Sameer Singh<br>
+                <i>EMNLP 2019</i><br>
+          <a href="javascript:unhide('triggers19tldr');">TLDR</a> | <a href="https://vimeo.com/396789889" target="_blank">Video</a> | <a href="http://ericswallace.com/triggers" target="_blank">Blog</a> | <a href="https://twitter.com/Eric_Wallace_/status/1168907518623571974" target="_blank">Twitter</a> | <a href="https://arxiv.org/abs/1908.07125" target="_blank">Paper</a> | <a href="https://github.com/Eric-Wallace/universal-triggers" target="_blank">Code</a> | <a href="slides_and_posters/Universal_Adversarial_Triggers.pdf" target="_blank">Slides</a> | <a href="javascript:unhide('triggers19');">Citation</a>
+          <div id="triggers19tldr" class="hidden"><b>TLDR:</b> We create phrases that cause a model to produce a specific prediction when concatenated to <i>any</i> input. Triggers reveal egregious and insightful errors for text classification, reading comprehension, and text generation.<br> </div>
+                <div id="triggers19" class="hidden">
+                    <pre>@inproceedings{Wallace2019Triggers,
+    Author = {Eric Wallace and Shi Feng and Nikhil Kandpal and Matt Gardner and Sameer Singh},
+    Booktitle = {Empirical Methods in Natural Language Processing},
+    Year = {2019},
+    Title = {Universal Adversarial Triggers for Attacking and Analyzing {NLP}}}
+                    </pre>
+                </div>
+            </li>
+            <li>
+                <a href="https://arxiv.org/abs/1909.07940" target="_blank" style="color:black;font-size:1.0em">Do NLP Models Know Numbers? Probing Numeracy in Embeddings</a><br>
+                Eric Wallace*, Yizhong Wang*, Sujian Li, Sameer Singh, and Matt Gardner<br>
+                <i>EMNLP 2019</i><br>
+                 <a href="javascript:unhide('numeracy19tldr');">TLDR</a> | <a href="https://twitter.com/Eric_Wallace_/status/1174360279624192000" target="_blank">Twitter</a> | <a href="https://arxiv.org/abs/1909.07940" target="_blank">Paper</a> | <a href="https://github.com/Eric-Wallace/numeracy" target="_blank">Code</a> | <a href="slides_and_posters/NumeracyPoster.pdf" target="_blank">Poster</a> | <a href="javascript:unhide('numeracy19');">Citation</a>
+                 <div id="numeracy19tldr" class="hidden"><b>TLDR:</b> We show that pre-trained word embeddings (e.g., BERT, word2vec, ELMo, GloVe) capture number magnitude and order, e.g., they know that "74" is smaller than "eighty-two". This facilitates basic numerical reasoning tasks. <br></div>
+                <div id="numeracy19" class="hidden">
+                    <pre>@inproceedings{Wallace2019Numeracy,
+    Author = {Eric Wallace and Yizhong Wang and Sujian Li and Sameer Singh and Matt Gardner},
+    Booktitle = {Empirical Methods in Natural Language Processing},
+    Year = {2019},
+    Title = {Do {NLP} Models Know Numbers? Probing Numeracy in Embeddings}}
+                    </pre>
+                </div>
+            </li>
+
+            <li>
+                <a href="https://arxiv.org/abs/1909.09251" target="_blank" style="color:black;font-size:1.0em">AllenNLP Interpret: A Framework for Explaining Predictions of NLP Models</a><br>
+                Eric Wallace, Jens Tuyls, Junlin Wang, Sanjay Subramanian, Matt Gardner, and Sameer Singh<br>
+          <i>Demo at EMNLP 2019</i> &nbsp;&nbsp;&nbsp; <b><i>Best Demo Award</i></b><br>
+                <a href="javascript:unhide('interpret19tldr');">TLDR</a> | <a href="https://allennlp.org/interpret" target="_blank">Landing Page</a> | <a href="https://twitter.com/Eric_Wallace_/status/1176886627852898309" target="_blank">Twitter</a> | <a href="https://demo.allennlp.org/reading-comprehension" target="_blank">Demo</a> | <a href="https://arxiv.org/abs/1909.09251" target="_blank">Paper</a> | <a href="slides_and_posters/InterpretPoster.pdf" target="_blank">Poster</a> | <a href="javascript:unhide('interpret19');">Citation</a>
+                <div id="interpret19tldr" class="hidden"><b>TLDR:</b> An open-source toolkit built on top of AllenNLP that makes it easy to interpret NLP models.<br> </div>
+                <div id="interpret19" class="hidden">
+                    <pre>@inproceedings{Wallace2019AllenNLP,
+    Author = {Eric Wallace and Jens Tuyls and Junlin Wang and Sanjay Subramanian and Matt Gardner and Sameer Singh},
+    Booktitle = {Empirical Methods in Natural Language Processing},
+    Year = {2019},
+    Title = {{AllenNLP Interpret}: A Framework for Explaining Predictions of {NLP} Models}}
+                    </pre>
+                </div>
+            </li>
+
+            <li>
+                <a href="http://arxiv.org/abs/1906.02900" target="_blank" style="color:black;font-size:1.0em">Compositional Questions Do Not Necessitate Multi-hop Reasoning</a><br>
+                Sewon Min*, Eric Wallace*, Sameer Singh, Matt Gardner, Hannaneh Hajishirzi, and Luke Zettlemoyer<br>
+                <i>ACL 2019</i><br>
+        <a href="javascript:unhide('multihop19tldr');">TLDR</a> | <a href="https://arxiv.org/abs/1906.02900" target="_blank">Paper</a> | <a href="slides_and_posters/Compositional_Slides.pdf" target="_blank">Slides</a> | <a href="https://github.com/shmsw25/single-hop-rc" target="_blank">Code</a> | <a href="javascript:unhide('multihop19');">Citation</a>
+        <div id="multihop19tldr" class="hidden"><b>TLDR:</b> We argue that constructing multi-hop QA datasets is non-trivial, and that existing datasets are simpler than expected. For instance, single-hop models can solve most of HotpotQA due to weak distractor paragraphs.<br></div>
+                <div id="multihop19" class="hidden">
+          <pre>@inproceedings{Min2019Multihop,
+    Author = {Sewon Min and Eric Wallace and Sameer Singh and Matt Gardner and Hannaneh Hajishirzi and Luke Zettlemoyer},
+    Booktitle = {Association for Computational Linguistics},
+    Year = {2019},
+    Title = {Compositional Questions Do Not Necessitate Multi-hop Reasoning}}
+                  </pre>
+                </div>
+            </li>
+            <li>
+                <a href="https://arxiv.org/abs/1809.02701" target="_blank" style="color:black;font-size:1.0em">Trick Me If You Can: Human-in-the-loop Generation of Adversarial Examples for Question Answering</a><br>
+                Eric Wallace, Pedro Rodriguez, Shi Feng, Ikuya Yamada, and Jordan Boyd-Graber<br>
+                <i>TACL 2019</i><br>
+                <a href="javascript:unhide('trick19tldr');">TLDR</a> | <a href="https://arxiv.org/abs/1809.02701" target="_blank">Paper</a> | <a href="https://github.com/Eric-Wallace/trickme-interface" target="_blank">Code</a> | <a href="slides_and_posters/TrickMe_Poster.pdf" target="_blank">Poster</a> | <a href="javascript:unhide('trick19');">Citation</a>
+                <div id="trick19tldr" class="hidden"><b>TLDR:</b> We use a human-in-the-loop approach for generating adversarial examples in NLP. We display model intepretations and predictions in a UI, which enables collaborative + interactive attacks on question answering systems .<br></div>
+                <div id="trick19" class="hidden">
+          <pre>@inproceedings{Wallace2019Trick,
+    Author = {Eric Wallace and Pedro Rodriguez and Shi Feng and Ikuya Yamada and Jordan Boyd-Graber},
+    Booktitle = {Transactions of the Association for Computational Linguistics},
+    Year = {2019},
+    Title = {Trick Me If You Can: Human-in-the-loop Generation of Adversarial Examples for Question Answering}}
+                  </pre>
+                </div>
+            </li>
+
+     <li>
+                <a href="https://arxiv.org/abs/1804.07781" target="_blank" style="color:black;font-size:1.0em">Pathologies of Neural Models Make Interpretations Difficult</a><br>
+                Shi Feng, Eric Wallace, Alvin Grissom II, Mohit Iyyer, Pedro Rodriguez, Jordan Boyd-Graber<br>
+                <i>EMNLP 2018</i><br>
+                <a href="javascript:unhide('pathological18tldr');">TLDR</a> | <a href="https://vimeo.com/306158589" target="_blank">Video</a> | <a href="https://arxiv.org/abs/1804.07781" target="_blank">Paper</a> |
+                <a href="slides_and_posters/pathologies_slides.pdf" target="_blank">Slides</a> | <a href="https://github.com/allenai/allennlp/blob/master/allennlp/interpret/attackers/input_reduction.py" target="_blank">Code</a> | <a href="javascript:unhide('pathological18');">Citation</a>
+                <div id="pathological18tldr" class="hidden"><b>TLDR:</b> Saliency maps are a popular interpretation technique. We show that certain pathological behavior present in neural models (namely prediction overconfidence) can negatively impact these interpretations.<br> </div>
+                <div id="pathological18" class="hidden">
+                    <pre>@inproceedings{Feng2018Pathological,
+    Author = {Shi Feng and Eric Wallace and Alvin Grissom II and Mohit Iyyer and Pedro Rodriguez and Jordan Boyd-Graber},
+    Booktitle = {Empirical Methods in Natural Language Processing},
+    Year = {2018},
+    Title = {Pathologies of Neural Models Make Interpretations Difficult}}
+                  </pre>
+                </div>
+            </li>
+        </ul>
+    </p>
+
+    <!--<p>A recent presentation of my work! Given live at EMNLP 2019.<div class="box"><iframe src="https://player.vimeo.com/video/396789889?byline=0&portrait=0" width="100%" frameborder="0" allow="autoplay; fullscreen" allowfullscreen align="left"></iframe></div></p>
+    <br><br><br><br><br><br><br>-->
+
+
+</div>
+</div>
+
+</body>
+</html>
