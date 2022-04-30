@@ -2,6 +2,7 @@ import csv
 import copy
 import json
 import logging
+from multiprocessing.sharedctypes import Value
 import random
 from collections import defaultdict
 
@@ -324,8 +325,11 @@ def load_augmented_trigger_dataset(fname, templatizer, limit=None):
 
     # Go through facts, templatize each one, then append them to instances
     for fact in synth_facts:
-        model_inputs, label_id = templatizer(fact)
-        instances.append((model_inputs, label_id))
+        try:
+            model_inputs, label_id = templatizer(fact)
+            instances.append((model_inputs, label_id))
+        except ValueError as e:
+            print(e)
 
     if limit:
         return random.sample(instances, limit)
