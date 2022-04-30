@@ -69,6 +69,7 @@ def main(args):
     reverse_label_map = {y: x for x, y in label_map.items()}
     templatizer = utils.TriggerTemplatizer(
         args.template,
+        config,
         tokenizer,
         label_map=label_map,
         label_field=args.label_field,
@@ -93,7 +94,7 @@ def main(args):
 
     logger.info('Loading datasets')
     collator = utils.Collator(pad_token_id=tokenizer.pad_token_id)
-    train_dataset = utils.load_trigger_dataset(args.train, templatizer)
+    train_dataset = utils.load_trigger_dataset(args.train, templatizer, args.use_ctx)
     train_loader = DataLoader(train_dataset, batch_size=args.bsz, shuffle=True, collate_fn=collator)
 
     optimizer = torch.optim.Adam(projection.parameters(), lr=args.lr)
@@ -150,6 +151,8 @@ if __name__ == '__main__':
     parser.add_argument('--model-name', type=str, default='bert-base-cased',
                         help='Model name passed to HuggingFace AutoX classes.')
     parser.add_argument('--seed', type=int, default=0)
+    parser.add_argument('--use-ctx', action='store_true',
+                        help='Use context sentences.')
     parser.add_argument('--debug', action='store_true')
     args = parser.parse_args()
 

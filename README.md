@@ -113,7 +113,7 @@ python -m autoprompt.label_search --train ../data/SST-2/train.tsv --template '[C
 
 For NLI
 ```
-python -m autoprompt.label_search --train ../data/SICK-E-balanced/3-balance/SICK_TRAIN_ALL_S.tsv --template '[CLS] {sentence} [T] [T] [T] [P]. [SEP]' --label-map '{"entailment": 0, "contradiction": 1, "neutral": 2}' --iters 50 --model-name 'bert-base-cased'
+python -m autoprompt.label_search --train ../data/SICK-E-balanced/3-balance/SICK_TRAIN_ALL_S.tsv --template '<s> {sentence_A} [P] [T] [T] [T] [T] {sentence_B} </s>' --label-map '{"ENTAILMENT": 0, "CONTRADICTION": 1, "NEUTRAL": 2}' --iters 50 --model-name roberta-large
 ```
 
 ## Evaluation for Fact Retrieval and Relation Extraction
