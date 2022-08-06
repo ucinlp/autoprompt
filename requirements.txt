@@ -1,4 +1,4 @@
-streamlit==0.79.0
+streamlit==1.11.1
 tqdm==4.49.0
 pandas==1.2.1
 numpy==1.17.2
