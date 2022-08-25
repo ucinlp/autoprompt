@@ -28,10 +28,10 @@ def load_pretrained(model_name):
     Loads pretrained HuggingFace config/model/tokenizer, as well as performs required
     initialization steps to facilitate working with triggers.
     """
-    config = AutoConfig.from_pretrained(args.model_name)
-    model = AutoModelWithLMHead.from_pretrained(args.model_name, config=config)
+    config = AutoConfig.from_pretrained(model_name)
+    model = AutoModelWithLMHead.from_pretrained(model_name, config=config)
     model.eval()
-    tokenizer = AutoTokenizer.from_pretrained(args.model_name)
+    tokenizer = AutoTokenizer.from_pretrained(model_name)
     utils.add_task_specific_tokens(tokenizer)
     return config, model, tokenizer
 
