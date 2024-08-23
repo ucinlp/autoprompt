@@ -1,0 +1,25 @@
+{
+    "name": "autoprompt-dev-cuda",
+    "build": {
+        "context": "../..",
+        "dockerfile": "../../Dockerfile",
+        "args": {}
+    },
+    "runArgs": ["--gpus", "all"],
+    "customizations": {
+        "vscode": {
+            "extensions": [
+                "ms-python.python",
+                "ms-python.vscode-pylance",
+                "charliermarsh.ruff",
+                "ms-toolsai.jupyter-keymap"
+            ],
+            "settings": {
+                "python.defaultInterpreterPath": "/root/.pyenv/shims/python",
+                "ruff.lint.args": [
+                    "\"--config=pyproject.toml\""
+                ]
+            }
+        }
+    }
+}
